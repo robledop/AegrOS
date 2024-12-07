@@ -58,7 +58,7 @@ int get_integer_argument(const int index)
 char *get_string_argument(const int index, const size_t max_len)
 {
     const void *ptr = get_pointer_argument(index);
-    char *str       = process_malloc(get_current_process(), max_len + 1);
+    char *str       = kzalloc(max_len + 1);
 
     copy_string_from_task(current_task, ptr, str, max_len);
     return (char *)str;

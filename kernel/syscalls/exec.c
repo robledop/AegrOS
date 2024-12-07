@@ -7,7 +7,7 @@
 #include <task.h>
 #include <vfs.h>
 
-spinlock_t exec_lock = 0;
+struct spinlock exec_lock = {};
 
 
 // TODO: Simplify this

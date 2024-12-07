@@ -1,8 +1,9 @@
 #include <syscall.h>
+#include <task.h>
 
 void *sys_yield(void)
 {
-    // schedule();
+    yield();
 
     return nullptr;
 }

@@ -9,7 +9,7 @@ set breakpoint pending on
 add-symbol-file ./rootfs/bin/sh 0x400000
 #add-symbol-file ./rootfs/bin/fib 0x400000
 
-break idt_exception_handler
+#break idt_exception_handler
 break panic 
 
 #break trap_return 

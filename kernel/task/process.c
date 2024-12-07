@@ -14,46 +14,16 @@
 #include <vfs.h>
 #include <x86.h>
 
-struct {
-    spinlock_t lock;
-    struct process *processes[MAX_PROCESSES];
-} process_list;
-
-spinlock_t process_lock = 0;
-
-int process_get_free_pid()
+struct process *current_process(void)
 {
-    spin_lock(&process_list.lock);
-
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        if (process_list.processes[i] == nullptr) {
-            spin_unlock(&process_list.lock);
-            return i;
-        }
-    }
-
-    spin_unlock(&process_list.lock);
-
-    return -EINSTKN;
-}
-
-struct process *process_get(const int pid)
-{
-    return process_list.processes[pid];
-}
-
-void process_set(const int pid, struct process *process)
-{
-    process_list.processes[pid] = process;
-}
-
-struct process *get_current_process(void)
-{
+    pushcli();
     const struct task *current_task = get_current_task();
     if (current_task) {
+        popcli();
         return current_task->process;
     }
 
+    popcli();
     return nullptr;
 }
 
@@ -126,11 +96,11 @@ int process_free_program_data(const struct process *process)
     return res;
 }
 
-int process_free_file_descriptors(const struct process *process)
+int process_free_file_descriptors(struct process *process)
 {
     for (int i = 0; i < MAX_FILE_DESCRIPTORS; i++) {
         if (process->file_descriptors[i]) {
-            vfs_close(i);
+            vfs_close(process, i);
         }
     }
 
@@ -141,10 +111,7 @@ int process_free_file_descriptors(const struct process *process)
 /// The process remains in the process list until the parent process reads the exit code
 int process_zombify(struct process *process)
 {
-    spin_lock(&process_lock);
-
-    process->state = ZOMBIE;
-
+    int pid = process->pid;
     int res = process_free_allocations(process);
     ASSERT(res == 0, "Failed to free allocations for process");
 
@@ -154,12 +121,15 @@ int process_zombify(struct process *process)
     res = process_free_program_data(process);
     ASSERT(res == 0, "Failed to free program data for process");
 
-    if (process->stack) {
-        kfree(process->stack);
+    if (process->user_stack) {
+        kfree(process->user_stack);
     }
-    process->stack = nullptr;
+    process->user_stack = nullptr;
     if (process->thread) {
-        // thread_free(process->thread);
+        if (process->thread->kernel_stack) {
+            kfree(process->thread->kernel_stack);
+        }
+        kfree(process->thread);
     }
     process->thread = nullptr;
     if (process->page_directory) {
@@ -167,11 +137,6 @@ int process_zombify(struct process *process)
     }
     process->page_directory = nullptr;
 
-    if (strlen(process->file_name) > 0) {
-        // scheduler_unlink_process(process);
-    }
-
-    spin_unlock(&process_lock);
     return res;
 }
 
@@ -340,7 +305,7 @@ static int process_load_binary(const char *file_name, struct process *process)
         goto out;
     }
 
-    if (vfs_read(program, fstat.st_size, 1, fd) != 1) {
+    if (vfs_read(program, fstat.st_size, 1, fd) != (int)fstat.st_size) {
         warningf("Failed to read file\n");
         res = -EIO;
         goto out;
@@ -356,7 +321,7 @@ out:
             kfree(program);
         }
     }
-    vfs_close(fd);
+    vfs_close(process, fd);
     return res;
 }
 
@@ -506,8 +471,8 @@ int process_map_memory(struct process *process)
     // Map stack
     res = paging_map_to(process->page_directory,
                         (char *)USER_STACK_BOTTOM, // stack grows down
-                        process->stack,
-                        paging_align_address((char *)process->stack + USER_STACK_SIZE),
+                        process->user_stack,
+                        paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
                         PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_IS_WRITABLE |
                             PAGING_DIRECTORY_ENTRY_SUPERVISOR);
 
@@ -533,14 +498,14 @@ int process_unmap_memory(const struct process *process)
 
     ASSERT(res >= 0, "Failed to unmap memory for process");
 
-    if (process->stack == nullptr) {
+    if (process->user_stack == nullptr) {
         return res;
     }
 
     res = paging_map_to(process->page_directory,
                         (char *)USER_STACK_BOTTOM, // stack grows down
-                        process->stack,
-                        paging_align_address((char *)process->stack + USER_STACK_SIZE),
+                        process->user_stack,
+                        paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
                         PAGING_DIRECTORY_ENTRY_UNMAPPED);
     return res;
 }
@@ -610,8 +575,8 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
     }
 
     strncpy(proc->file_name, file_name, sizeof(proc->file_name));
-    proc->stack = program_stack_pointer;
-    proc->pid   = pid;
+    proc->user_stack = program_stack_pointer;
+    proc->pid        = pid;
 
     dbgprintf("Process %s stack pointer is %x and process id is %d\n", file_name, program_stack_pointer, pid);
 
@@ -633,7 +598,7 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
         goto out;
     }
 
-    proc->state = RUNNING;
+    // proc->state = RUNNING;
     memset(proc->file_descriptors, 0, sizeof(proc->file_descriptors));
 
     *process = proc;
@@ -665,82 +630,6 @@ int process_set_current_directory(struct process *process, const char directory[
     return ALL_OK;
 }
 
-void process_sleep(void *chan, spinlock_t lock)
-{
-    struct process *p = get_current_process();
-
-    if (lock != process_list.lock) {
-        spin_lock(&process_list.lock);
-        spin_unlock(&process_list.lock);
-    }
-
-    p->thread->wait_channel = chan;
-    tasks_block_current(TASK_BLOCKED);
-
-    sched();
-
-    p->thread->wait_channel = nullptr;
-
-    if (lock != process_list.lock) {
-        spin_unlock(&process_list.lock);
-        spin_lock(&lock);
-    }
-}
-
-int process_wait_pid(int child_pid)
-{
-    struct process *p               = nullptr;
-    struct process *current_process = get_current_process();
-    int children                    = 0;
-    spin_lock(&process_list.lock);
-
-    while (true) {
-        for (int i = 0; i < MAX_PROCESSES; i++) {
-            p = process_list.processes[i];
-            if (!p || p->parent != current_process) {
-                continue;
-            };
-            children = 1;
-            if (p->thread->state == TASK_STOPPED) {
-                const int pid = p->pid;
-                // kfree(p->stack);
-                // paging_free_directory(p->page_directory);
-                // p->pid          = -1;
-                // p->parent       = nullptr;
-                // p->file_name[0] = '\0';
-                // p->state        = EMPTY;
-                spin_unlock(&process_list.lock);
-                return pid;
-            }
-        }
-
-        if (!children || current_process->killed) {
-            spin_unlock(&process_list.lock);
-            return -1;
-        }
-
-        process_sleep(current_process, process_list.lock);
-    }
-}
-
-void process_wakeup(const void *wait_channel)
-{
-    // spin_unlock(&process_list.lock);
-
-    struct process *p = nullptr;
-
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        p = process_list.processes[i];
-        if (p && p->thread->state == TASK_BLOCKED && p->thread->wait_channel == wait_channel) {
-
-            wakeup(p->thread);
-            return;
-        }
-    }
-
-    // spin_unlock(&process_list.lock);
-}
-
 int process_copy_allocations(struct process *dest, const struct process *src)
 {
     memset(dest->allocations, 0, sizeof(dest->allocations));
@@ -762,8 +651,8 @@ int process_copy_allocations(struct process *dest, const struct process *src)
 
 void process_copy_stack(struct process *dest, const struct process *src)
 {
-    dest->stack = kzalloc(USER_STACK_SIZE);
-    memcpy(dest->stack, src->stack, USER_STACK_SIZE);
+    dest->user_stack = kzalloc(USER_STACK_SIZE);
+    memcpy(dest->user_stack, src->user_stack, USER_STACK_SIZE);
 }
 
 void process_copy_file_info(struct process *dest, const struct process *src)
@@ -846,7 +735,7 @@ struct process *process_clone(struct process *process)
 
     // scheduler_set_process(clone->pid, clone);
     // scheduler_queue_thread(clone->thread);
-    clone->state = RUNNING;
+    // clone->state = RUNNING;
 
     clone->rand_id = rand();
 

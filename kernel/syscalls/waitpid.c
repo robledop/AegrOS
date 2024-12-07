@@ -2,7 +2,7 @@
 #include <syscall.h>
 #include <task.h>
 
-spinlock_t wait_lock = 0;
+struct spinlock wait_lock = {};
 
 void *sys_wait_pid(void)
 {
@@ -12,7 +12,7 @@ void *sys_wait_pid(void)
     if (virtual_ptr) {
         status_ptr = thread_virtual_to_physical_address(get_current_task(), virtual_ptr);
     }
-    const int status = process_wait_pid(pid);
+    const int status = wait();
     if (status_ptr) {
         *status_ptr = status;
     }

@@ -17,6 +17,6 @@ void timer_init(uint32_t freq);
  *
  * @param ms Sleep length in milliseconds
  */
-void sleep(uint32_t ms);
+// void sleep(uint32_t ms);
 
 void timer_register_callback(void (*func)());

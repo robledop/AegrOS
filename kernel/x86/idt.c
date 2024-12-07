@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <paging.h>
 #include <pic.h>
+#include <process.h>
 #include <string.h>
 #include <task.h>
 #include <x86.h>
@@ -78,6 +79,9 @@ void interrupt_handler(struct interrupt_frame *frame)
 
     if (interrupt_callbacks[interrupt] != nullptr) {
         kernel_page();
+        if (current_task) {
+            current_task->trap_frame = frame;
+        }
         interrupt_callbacks[interrupt](frame);
         current_task_page();
     }
@@ -152,12 +156,11 @@ void idt_exception_handler(struct interrupt_frame *frame)
     debug_stats();
 
     if (get_current_task()) {
-        const int pid = get_current_process()->pid;
+        const int pid = current_process()->pid;
         char name[MAX_PATH_LENGTH];
-        strncpy(name, get_current_task()->file_name, sizeof(name));
-        tasks_block_current(TASK_STOPPED);
-        // process_zombify(get_current_task());
+        strncpy(name, current_process()->file_name, sizeof(name));
         printf("The process" KBBLU " %s " KWHT "(%d) has been terminated.\n", name, pid);
+        kill(pid);
     }
 
     sti();
@@ -215,12 +218,12 @@ void register_syscall(const int syscall, const SYSCALL_HANDLER_FUNCTION handler)
 
 void syscall_handler(struct interrupt_frame *frame)
 {
-    int syscall = (int)frame->eax;
+    kernel_page();
+
+    const int syscall = (int)frame->eax;
     ASSERT(syscall >= 0 && syscall < MAX_SYSCALLS, "Invalid syscall");
 
-    current_task->trap_frame = frame;
-
-    kernel_page();
+    current_task->trap_frame      = frame;
     current_task->trap_frame->eax = (uint32_t)syscalls[syscall]();
     current_task_page();
 }

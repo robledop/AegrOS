@@ -84,3 +84,6 @@ int fputc(int c, FILE *stream);
 int getc();
 void rewind(FILE *stream);
 int ftell(FILE *stream);
+
+
+void clear_screen(void);

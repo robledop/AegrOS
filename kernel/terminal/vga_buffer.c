@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <config.h>
 #include <io.h>
 #include <memory.h>
@@ -6,7 +7,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <vga_buffer.h>
-#include <assert.h>
 
 #define BYTES_PER_CHAR 2 // 1 byte for character, 1 byte for attribute (color)
 #define SCREEN_SIZE (VGA_WIDTH * VGA_HEIGHT * BYTES_PER_CHAR)
@@ -42,7 +42,7 @@ int ansi_to_vga_background[] = {
     0x70  // White (Light Grey in VGA)
 };
 
-spinlock_t vga_lock;
+struct spinlock vga_lock;
 
 void enable_cursor(const uint8_t cursor_start, const uint8_t cursor_end)
 {
@@ -229,7 +229,7 @@ void vga_buffer_init()
 {
     cursor_x = 0;
     cursor_y = 0;
-    spinlock_init(&vga_lock);
+    initlock(&vga_lock, "vga_buffer");
     terminal_clear();
 }
 

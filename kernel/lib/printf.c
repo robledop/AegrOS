@@ -44,6 +44,7 @@
 #endif
 
 #include <printf.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 #include <climits>

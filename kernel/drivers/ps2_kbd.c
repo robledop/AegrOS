@@ -3,14 +3,13 @@
 #include <kernel_heap.h>
 #include <keyboard.h>
 #include <pic.h>
-#include <process.h>
 #include <ps2_kbd.h>
 #include <spinlock.h>
 #include <string.h>
 
-struct task_sync keyboard_sync   = {nullptr};
-spinlock_t keyboard_lock         = 0;
-spinlock_t keyboard_getchar_lock = 0;
+struct spinlock keyboard_lock         = {};
+struct spinlock keyboard_getchar_lock = {};
+
 int ps2_keyboard_init();
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame);
 
@@ -32,21 +31,21 @@ void kbd_led_handling(const unsigned char ledstatus)
 // Taken from xv6
 uint8_t keyboard_get_char()
 {
-    spin_lock(&keyboard_getchar_lock);
+    acquire(&keyboard_getchar_lock);
 
     static unsigned int shift;
     static uint8_t *charcode[4] = {normalmap, shiftmap, ctlmap, ctlmap};
 
     const unsigned int st = inb(KBD_STATUS_PORT);
     if ((st & KBD_DATA_IN_BUFFER) == 0) {
-        spin_unlock(&keyboard_getchar_lock);
+        release(&keyboard_getchar_lock);
         return -1;
     }
     unsigned int data = inb(KBD_DATA_PORT);
 
     if (data == 0xE0) {
         shift |= E0ESC;
-        spin_unlock(&keyboard_getchar_lock);
+        release(&keyboard_getchar_lock);
         return 0;
     }
     if (data & 0x80) {
@@ -54,7 +53,7 @@ uint8_t keyboard_get_char()
         // key_released = true;
         data = (shift & E0ESC ? data : data & 0x7F);
         shift &= ~(shiftcode[data] | E0ESC);
-        spin_unlock(&keyboard_getchar_lock);
+        release(&keyboard_getchar_lock);
         return 0;
     }
     if (shift & E0ESC) {
@@ -74,14 +73,14 @@ uint8_t keyboard_get_char()
         }
     }
 
-    spin_unlock(&keyboard_getchar_lock);
+    release(&keyboard_getchar_lock);
     return c;
 }
 
 int ps2_keyboard_init()
 {
-    spinlock_init(&keyboard_lock);
-    spinlock_init(&keyboard_getchar_lock);
+    initlock(&keyboard_lock, "keyboard");
+    initlock(&keyboard_getchar_lock, "getchar");
 
     idt_register_interrupt_callback(ISR_KEYBOARD, ps2_keyboard_interrupt_handler);
 
@@ -95,8 +94,6 @@ int ps2_keyboard_init()
 
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 {
-    // spin_lock(&keyboard_lock);
-
     pic_acknowledge((int)frame->interrupt_number);
 
     const uint8_t c = keyboard_get_char();
@@ -104,10 +101,6 @@ void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
     if (c > 0 && c != 233) {
         keyboard_push(c);
     }
-
-    tasks_sync_unblock(&keyboard_sync);
-
-    // spin_unlock(&keyboard_lock);
 }
 
 struct keyboard *ps2_init()
@@ -115,8 +108,6 @@ struct keyboard *ps2_init()
     struct keyboard *kbd = kzalloc(sizeof(struct keyboard));
     strncpy(kbd->name, "ps2", sizeof(kbd->name));
     kbd->init = ps2_keyboard_init;
-    tasks_sync_init(&keyboard_sync);
-    keyboard_sync.dbg_name = "keyboard";
 
     return kbd;
 }

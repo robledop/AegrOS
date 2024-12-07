@@ -23,6 +23,7 @@ bool paging_is_video_memory(const uint32_t address)
 /// @brief Set the kernel mode segments and switch to the kernel page directory
 void kernel_page()
 {
+    set_kernel_mode_segments();
     paging_switch_directory(kernel_page_directory);
 }
 

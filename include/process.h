@@ -42,7 +42,7 @@ struct process {
     char file_name[MAX_PATH_LENGTH];
     struct page_directory *page_directory;
     struct process *parent;
-    enum PROCESS_STATE state;
+    // enum PROCESS_STATE state;
     struct task *thread;
     int wait_pid;
     int exit_code;
@@ -55,7 +55,7 @@ struct process {
     };
 
     struct file *file_descriptors[MAX_FILE_DESCRIPTORS];
-    void *stack;
+    void *user_stack;
     uint32_t size;
     struct process_arguments arguments;
     char *current_directory;
@@ -84,9 +84,9 @@ __attribute__((nonnull)) void process_command_argument_free(struct command_argum
 struct file *process_get_file_descriptor(const struct process *process, uint32_t index);
 int process_new_file_descriptor(struct process *process, struct file **desc_out);
 void process_free_file_descriptor(struct process *process, struct file *desc);
-struct process *get_current_process(void);
-int process_get_free_pid();
-void process_set(int pid, struct process *process);
-struct process *process_get(int pid);
+struct process *current_process(void);
+// int process_get_free_pid();
+// void process_set(int pid, struct process *process);
+// struct process *process_get(int pid);
 int process_wait_pid(int child_pid);
 void process_wakeup(const void *wait_channel);

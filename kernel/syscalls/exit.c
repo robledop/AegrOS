@@ -20,7 +20,7 @@
     //     kfree(process);
     // }
 
-    tasks_exit();
+    exit();
 
     cli();
 

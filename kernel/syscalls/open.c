@@ -5,11 +5,11 @@
 #include <task.h>
 #include <vfs.h>
 
-spinlock_t open_lock = 0;
+struct spinlock open_lock = {};
 
 void *sys_open(void)
 {
-    spin_lock(&open_lock);
+    acquire(&open_lock);
 
     const void *file_name       = get_pointer_argument(1);
     char *name[MAX_PATH_LENGTH] = {nullptr};
@@ -20,7 +20,7 @@ void *sys_open(void)
 
     const int fd = vfs_open((const char *)name, mode);
 
-    spin_unlock(&open_lock);
+    release(&open_lock);
 
     return (void *)(int)fd;
 }

@@ -135,10 +135,10 @@ __attribute__((nonnull)) int vfs_read(void *ptr, uint32_t size, uint32_t nmemb, 
 __attribute__((nonnull)) int vfs_write(int fd, const char *buffer, size_t size);
 int vfs_seek(int fd, int offset, enum FILE_SEEK_MODE whence);
 __attribute__((nonnull)) int vfs_stat(int fd, struct stat *stat);
-int vfs_close(int fd);
+int vfs_close(struct process *process, int fd);
 __attribute__((nonnull)) void vfs_insert_file_system(struct file_system *filesystem);
 __attribute__((nonnull)) struct file_system *vfs_resolve(struct disk *disk);
-int vfs_getdents(const uint32_t fd, void *buffer, int count);
+int vfs_getdents(uint32_t fd, void *buffer, int count);
 int vfs_get_non_root_mount_point_count();
 int vfs_find_mount_point(const char *prefix);
 struct mount_point *vfs_get_mount_point(int index);

@@ -3,6 +3,7 @@
 #include <kernel_heap.h>
 #include <memory.h>
 #include <paging.h>
+#include <process.h>
 #include <serial.h>
 #include <status.h>
 #include <string.h>
@@ -244,7 +245,7 @@ out:
         }
     }
     if (fd != -1) {
-        vfs_close(fd);
+        vfs_close(current_process(), fd);
     }
     return res;
 }

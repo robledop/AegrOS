@@ -7,6 +7,7 @@
 #include <memfs.h>
 #include <memory.h>
 #include <path_parser.h>
+#include <process.h>
 #include <root_inode.h>
 #include <serial.h>
 #include <status.h>
@@ -241,9 +242,8 @@ int vfs_open(const char path[static 1], const FILE_MODE mode)
 
     struct file *desc = nullptr;
 
-    struct process *current_process = get_current_process();
-    if (current_process) {
-        res = process_new_file_descriptor(current_process, &desc);
+    if (current_process()) {
+        res = process_new_file_descriptor(current_process(), &desc);
     } else {
         res = sys_new_file_descriptor(&desc);
     }
@@ -293,9 +293,8 @@ out:
 int vfs_stat(const int fd, struct stat *stat)
 {
     struct file *desc;
-    const struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        desc = process_get_file_descriptor(current_process(), fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -310,9 +309,8 @@ int vfs_stat(const int fd, struct stat *stat)
 int vfs_seek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
 {
     struct file *desc;
-    const struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        desc = process_get_file_descriptor(current_process(), fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -327,9 +325,8 @@ int vfs_seek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
 int vfs_read(void *ptr, const uint32_t size, const uint32_t nmemb, const int fd)
 {
     struct file *desc;
-    const struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        desc = process_get_file_descriptor(current_process(), fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -341,12 +338,12 @@ int vfs_read(void *ptr, const uint32_t size, const uint32_t nmemb, const int fd)
     return desc->inode->ops->read(desc, size, nmemb, (char *)ptr);
 }
 
-int vfs_close(const int fd)
+int vfs_close(struct process *process, const int fd)
 {
     struct file *desc;
-    struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    // struct process *current_process = get_current_process();
+    if (process) {
+        desc = process_get_file_descriptor(process, fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -358,8 +355,8 @@ int vfs_close(const int fd)
     const int res = desc->inode->ops->close(desc);
 
     if (res == ALL_OK) {
-        if (current_process) {
-            process_free_file_descriptor(current_process, desc);
+        if (process) {
+            process_free_file_descriptor(process, desc);
         } else {
             sys_free_file_descriptor(desc);
         }
@@ -371,9 +368,8 @@ int vfs_close(const int fd)
 int vfs_write(const int fd, const char *buffer, const size_t size)
 {
     struct file *desc;
-    struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        desc = process_get_file_descriptor(current_process(), fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -444,9 +440,8 @@ int vfs_getdents(const uint32_t fd, void *buffer, const int count)
     }
 
     struct file *file;
-    const struct process *current_process = get_current_process();
-    if (current_process) {
-        file = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        file = process_get_file_descriptor(current_process(), fd);
     } else {
         file = sys_get_file_descriptor(fd);
     }
@@ -511,9 +506,8 @@ int vfs_mkdir(const char *path)
 int vfs_lseek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
 {
     struct file *desc;
-    struct process *current_process = get_current_process();
-    if (current_process) {
-        desc = process_get_file_descriptor(current_process, fd);
+    if (current_process()) {
+        desc = process_get_file_descriptor(current_process(), fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }

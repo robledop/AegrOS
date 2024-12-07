@@ -29,7 +29,12 @@
 #define ATA_MASTER 0xE0 // Select master drive
 #define ATA_SLAVE 0xF0  // Select slave drive
 
-spinlock_t disk_lock = 0;
+struct spinlock disk_lock;
+
+void ata_init()
+{
+    initlock(&disk_lock, "ata");
+}
 
 int ata_get_sector_size()
 {
@@ -50,7 +55,7 @@ int ata_wait_for_ready()
     while ((status & ATA_STATUS_BUSY) && !(status & ATA_STATUS_DRQ)) {
         if (status & ATA_STATUS_ERR || status & ATA_STATUS_FAULT) {
             panic("Error: Drive fault\n");
-            spin_unlock(&disk_lock);
+            release(&disk_lock);
             return -EIO;
         }
 
@@ -61,7 +66,7 @@ int ata_wait_for_ready()
 
 int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
 {
-    spin_lock(&disk_lock);
+    acquire(&disk_lock);
     outb(ATA_REG_CONTROL, 0x02); // Disable interrupts. We are polling.
 
     outb(ATA_REG_DEVSEL, (lba >> 24 & 0x0F) | ATA_MASTER);
@@ -84,14 +89,14 @@ int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
         ptr += 256; // Advance the buffer 256 words (512 bytes)
     }
 
-    spin_unlock(&disk_lock);
+    release(&disk_lock);
 
     return ALL_OK;
 }
 
 int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 {
-    spin_lock(&disk_lock);
+    acquire(&disk_lock);
 
     outb(ATA_REG_CONTROL, 0x02); // Disable interrupts. We are polling.
 
@@ -132,7 +137,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
         ptr += 512; // Advance the buffer 512 bytes (one sector)
     }
 
-    spin_unlock(&disk_lock);
+    release(&disk_lock);
 
     return 0;
 }

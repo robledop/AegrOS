@@ -23,30 +23,20 @@ struct tty_input_buffer {
     size_t head;
     size_t tail;
 };
+
+struct spinlock tty_lock;
 static struct tty_input_buffer tty_input_buffer;
 static struct tty tty;
 
 extern struct inode_operations memfs_directory_inode_ops;
-extern struct task_sync keyboard_sync;
-
-// static int tty_get_tail_index(void)
-// {
-//     return (int)tty_input_buffer.tail % KEYBOARD_BUFFER_SIZE;
-// }
-
-// void tty_backspace(void)
-// {
-//     tty_input_buffer.tail               = (tty_input_buffer.tail - 1) % KEYBOARD_BUFFER_SIZE;
-//     const int real_index                = tty_get_tail_index();
-//     tty_input_buffer.buffer[real_index] = 0x00;
-// }
-
 
 void tty_input_buffer_put(char c)
 {
     tty_input_buffer.buffer[tty_input_buffer.head] = c;
 
     tty_input_buffer.head = (tty_input_buffer.head + 1) % sizeof(tty_input_buffer.buffer);
+
+    wakeup(&tty);
 }
 
 static char tty_input_buffer_get(void)
@@ -65,8 +55,7 @@ static bool tty_input_buffer_is_empty(void)
 static void wait_for_input()
 {
     if (tty_input_buffer_is_empty()) {
-        tasks_sync_block(&keyboard_sync);
-        sti();
+        sleep(&tty, &tty_lock);
     }
 }
 
@@ -78,6 +67,7 @@ static void *tty_open(const struct path_root *path_root, FILE_MODE mode, enum IN
 
 static int tty_read(const void *descriptor, size_t size, off_t offset, char *out)
 {
+    acquire(&tty_lock);
     size_t bytes_read = 0;
     while (bytes_read < size) {
         while (tty_input_buffer_is_empty()) {
@@ -90,6 +80,10 @@ static int tty_read(const void *descriptor, size_t size, off_t offset, char *out
         if (tty.mode == CANONICAL && c == '\n') {
             break; // End of line in canonical mode
         }
+    }
+
+    if (holding(&tty_lock)) {
+        release(&tty_lock);
     }
     return (int)bytes_read;
 }
@@ -140,6 +134,7 @@ struct inode_operations tty_device_fops = {
 
 int tty_init(void)
 {
+    initlock(&tty_lock, "tty");
     memset(&tty_input_buffer, 0, sizeof(tty_input_buffer));
 
     tty.mode = CANONICAL;
@@ -155,6 +150,9 @@ int tty_init(void)
         dev_dir->fs_type = FS_TYPE_RAMFS;
         vfs_add_mount_point("/" DEV_DIRECTORY, -1, dev_dir);
     }
+
+    // tasks_sync_init(&tty_sync);
+    // tty_sync.dbg_name = "keyboard";
 
     struct inode *tty_device = {};
     if (dev_dir->ops->lookup(dev_dir, DEV_NAME, &tty_device) == ALL_OK) {

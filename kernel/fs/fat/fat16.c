@@ -114,10 +114,10 @@ struct fat_private {
 
 #define FAT_ENTRIES_PER_SECTOR (512 / sizeof(struct fat_directory_entry))
 
-static uint8_t *fat_table         = nullptr;
-spinlock_t fat16_table_lock       = 0;
-spinlock_t fat16_set_entry_lock   = 0;
-spinlock_t fat16_table_flush_lock = 0;
+static uint8_t *fat_table              = nullptr;
+struct spinlock fat16_table_lock       = {};
+struct spinlock fat16_set_entry_lock   = {};
+struct spinlock fat16_table_flush_lock = {};
 
 int fat16_resolve(struct disk *disk);
 void *fat16_open(const struct path_root *path, FILE_MODE mode, enum INODE_TYPE *type_out, uint32_t *size_out);
@@ -159,6 +159,11 @@ struct file_system *fat16_fs;
 
 struct file_system *fat16_init()
 {
+
+    initlock(&fat16_table_lock, "fat16_table_lock");
+    initlock(&fat16_set_entry_lock, "fat16_set_entry_lock");
+    initlock(&fat16_table_flush_lock, "fat16_table_flush_lock");
+
     fat16_fs = kzalloc(sizeof(struct file_system));
 
     fat16_fs->type    = FS_TYPE_FAT16;
@@ -225,7 +230,7 @@ int fat16_load_table(const struct fat_private *fat_private)
     const uint16_t sector_size            = fat_private->header.primary_header.bytes_per_sector;
     const uint16_t fat_sectors            = fat_private->header.primary_header.sectors_per_fat;
 
-    spin_lock(&fat16_table_lock);
+    acquire(&fat16_table_lock);
 
     for (uint16_t i = 0; i < fat_sectors; i++) {
         if (disk_read_sector(first_fat_start_sector + i, fat_table + (i * sector_size)) < 0) {
@@ -234,7 +239,7 @@ int fat16_load_table(const struct fat_private *fat_private)
         }
     }
 
-    spin_unlock(&fat16_table_lock);
+    release(&fat16_table_lock);
     return ALL_OK;
 }
 
@@ -247,7 +252,7 @@ void fat16_flush_table(const struct fat_private *fat_private)
     const uint16_t sector_size  = fat_private->header.primary_header.bytes_per_sector;
     const uint16_t fat_sectors  = fat_private->header.primary_header.sectors_per_fat;
 
-    spin_lock(&fat16_table_flush_lock);
+    acquire(&fat16_table_flush_lock);
 
     // TODO: Flush all FATs, not just the first one
 
@@ -257,7 +262,7 @@ void fat16_flush_table(const struct fat_private *fat_private)
         }
     }
 
-    spin_unlock(&fat16_table_flush_lock);
+    release(&fat16_table_flush_lock);
 }
 
 void fat16_set_fat_entry(const uint32_t cluster, const uint16_t value)
@@ -266,14 +271,14 @@ void fat16_set_fat_entry(const uint32_t cluster, const uint16_t value)
     const struct disk *disk               = disk_get(0);
     const struct fat_private *fat_private = disk->fs_private;
 
-    spin_lock(&fat16_set_entry_lock);
+    acquire(&fat16_set_entry_lock);
 
     // Inefficient, but I don't care for now
     fat16_load_table(fat_private);
     *(uint16_t *)(fat_table + fat_offset) = value;
     fat16_flush_table(fat_private);
 
-    spin_unlock(&fat16_set_entry_lock);
+    release(&fat16_set_entry_lock);
 }
 
 uint32_t fat16_get_free_cluster(const struct disk *disk)

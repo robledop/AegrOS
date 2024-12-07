@@ -9,6 +9,7 @@ struct disk disk;
 
 void disk_init()
 {
+    ata_init();
     memset(&disk, 0, sizeof(disk));
     disk.type = DISK_TYPE_PHYSICAL;
     disk.id   = 0;
