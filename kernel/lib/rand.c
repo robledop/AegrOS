@@ -1,6 +1,7 @@
 #include <rand.h>
 #include <stddef.h>
 #include <x86.h>
+#include <x86gprintrin.h>
 
 #define ENTROPY_POOL_SIZE 32
 static uint8_t entropy_pool[ENTROPY_POOL_SIZE];
@@ -35,7 +36,7 @@ void add_entropy(const uint8_t byte)
 
 uint32_t get_random(void)
 {
-    add_entropy(rdtsc());
+    add_entropy(__rdtsc());
 
     uint32_t hash = 0;
     for (size_t i = 0; i < ENTROPY_POOL_SIZE; i++) {

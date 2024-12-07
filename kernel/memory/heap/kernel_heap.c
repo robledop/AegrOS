@@ -15,13 +15,13 @@ uint32_t frees       = 0;
 
 // https://wiki.osdev.org/Memory_Map_(x86)
 
-void kernel_heap_init()
+void kernel_heap_init(int heap_size)
 {
-    constexpr int total_table_entries = HEAP_SIZE_BYTES / HEAP_BLOCK_SIZE;
-    kernel_heap_table.entries         = (HEAP_BLOCK_TABLE_ENTRY *)HEAP_TABLE_ADDRESS;
-    kernel_heap_table.total           = total_table_entries;
+    int total_table_entries   = heap_size / HEAP_BLOCK_SIZE;
+    kernel_heap_table.entries = (HEAP_BLOCK_TABLE_ENTRY *)HEAP_TABLE_ADDRESS;
+    kernel_heap_table.total   = total_table_entries;
 
-    auto const end = (void *)(HEAP_ADDRESS + HEAP_SIZE_BYTES);
+    auto const end = (void *)(HEAP_ADDRESS + heap_size);
     const int res  = heap_create(&kernel_heap, (void *)HEAP_ADDRESS, end, &kernel_heap_table);
     if (res < 0) {
         panic("Failed to create heap\n");

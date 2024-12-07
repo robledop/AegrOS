@@ -4,6 +4,8 @@
 
 int main(const int argc, char **argv)
 {
+    printf("\n exec\n");
+
     printf(KBRED "\n##################################\n"
                  "Tests with waitpid()\n"
                  "##################################\n" KWHT);

@@ -6,14 +6,12 @@
 #include <kernel_heap.h>
 #include <memory.h>
 #include <paging.h>
-#include <printf.h>
 #include <process.h>
 #include <serial.h>
 #include <spinlock.h>
 #include <status.h>
 #include <string.h>
 #include <task.h>
-#include <termcolors.h>
 #include <timer.h>
 #include <tss.h>
 #include <x86.h>
@@ -22,12 +20,7 @@
 void task_starting(void);
 extern void trap_return(void);
 
-struct {
-    struct spinlock lock;
-    struct process *processes[MAX_PROCESSES];
-    int count;
-    int active_count;
-} process_list;
+struct process_list process_list;
 
 extern struct tss_entry tss_entry;
 extern struct page_directory *kernel_page_directory;
@@ -35,10 +28,46 @@ extern struct page_directory *kernel_page_directory;
 struct task *current_task = nullptr;
 struct task *idle_task    = nullptr;
 static uint64_t instr_per_ns;
+static uint64_t last_time  = 0;
+static uint64_t idle_time  = 0;
+static uint64_t idle_start = 0;
+
+uint64_t get_cpu_time_ns()
+{
+    return (__rdtsc()) / instr_per_ns;
+}
+
+int get_processes(struct process_info **proc_info)
+{
+    int count = 0;
+    for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+        struct process *p = process_list.processes[i];
+        if (p) {
+            count++;
+        }
+    }
+
+    *proc_info = kzalloc(count * sizeof(struct process_info));
+
+    for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+        struct process *p = process_list.processes[i];
+        if (!p) {
+            continue;
+        }
+        struct process_info info = {
+            .pid      = p->pid,
+            .priority = p->priority,
+            .state    = p->thread->state,
+        };
+        strncpy(info.file_name, p->file_name, MAX_PATH_LENGTH);
+        memcpy(*proc_info + i, &info, sizeof(struct process_info));
+    }
+
+    return count;
+}
 
 void sched(void)
 {
-
     ASSERT(holding(&process_list.lock));
     ASSERT(get_cpu()->ncli == 1);
     ASSERT(get_current_task()->state != TASK_RUNNING);
@@ -70,10 +99,6 @@ static void discover_cpu_speed()
     cli();
 }
 
-static inline uint64_t get_cpu_time_ns()
-{
-    return (__rdtsc()) / instr_per_ns;
-}
 
 static void on_timer();
 
@@ -83,13 +108,9 @@ static inline void stack_push_pointer(char **stack_pointer, const uintptr_t valu
     **(uintptr_t **)stack_pointer = value;            // push the pointer onto the stack
 }
 
-struct task *create_task(void (*entry)(void), struct task *storage, const enum task_state state, const char *name,
-                         enum task_mode mode)
+struct task *create_task(void (*entry)(void), const enum task_state state, const char *name, enum task_mode mode)
 {
-    struct task *new_task = storage;
-    if (storage == nullptr) {
-        new_task = (struct task *)kzalloc(sizeof(struct task));
-    }
+    struct task *new_task = kzalloc(sizeof(struct task));
     if (new_task == NULL) {
         panic("Unable to allocate memory for new task struct.");
         return nullptr;
@@ -98,6 +119,7 @@ struct task *create_task(void (*entry)(void), struct task *storage, const enum t
     // ReSharper disable once CppDFAMemoryLeak
     uint8_t *kernel_stack = kzalloc(KERNEL_STACK_SIZE);
     if (kernel_stack == nullptr) {
+        kfree(new_task);
         panic("Unable to allocate memory for new task stack.");
         return nullptr;
     }
@@ -163,30 +185,31 @@ struct cpu *get_cpu()
 }
 
 // Wake up all processes sleeping on chan.
-// The ptable lock must be held.
-static void wakeup1(void *chan)
+// The process_list lock must be held.
+static void wakeup1(const void *chan)
 {
+    kernel_page();
     for (int i = 0; i < MAX_PROCESSES; i++) {
         struct process *p = process_list.processes[i];
         if (p && p->thread && p->thread->state == TASK_SLEEPING && p->thread->wait_channel == chan) {
-            p->thread->state = TASK_READY;
+            p->thread->state        = TASK_READY;
+            p->thread->wait_channel = nullptr;
         }
     }
 
-    if (current_task == idle_task) {
+    if (current_task && current_task == idle_task) {
         idle_task->state = TASK_READY;
         sched();
     }
 }
 
 // Wake up all processes sleeping on chan.
-void wakeup(void *chan)
+void wakeup(const void *chan)
 {
     acquire(&process_list.lock);
     wakeup1(chan);
     release(&process_list.lock);
 }
-
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
@@ -194,18 +217,9 @@ void wakeup(void *chan)
 void exit(void)
 {
     struct process *curproc = current_process();
-    struct process *p;
-    int fd;
 
-    // Close all open files.
-    // for (fd = 0; fd < NOFILE; fd++) {
-    //     if (curproc->ofile[fd]) {
-    //         fileclose(curproc->ofile[fd]);
-    //         curproc->ofile[fd] = 0;
-    //     }
-    // }
+    // TODO: Close all open files.
 
-    // iput(curproc->cwd);
     curproc->current_directory = nullptr;
 
     acquire(&process_list.lock);
@@ -213,21 +227,14 @@ void exit(void)
     // Parent might be sleeping in wait().
     wakeup1(curproc->parent);
 
-    // Pass abandoned children to init.
-    // for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-    //     if (p->parent == curproc) {
-    //         p->parent = initproc;
-    //         if (p->state == ZOMBIE)
-    //             wakeup1(initproc);
-    //     }
-    // }
+    // TODO: Pass abandoned children to init.
 
     // Jump into the scheduler, never to return.
     curproc->thread->state = TASK_STOPPED;
     sched();
+
     panic("zombie exit");
 }
-
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
@@ -243,11 +250,11 @@ void sleep(void *chan, struct spinlock *lk)
         panic("sleep without lk");
     }
 
-    // Must acquire ptable.lock in order to
+    // Must acquire process_list.lock in order to
     // change p->state and then call sched.
-    // Once we hold ptable.lock, we can be
+    // Once we hold process_list.lock, we can be
     // guaranteed that we won't miss any wakeup
-    // (wakeup runs with ptable.lock locked),
+    // (wakeup runs with process_list.lock locked),
     // so it's okay to release lk.
     if (lk != &process_list.lock) {
         // DOC: sleeplock0
@@ -293,6 +300,7 @@ int wait(void)
                 int pid = p->pid;
                 process_zombify(p);
                 process_set(pid, nullptr);
+                curproc->thread->wait_channel = nullptr;
                 release(&process_list.lock);
                 return pid;
             }
@@ -312,13 +320,11 @@ int wait(void)
 // Kill the process with the given pid.
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
-int kill(int pid)
+int kill(const int pid)
 {
-    struct process *p;
-
     acquire(&process_list.lock);
     for (int i = 0; i < MAX_PROCESSES - 1; i++) {
-        p = process_list.processes[i];
+        struct process *p = process_list.processes[i];
         if (p && p->pid == pid) {
             p->killed = true;
             if (p->thread->state == TASK_SLEEPING) {
@@ -337,12 +343,13 @@ int kill(int pid)
     return -1;
 }
 
-
 // Give up the CPU for one scheduling round.
 void yield(void)
 {
     acquire(&process_list.lock);
-    get_current_task()->state = TASK_READY;
+    get_current_task()->state     = TASK_READY;
+    get_current_task()->time_used = 0;
+
     sched();
     release(&process_list.lock);
 }
@@ -350,7 +357,6 @@ void yield(void)
 
 void scheduler(void)
 {
-    struct process *p;
     struct cpu *current_cpu = get_cpu();
     // current_cpu->proc       = nullptr;
     current_task = nullptr;
@@ -364,9 +370,9 @@ void scheduler(void)
         // Loop over process table looking for process to run.
         acquire(&process_list.lock);
         for (int i = 0; i < MAX_PROCESSES - 1; i++) {
-            p = process_list.processes[i];
-            if (p && p->killed && p->parent == nullptr) {
-                int pid = p->pid;
+            struct process *p = process_list.processes[i];
+            if ((p && p->killed && p->parent == nullptr) || (p && p->parent && p->parent->thread == nullptr)) {
+                const int pid = p->pid;
                 process_zombify(p);
                 process_set(pid, nullptr);
             }
@@ -404,7 +410,10 @@ void scheduler(void)
             if (idle_task) {
                 current_task        = idle_task;
                 current_task->state = TASK_RUNNING;
+                idle_start          = get_cpu_time_ns();
                 switch_context(&(current_cpu->scheduler), current_task->context);
+                idle_start = idle_start - get_cpu_time_ns();
+                idle_time += idle_start;
                 current_task = nullptr;
             }
         }
@@ -413,20 +422,25 @@ void scheduler(void)
     }
 }
 
+void tasks_update_time()
+{
+    const uint64_t current_time = get_cpu_time_ns();
+    const uint64_t delta        = current_time - last_time;
+    if (current_task == idle_task) {
+        idle_time += delta;
+    } else if (current_task) {
+        current_task->time_used += delta;
+    }
+    last_time = current_time;
+}
+
 static void on_timer()
 {
-    // if (cpuid() == 0)
-    // {
-    //     acquire(&tickslock);
-    //     ticks++;
-    //     wakeup(&ticks);
-    //     release(&tickslock);
+    tasks_update_time();
+
+    // if (process_list.count == 0) {
+    //     start_shell(0);
     // }
-
-
-    if (process_list.count == 0) {
-        start_shell(0);
-    }
 
     // Force process exit if it has been killed and is in user space.
     // (If it is still executing in the kernel, let it keep running
@@ -438,13 +452,18 @@ static void on_timer()
 
     // Force process to give up CPU on clock tick.
     // If interrupts were on while locks held, would need to check nlock.
-    if (current_process() && current_process()->thread->state == TASK_RUNNING) {
+    if (current_process() && current_process()->thread->state == TASK_RUNNING &&
+        current_task->time_used >= TIME_SLICE_SIZE) {
         yield();
     }
 
     // Check if the process has been killed since we yielded
     if (current_process() && current_process()->killed) {
         exit();
+    }
+
+    if (!holding(&process_list.lock)) {
+        wakeup((void *)&timer_tick);
     }
 }
 
@@ -499,6 +518,7 @@ int thread_init(struct task *thread, struct process *process)
         paging_create_directory(PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR);
     thread->page_directory = thread->process->page_directory;
 
+    ASSERT(thread->page_directory == thread->process->page_directory);
     if (!thread->process->page_directory) {
         panic("Failed to create page directory");
         return -ENOMEM;
@@ -523,7 +543,7 @@ struct task *thread_create(struct process *process)
 {
     int res = 0;
 
-    struct task *thread = create_task(nullptr, nullptr, TASK_READY, process->file_name, USER_MODE);
+    struct task *thread = create_task(nullptr, TASK_READY, process->file_name, USER_MODE);
 
     if (!thread) {
         panic("Failed to allocate memory for thread\n");
@@ -539,7 +559,12 @@ struct task *thread_create(struct process *process)
 
 out:
     if (ISERR(res)) {
-        // thread_free(thread);
+        if (thread && thread->kernel_stack) {
+            kfree(thread->kernel_stack);
+        }
+        if (thread) {
+            kfree(thread);
+        }
         return ERROR(res);
     }
 
@@ -564,6 +589,10 @@ void tasks_init(void)
 {
     cpu = kzalloc(sizeof(struct cpu));
     initlock(&process_list.lock, "process table");
+    discover_cpu_speed();
+
+    last_time = get_cpu_time_ns();
+
     timer_register_callback(on_timer);
 }
 
@@ -590,18 +619,8 @@ struct process *process_get(const int pid)
 
 void process_set(const int pid, struct process *process)
 {
-    bool to_acquire = false;
-    if (!holding(&process_list.lock)) {
-        to_acquire = true;
-    }
-    if (to_acquire) {
-        acquire(&process_list.lock);
-    }
+    ASSERT(process_list.lock.locked);
 
     process_list.processes[pid] = process;
     process_list.count += process ? 1 : -1;
-
-    if (to_acquire) {
-        release(&process_list.lock);
-    }
 }

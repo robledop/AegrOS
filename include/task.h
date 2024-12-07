@@ -64,6 +64,20 @@ struct task {
     void *kernel_stack;
 };
 
+struct process_list {
+    struct spinlock lock;
+    struct process *processes[MAX_PROCESSES];
+    int count;
+    int active_count;
+};
+
+struct process_info {
+    uint16_t pid;
+    int priority;
+    char file_name[MAX_PATH_LENGTH];
+    enum task_state state;
+};
+
 static struct cpu *cpu = nullptr;
 extern struct task *current_task;
 
@@ -82,7 +96,7 @@ void current_task_page();
 void sched(void);
 int wait(void);
 void sleep(void *chan, struct spinlock *lk);
-void wakeup(void *chan);
+void wakeup(const void *chan);
 void yield(void);
 void exit(void);
 int kill(int pid);
@@ -92,10 +106,13 @@ struct cpu *get_cpu();
 [[noreturn]] void scheduler(void);
 
 void switch_context(struct context **, struct context *);
-struct task *create_task(void (*entry)(void), struct task *storage, enum task_state state, const char *name,
-                         enum task_mode mode);
+struct task *create_task(void (*entry)(void), enum task_state state, const char *name, enum task_mode mode);
 int process_get_free_pid();
 
 struct process *process_get(int pid);
 void process_set(int pid, struct process *process);
 void tasks_set_idle_task(struct task *task);
+int thread_init(struct task *thread, struct process *process);
+uint64_t get_cpu_time_ns();
+
+int get_processes(struct process_info **proc_info);

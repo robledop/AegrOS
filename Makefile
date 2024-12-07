@@ -1,6 +1,7 @@
 $(shell mkdir -p ./bin)
 $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
+MEMORY=512
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=on,window-close=on,grab-on-hover=off
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 CC=i686-elf-gcc
@@ -159,27 +160,27 @@ iso: grub FORCE
 
 .PHONY: qemu_debug
 qemu_debug: all FORCE
-	qemu-system-i386 -S -gdb tcp::1234 -boot d -hda ./bin/disk.img -m 64 -daemonize -serial file:serial.log -d int -D qemu.log
+	qemu-system-i386 -S -gdb tcp::1234 -boot d -hda ./bin/disk.img -m $(MEMORY) -daemonize -serial file:serial.log -d int -D qemu.log
 
 .PHONY: qemu
 qemu: all FORCE
-	qemu-system-i386 -boot d -hda ./bin/disk.img -m 64 -serial stdio
+	qemu-system-i386 -boot d -hda ./bin/disk.img -m $(MEMORY) -serial stdio
 
 .PHONY: qemu_grub_debug
 qemu_grub_debug: grub FORCE
 	./scripts/create_tap.sh
-	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m 64 -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK)  -serial file:serial.log # -d int -D qemu.log
+	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK)  -serial file:serial.log # -d int -D qemu.log
 
 qemu_grub_debug_no_net: grub FORCE
-	$(QEMU)  -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m 64 -daemonize -serial file:serial.log $(QEMU_DISPLAY)
+	$(QEMU)  -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize -serial file:serial.log $(QEMU_DISPLAY)
 
 .PHONY: qemu_grub
 qemu_grub: grub FORCE
-	$(QEMU)  -boot d -drive file=./disk.img,format=raw -m 64 -serial stdio $(QEMU_DISPLAY)
+	$(QEMU)  -boot d -drive file=./disk.img,format=raw -m $(MEMORY) -serial stdio $(QEMU_DISPLAY)
 
 .PHONY: qemu_iso
 qemu_iso: iso FORCE
-	$(QEMU)  -boot d -cdrom ./myos.iso -m 64 -daemonize -serial file:serial.log -display gtk,zoom-to-fit=on -d int -D qemu.log
+	$(QEMU)  -boot d -cdrom ./myos.iso -m $(MEMORY) -daemonize -serial file:serial.log -display gtk,zoom-to-fit=on -d int -D qemu.log
 
 .PHONY: apps
 apps: FORCE
@@ -197,7 +198,7 @@ clean: apps_clean
 .PHONY: test
 test: grub
 	# TODO: Add test cases
-	$(QEMU)  -boot d -hda ./disk.img -m 64 -serial stdio -display none -d int -D qemu.log
+	$(QEMU)  -boot d -hda ./disk.img -m $(MEMORY) -serial stdio -display none -d int -D qemu.log
 
 # Force rebuild of all files
 .PHONY: FORCE

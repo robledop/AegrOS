@@ -5,6 +5,7 @@
 #define TIMER_DATA_PORT 0x40
 
 extern volatile uint32_t timer_tick;
+extern struct spinlock tickslock;
 
 /**
  * @brief Initialize the CPU timer with the given frequency.

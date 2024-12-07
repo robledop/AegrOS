@@ -1,4 +1,5 @@
 #include <memory.h>
+#include <process.h>
 #include <syscall.h>
 #include <task.h>
 #include <vfs.h>
@@ -13,7 +14,7 @@ void *sys_read(void)
     const int fd             = (int)task_peek_stack_item(get_current_task(), 0);
 
     // memset(task_file_contents, 0xFF, size * nmemb);
-    const int res = vfs_read((void *)task_file_contents, size, nmemb, fd);
+    const int res = vfs_read(current_process(), (void *)task_file_contents, size, nmemb, fd);
 
     return (void *)res;
 }

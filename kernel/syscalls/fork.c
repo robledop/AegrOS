@@ -9,7 +9,7 @@ void *sys_fork(void)
 {
     acquire(&fork_lock);
 
-    auto const parent              = get_current_task()->process;
+    auto const parent              = current_process();
     auto const child               = process_clone(parent);
     child->thread->trap_frame->eax = 0;
 

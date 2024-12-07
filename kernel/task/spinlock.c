@@ -1,6 +1,11 @@
 #include <kernel.h>
+#include <kernel_heap.h>
+#include <memory.h>
+#include <printf.h>
 #include <spinlock.h>
+#include <string.h>
 #include <task.h>
+#include <vfs.h>
 #include <x86.h>
 
 void initlock(struct spinlock *lk, char *name)
@@ -14,11 +19,13 @@ void initlock(struct spinlock *lk, char *name)
 // Loops (spins) until the lock is acquired.
 // Holding a lock for a long time may cause
 // other CPUs to waste time spinning to acquire it.
-void acquire(struct spinlock *lk)
+void acquire_(struct spinlock *lk, const char *file, int line)
 {
     pushcli(); // disable interrupts to avoid deadlock.
     if (holding(lk)) {
-        panic("acquire");
+        char *buf = kzalloc(256);
+        snprintf(buf, 256, "acquire: %s. Held by %s:%d", lk->name, lk->file, lk->line);
+        panic(buf);
     }
 
     // The xchg is atomic.
@@ -32,6 +39,9 @@ void acquire(struct spinlock *lk)
 
     // Record info about lock acquisition for debugging.
     lk->cpu = get_cpu();
+
+    memcpy(lk->file, file, strlen(file));
+    lk->line = line;
 }
 
 // Release the lock.
@@ -55,6 +65,7 @@ void release(struct spinlock *lk)
     // This code can't use a C assignment, since it might
     // not be atomic. A real OS would use C atomics here.
     asm volatile("movl $0, %0" : "+m"(lk->locked) :);
+    memset(lk->file, 0, 100);
 
     popcli();
 }

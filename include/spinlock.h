@@ -1,14 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-// typedef uint32_t spinlock_t;
-//
-//
-// __attribute__((nonnull)) void spinlock_init(spinlock_t *lock);
-// __attribute__((nonnull)) void spin_lock(spinlock_t *lock);
-// __attribute__((nonnull)) void spin_unlock(spinlock_t *lock);
-
-
 // Mutual exclusion lock.
 struct spinlock {
     uint32_t locked; // Is the lock held?
@@ -18,9 +10,14 @@ struct spinlock {
     struct cpu *cpu;  // The cpu holding the lock.
     uint32_t pcs[10]; // The call stack (an array of program counters)
                       // that locked the lock.
+    char file[100];
+    int line;
 };
 
-void acquire(struct spinlock *);
+#define acquire(lk) acquire_(lk, __FILE__, __LINE__)
+
+
+void acquire_(struct spinlock *, const char *, int);
 int holding(struct spinlock *);
 void initlock(struct spinlock *, char *);
 void release(struct spinlock *);

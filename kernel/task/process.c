@@ -1,5 +1,6 @@
 #include <debug.h>
 #include <elf.h>
+#include <idt.h>
 #include <kernel.h>
 #include <kernel_heap.h>
 #include <memory.h>
@@ -11,8 +12,11 @@
 #include <status.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <task.h>
 #include <vfs.h>
 #include <x86.h>
+
+extern struct process_list process_list;
 
 struct process *current_process(void)
 {
@@ -37,17 +41,6 @@ static int process_find_free_allocation_slot(const struct process *process)
 
     panic("Failed to find free allocation slot");
     return -ENOMEM;
-}
-
-static bool process_is_process_pointer(const struct process *process, const void *ptr)
-{
-    for (size_t i = 0; i < MAX_PROGRAM_ALLOCATIONS; i++) {
-        if (process->allocations[i].ptr == ptr) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 static struct process_allocation *process_get_allocation_by_address(struct process *process, const void *address)
@@ -96,27 +89,23 @@ int process_free_program_data(const struct process *process)
     return res;
 }
 
-int process_free_file_descriptors(struct process *process)
+void process_free_file_descriptors(struct process *process)
 {
     for (int i = 0; i < MAX_FILE_DESCRIPTORS; i++) {
         if (process->file_descriptors[i]) {
             vfs_close(process, i);
         }
     }
-
-    return 0;
 }
 
 /// @brief Turn the process into a zombie and deallocates its resources
 /// The process remains in the process list until the parent process reads the exit code
 int process_zombify(struct process *process)
 {
-    int pid = process->pid;
     int res = process_free_allocations(process);
     ASSERT(res == 0, "Failed to free allocations for process");
 
-    res = process_free_file_descriptors(process);
-    ASSERT(res == 0, "Failed to free file descriptors for process");
+    process_free_file_descriptors(process);
 
     res = process_free_program_data(process);
     ASSERT(res == 0, "Failed to free program data for process");
@@ -283,7 +272,7 @@ static int process_load_binary(const char *file_name, struct process *process)
     void *program = nullptr;
 
     int res      = 0;
-    const int fd = vfs_open(file_name, O_RDONLY);
+    const int fd = vfs_open(nullptr, file_name, O_RDONLY);
     if (fd < 0) {
         warningf("Failed to open file %s\n", file_name);
         res = -EIO;
@@ -291,7 +280,7 @@ static int process_load_binary(const char *file_name, struct process *process)
     }
 
     struct stat fstat;
-    res = vfs_stat(fd, &fstat);
+    res = vfs_stat(nullptr, fd, &fstat);
     if (res != ALL_OK) {
         warningf("Failed to get file stat\n");
         res = -EIO;
@@ -305,7 +294,7 @@ static int process_load_binary(const char *file_name, struct process *process)
         goto out;
     }
 
-    if (vfs_read(program, fstat.st_size, 1, fd) != (int)fstat.st_size) {
+    if (vfs_read(nullptr, program, fstat.st_size, 1, fd) != (int)fstat.st_size) {
         warningf("Failed to read file\n");
         res = -EIO;
         goto out;
@@ -347,7 +336,6 @@ out:
 
 int process_load_data(const char file_name[static 1], struct process *process)
 {
-    dbgprintf("Loading data for process %s\n", file_name);
     int res = 0;
 
     res = process_load_elf(file_name, process);
@@ -534,7 +522,9 @@ int process_load(const char file_name[static 1], struct process **process)
 
     res = process_load_for_slot(file_name, process, pid);
 
+    acquire(&process_list.lock);
     process_set(pid, *process);
+    release(&process_list.lock);
 out:
     return res;
 }
@@ -554,8 +544,7 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
 
     proc = kzalloc(sizeof(struct process));
     if (!proc) {
-        warningf("Failed to allocate memory for process\n");
-        ASSERT(false, "Failed to allocate memory for process");
+        panic("Failed to allocate memory for process\n");
         res = -ENOMEM;
         goto out;
     }
@@ -568,8 +557,7 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
 
     program_stack_pointer = kzalloc(USER_STACK_SIZE);
     if (!program_stack_pointer) {
-        warningf("Failed to allocate memory for program stack\n");
-        ASSERT(false, "Failed to allocate memory for program stack");
+        panic("Failed to allocate memory for program stack\n");
         res = -ENOMEM;
         goto out;
     }
@@ -578,32 +566,24 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
     proc->user_stack = program_stack_pointer;
     proc->pid        = pid;
 
-    dbgprintf("Process %s stack pointer is %x and process id is %d\n", file_name, program_stack_pointer, pid);
-
     thread = thread_create(proc);
     if (ISERR(thread)) {
-        warningf("Failed to create thread\n");
-        ASSERT(false, "Failed to create thread");
+        panic("Failed to create thread\n");
         res = -ENOMEM;
         goto out;
     }
 
     proc->thread  = thread;
-    proc->rand_id = rand();
+    proc->rand_id = (int)get_random();
 
     res = process_map_memory(proc);
     if (res < 0) {
-        warningf("Failed to map memory for process\n");
-        ASSERT(false, "Failed to map memory for process");
+        panic("Failed to map memory for process\n");
         goto out;
     }
 
-    // proc->state = RUNNING;
     memset(proc->file_descriptors, 0, sizeof(proc->file_descriptors));
-
     *process = proc;
-
-    // scheduler_set_process(pid, proc);
 
 out:
     if (ISERR(res)) {
@@ -653,6 +633,7 @@ void process_copy_stack(struct process *dest, const struct process *src)
 {
     dest->user_stack = kzalloc(USER_STACK_SIZE);
     memcpy(dest->user_stack, src->user_stack, USER_STACK_SIZE);
+    memcpy(dest->thread->kernel_stack, src->thread->kernel_stack, KERNEL_STACK_SIZE);
 }
 
 void process_copy_file_info(struct process *dest, const struct process *src)
@@ -698,9 +679,41 @@ void process_copy_thread(struct process *dest, const struct process *src)
     if (ISERR(thread)) {
         panic("Failed to create thread");
     }
-    // thread_copy_registers(thread, src->thread);
-    dest->thread          = thread;
-    dest->thread->process = dest;
+
+    dest->thread            = thread;
+    dest->thread->process   = dest;
+    dest->thread->time_used = 0;
+
+    dest->thread->context->ebp = src->thread->context->ebp;
+    dest->thread->context->ebx = src->thread->context->ebx;
+    dest->thread->context->esi = src->thread->context->esi;
+    dest->thread->context->edi = src->thread->context->edi;
+
+    dest->thread->trap_frame->cs     = src->thread->trap_frame->cs;
+    dest->thread->trap_frame->ds     = src->thread->trap_frame->ds;
+    dest->thread->trap_frame->es     = src->thread->trap_frame->es;
+    dest->thread->trap_frame->fs     = src->thread->trap_frame->fs;
+    dest->thread->trap_frame->gs     = src->thread->trap_frame->gs;
+    dest->thread->trap_frame->ss     = src->thread->trap_frame->ss;
+    dest->thread->trap_frame->eflags = src->thread->trap_frame->eflags;
+    // dest->thread->trap_frame->eip              = src->thread->trap_frame->eip;
+    dest->thread->trap_frame->esp              = src->thread->trap_frame->esp;
+    dest->thread->trap_frame->interrupt_number = src->thread->trap_frame->interrupt_number;
+}
+
+void process_copy_file_descriptors(struct process *dest, struct process *src)
+{
+    for (int i = 0; i < MAX_FILE_DESCRIPTORS; i++) {
+        if (src->file_descriptors[i]) {
+            struct file *desc = kzalloc(sizeof(struct file));
+            if (!desc) {
+                panic("Failed to allocate memory for file descriptor");
+            }
+
+            memcpy(desc, src->file_descriptors[i], sizeof(struct file));
+            dest->file_descriptors[i] = desc;
+        }
+    }
 }
 
 struct process *process_clone(struct process *process)
@@ -712,9 +725,7 @@ struct process *process_clone(struct process *process)
         return nullptr;
     }
 
-
-    // const int pid = scheduler_get_free_pid();
-    const int pid = 1;
+    const int pid = process_get_free_pid();
     if (pid < 0) {
         kfree(clone);
         panic("No free process slot");
@@ -726,6 +737,7 @@ struct process *process_clone(struct process *process)
 
     // This is not super efficient
 
+    process_copy_file_descriptors(clone, process);
     process_copy_file_info(clone, process);
     process_copy_thread(clone, process);
     process_copy_stack(clone, process);
@@ -733,11 +745,11 @@ struct process *process_clone(struct process *process)
     process_map_memory(clone);
     process_copy_allocations(clone, process);
 
-    // scheduler_set_process(clone->pid, clone);
-    // scheduler_queue_thread(clone->thread);
-    // clone->state = RUNNING;
+    acquire(&process_list.lock);
+    process_set(clone->pid, clone);
+    release(&process_list.lock);
 
-    clone->rand_id = rand();
+    clone->rand_id = (int)get_random();
 
     return clone;
 }

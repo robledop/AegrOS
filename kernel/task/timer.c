@@ -2,10 +2,13 @@
 #include <io.h>
 #include <pic.h>
 #include <pit.h>
+#include <spinlock.h>
 #include <stddef.h>
+#include <task.h>
 #include <timer.h>
 
 void timer_callback(struct interrupt_frame *frame);
+struct spinlock tickslock;
 volatile uint32_t timer_tick;
 
 typedef void (*voidfunc_t)();
@@ -23,20 +26,14 @@ void timer_init(const uint32_t freq)
 
 void timer_callback(struct interrupt_frame *frame)
 {
-    (void)frame;
-    timer_tick = timer_tick + 1;
+    acquire(&tickslock);
+    timer_tick++;
+    release(&tickslock);
+
     for (size_t i = 0; i < callback_count; i++) {
         callbacks[i]();
     }
 }
-
-// void sleep(const uint32_t ms)
-// {
-//     const uint32_t start = timer_tick;
-//     const uint32_t final = start + ms;
-//     while (timer_tick < final)
-//         ;
-// }
 
 void timer_register_callback(void (*func)())
 {

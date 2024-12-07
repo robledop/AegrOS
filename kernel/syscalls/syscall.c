@@ -1,5 +1,6 @@
 #include <idt.h>
 #include <kernel_heap.h>
+#include <process.h>
 #include <string.h>
 #include <syscall.h>
 #include <task.h>
@@ -64,35 +65,35 @@ char *get_string_argument(const int index, const size_t max_len)
     return (char *)str;
 }
 
-// struct command_argument *parse_command(char **args)
-// {
-//     if (*args == nullptr) {
-//         return nullptr;
-//     }
-//
-//     struct command_argument *head = kmalloc(sizeof(struct command_argument));
-//     if (head == nullptr) {
-//         return nullptr;
-//     }
-//
-//     strncpy(head->argument, *args, sizeof(head->argument));
-//     head->next = nullptr;
-//
-//     struct command_argument *current = head;
-//
-//     int i = 1;
-//     while (args[i] != nullptr) {
-//         struct command_argument *next = kmalloc(sizeof(struct command_argument));
-//         if (next == nullptr) {
-//             break;
-//         }
-//
-//         strncpy(next->argument, args[i], sizeof(next->argument));
-//         next->next    = nullptr;
-//         current->next = next;
-//         current       = next;
-//         i++;
-//     }
-//
-//     return head;
-// }
+struct command_argument *parse_command(char **args)
+{
+    if (*args == nullptr) {
+        return nullptr;
+    }
+
+    struct command_argument *head = kmalloc(sizeof(struct command_argument));
+    if (head == nullptr) {
+        return nullptr;
+    }
+
+    strncpy(head->argument, *args, sizeof(head->argument));
+    head->next = nullptr;
+
+    struct command_argument *current = head;
+
+    int i = 1;
+    while (args[i] != nullptr) {
+        struct command_argument *next = kmalloc(sizeof(struct command_argument));
+        if (next == nullptr) {
+            break;
+        }
+
+        strncpy(next->argument, args[i], sizeof(next->argument));
+        next->next    = nullptr;
+        current->next = next;
+        current       = next;
+        i++;
+    }
+
+    return head;
+}

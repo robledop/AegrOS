@@ -1,5 +1,6 @@
 #include <config.h>
 #include <dirent.h>
+#include <process.h>
 #include <spinlock.h>
 #include <syscall.h>
 #include <task.h>
@@ -18,7 +19,7 @@ void *sys_open(void)
 
     const FILE_MODE mode = get_integer_argument(0);
 
-    const int fd = vfs_open((const char *)name, mode);
+    const int fd = vfs_open(current_process(), (const char *)name, mode);
 
     release(&open_lock);
 

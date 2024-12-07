@@ -37,12 +37,10 @@ struct process_arguments {
 struct process {
     uint16_t pid;
     int rand_id; // For debugging purposes
-    int tty_fd;
     int priority;
     char file_name[MAX_PATH_LENGTH];
     struct page_directory *page_directory;
     struct process *parent;
-    // enum PROCESS_STATE state;
     struct task *thread;
     int wait_pid;
     int exit_code;
@@ -90,3 +88,6 @@ struct process *current_process(void);
 // struct process *process_get(int pid);
 int process_wait_pid(int child_pid);
 void process_wakeup(const void *wait_channel);
+
+void process_free_file_descriptors(struct process *process);
+void process_copy_file_descriptors(struct process *dest, struct process *src);

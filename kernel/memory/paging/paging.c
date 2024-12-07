@@ -29,11 +29,6 @@ void kernel_page()
 
 struct page_directory *paging_create_directory(const uint8_t flags)
 {
-    dbgprintf("Allocating page directory. Present: %d, Write: %d, Supervisor: %d \n",
-              flags & PAGING_DIRECTORY_ENTRY_IS_PRESENT,
-              (flags & PAGING_DIRECTORY_ENTRY_IS_WRITABLE) >> 1,
-              (flags & PAGING_DIRECTORY_ENTRY_SUPERVISOR) >> 2);
-
     uint32_t *directory_entry = kzalloc(sizeof(uint32_t) * PAGING_ENTRIES_PER_DIRECTORY);
     if (!directory_entry) {
         panic("Failed to allocate page directory\n");
@@ -72,10 +67,6 @@ struct page_directory *paging_create_directory(const uint8_t flags)
 
 void paging_free_directory(struct page_directory *page_directory)
 {
-    // ASSERT(page_directory->directory_entry);
-
-    dbgprintf("Freeing page directory %x\n", &page_directory);
-
     for (int i = 0; i < PAGING_ENTRIES_PER_DIRECTORY; i++) {
         const uint32_t entry = page_directory->directory_entry[i];
         auto const table     = (uint32_t *)(entry & 0xfffff000);

@@ -130,11 +130,11 @@ struct inode_operations {
 
 void vfs_init(void);
 void vfs_add_mount_point(const char *prefix, uint32_t disk_number, struct inode *inode);
-int vfs_open(const char path[static 1], int mode);
-__attribute__((nonnull)) int vfs_read(void *ptr, uint32_t size, uint32_t nmemb, int fd);
-__attribute__((nonnull)) int vfs_write(int fd, const char *buffer, size_t size);
-int vfs_seek(int fd, int offset, enum FILE_SEEK_MODE whence);
-__attribute__((nonnull)) int vfs_stat(int fd, struct stat *stat);
+int vfs_open(struct process *current_process, const char path[static 1], int mode);
+int vfs_read(struct process *current_process, void *ptr, uint32_t size, uint32_t nmemb, int fd);
+int vfs_write(struct process *current_process, int fd, const char *buffer, size_t size);
+int vfs_seek(struct process *current_process, int fd, int offset, enum FILE_SEEK_MODE whence);
+int vfs_stat(struct process *current_process, int fd, struct stat *stat);
 int vfs_close(struct process *process, int fd);
 __attribute__((nonnull)) void vfs_insert_file_system(struct file_system *filesystem);
 __attribute__((nonnull)) struct file_system *vfs_resolve(struct disk *disk);

@@ -7,7 +7,9 @@
 #include <kernel_heap.h>
 #include <keyboard.h>
 #include <memory.h>
+#include <net/network.h>
 #include <paging.h>
+#include <pci.h>
 #include <pic.h>
 #include <pit.h>
 #include <printf.h>
@@ -38,6 +40,21 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
     }
 
     __builtin_unreachable();
+}
+
+
+void wait_for_network()
+{
+    wait_for_network_start = timer_tick;
+    sti();
+    while (!network_is_ready() && timer_tick - wait_for_network_start < wait_for_network_timeout) {
+        hlt();
+    }
+    cli();
+    if (!network_is_ready()) {
+        printf("[ " KBRED "FAIL" KWHT " ] ");
+        printf(KBYEL "Network failed to start\n" KWHT);
+    }
 }
 
 void idle()
@@ -75,23 +92,25 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     init_serial();
     gdt_init();
 
-    kernel_heap_init();
+    // kernel_heap_init();
+    display_grub_info(mbd, magic);
     paging_init();
 
     idt_init();
     pic_init();
     pit_init();
     timer_init(1000);
-    display_grub_info(mbd, magic);
     init_symbols(mbd);
     tasks_init();
     vfs_init();
+    pci_scan();
+    wait_for_network();
     disk_init();
     root_inode_init();
     register_syscalls();
     keyboard_init();
 
-    struct task *idle_task = create_task(idle, nullptr, TASK_READY, "idle", KERNEL_MODE);
+    struct task *idle_task = create_task(idle, TASK_READY, "idle", KERNEL_MODE);
     tasks_set_idle_task(idle_task);
 
     start_shell(0);
@@ -141,6 +160,7 @@ void display_grub_info(const multiboot_info_t *mbd, const unsigned int magic)
             if (mmmt->len > 0x100000) {
                 printf("[ " KBGRN "OK" KWHT " ] ");
                 printf("Available memory: %u MiB\n", (uint16_t)(mmmt->len / 1024 / 1024));
+                kernel_heap_init(mmmt->len);
             }
         }
     }

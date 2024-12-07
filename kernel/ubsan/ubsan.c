@@ -18,22 +18,21 @@
  */
 
 #include <kernel.h>
-// #include <scheduler.h>
 #include <process.h>
 #include <task.h>
 #include <vga_buffer.h>
 
-#define SCRAM_UNDEFINED_BEHAVIOR 3
-struct scram_undefined_behavior {
+#define UNDEFINED_BEHAVIOR 3
+struct undefined_behavior {
     const char *filename;
     unsigned long line;
     unsigned long column;
     const char *violation;
 };
 
-[[noreturn]] void scram(int, const struct scram_undefined_behavior *info);
+[[noreturn]] void scram(int, const struct undefined_behavior *info);
 
-void scram(const int event, const struct scram_undefined_behavior *info)
+void scram(const int event, const struct undefined_behavior *info)
 {
     struct task *current_task = get_current_task();
     if (current_task && current_process()) {
@@ -71,15 +70,16 @@ static const struct ubsan_source_location unknown_location = {
 
 [[noreturn]] static void ubsan_abort(const struct ubsan_source_location *location, const char *violation)
 {
-    if (!location || !location->filename)
+    if (!location || !location->filename) {
         location = &unknown_location;
+    }
 
-    struct scram_undefined_behavior info;
+    struct undefined_behavior info;
     info.filename  = location->filename;
     info.line      = location->line;
     info.column    = location->column;
     info.violation = violation;
-    scram(SCRAM_UNDEFINED_BEHAVIOR, &info);
+    scram(UNDEFINED_BEHAVIOR, &info);
 }
 
 #define ABORT_VARIANT(name, params, call)                                                                              \

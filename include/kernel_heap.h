@@ -6,7 +6,7 @@
 
 #include <stddef.h>
 
-void kernel_heap_init(void);
+void kernel_heap_init(int heap_size);
 void *kmalloc(size_t size);
 __attribute__((nonnull)) void kfree(void *ptr);
 void *kzalloc(size_t size);

@@ -182,7 +182,7 @@ struct file_system *vfs_resolve(struct disk *disk)
     return nullptr;
 }
 
-int vfs_open(const char path[static 1], const FILE_MODE mode)
+int vfs_open(struct process *current_process, const char path[static 1], const FILE_MODE mode)
 {
     int res = -EIO;
 
@@ -242,8 +242,8 @@ int vfs_open(const char path[static 1], const FILE_MODE mode)
 
     struct file *desc = nullptr;
 
-    if (current_process()) {
-        res = process_new_file_descriptor(current_process(), &desc);
+    if (current_process) {
+        res = process_new_file_descriptor(current_process, &desc);
     } else {
         res = sys_new_file_descriptor(&desc);
     }
@@ -290,11 +290,11 @@ out:
     return res;
 }
 
-int vfs_stat(const int fd, struct stat *stat)
+int vfs_stat(struct process *current_process, const int fd, struct stat *stat)
 {
     struct file *desc;
-    if (current_process()) {
-        desc = process_get_file_descriptor(current_process(), fd);
+    if (current_process) {
+        desc = process_get_file_descriptor(current_process, fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -306,11 +306,11 @@ int vfs_stat(const int fd, struct stat *stat)
     return desc->inode->ops->stat(desc, stat);
 }
 
-int vfs_seek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
+int vfs_seek(struct process *current_process, const int fd, const int offset, const enum FILE_SEEK_MODE whence)
 {
     struct file *desc;
-    if (current_process()) {
-        desc = process_get_file_descriptor(current_process(), fd);
+    if (current_process) {
+        desc = process_get_file_descriptor(current_process, fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -322,11 +322,11 @@ int vfs_seek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
     return desc->inode->ops->seek(desc, offset, whence);
 }
 
-int vfs_read(void *ptr, const uint32_t size, const uint32_t nmemb, const int fd)
+int vfs_read(struct process *current_process, void *ptr, const uint32_t size, const uint32_t nmemb, const int fd)
 {
     struct file *desc;
-    if (current_process()) {
-        desc = process_get_file_descriptor(current_process(), fd);
+    if (current_process) {
+        desc = process_get_file_descriptor(current_process, fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
@@ -341,7 +341,6 @@ int vfs_read(void *ptr, const uint32_t size, const uint32_t nmemb, const int fd)
 int vfs_close(struct process *process, const int fd)
 {
     struct file *desc;
-    // struct process *current_process = get_current_process();
     if (process) {
         desc = process_get_file_descriptor(process, fd);
     } else {
@@ -365,11 +364,11 @@ int vfs_close(struct process *process, const int fd)
     return res;
 }
 
-int vfs_write(const int fd, const char *buffer, const size_t size)
+int vfs_write(struct process *current_process, const int fd, const char *buffer, const size_t size)
 {
     struct file *desc;
-    if (current_process()) {
-        desc = process_get_file_descriptor(current_process(), fd);
+    if (current_process) {
+        desc = process_get_file_descriptor(current_process, fd);
     } else {
         desc = sys_get_file_descriptor(fd);
     }
