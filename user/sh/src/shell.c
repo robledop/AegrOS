@@ -65,16 +65,10 @@ void stack_overflow() // NOLINT(*-no-recursion)
 
 void test()
 {
-    const char *text = "Changed!Changed!Changed!Changed!Changed!";
-
-    FILE *file = fopen("/a.txt", "w+");
-    if (file == nullptr) {
-        printf("Failed to open file\n");
-    }
-
-    fwrite(text, strlen(text), 1, file);
-    fflush(file);
-    fclose(file);
+    printf("\n");
+    int pass = 0;
+    scanf("%d", &pass);
+    printf("%d\n", pass);
 }
 
 void mod()

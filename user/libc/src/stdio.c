@@ -450,6 +450,18 @@ int getc()
     return c;
 }
 
+int ungetc(int c, FILE *stream)
+{
+    if (stream->pos == 0) {
+        return EOF;
+    }
+
+    stream->buffer[stream->pos - 1] = c;
+    stream->pos--;
+
+    return c;
+}
+
 int fputc(int c, FILE *stream)
 {
     char ch = c;
@@ -459,29 +471,90 @@ int fputc(int c, FILE *stream)
 
 int vfscanf(FILE *stream, const char *format, va_list args)
 {
-    char c;
-    int ret = 0;
-    while ((c = fgetc(stream)) != EOF) {
-        if (c == '%') {
-            c = fgetc(stream);
-            if (c == 'd') {
-                int *i = va_arg(args, int *);
-                *i     = 0;
-                while ((c = fgetc(stream)) >= '0' && c <= '9') {
-                    *i = *i * 10 + c - '0';
+    int matched = 0;
+    int ch;
+    const char *fmt = format;
+
+    while (*fmt) {
+        if (isspace(*fmt)) {
+            // Skip any whitespace in the format string
+            while (isspace(*fmt))
+                fmt++;
+            // Skip any whitespace in the input stream
+            while (isspace(ch = fgetc(stream)) && ch != EOF)
+                ;
+            if (ch != EOF)
+                ungetc(ch, stream);
+        } else if (*fmt == '%') {
+            fmt++;
+            if (*fmt == 'd') {
+                // Read an integer
+                int *int_ptr = va_arg(args, int *);
+                int num      = 0;
+                int sign     = 1;
+                int started  = 0;
+
+                // Skip whitespace in input
+                while (isspace(ch = fgetc(stream)) && ch != EOF)
+                    ;
+                if (ch == '-') {
+                    sign = -1;
+                    ch   = fgetc(stream);
                 }
-                ret++;
-            } else if (c == 's') {
-                char *s = va_arg(args, char *);
-                while ((c = fgetc(stream)) != ' ' && c != '\n') {
-                    *s++ = c;
+                while (isdigit(ch) && ch != EOF) {
+                    started = 1;
+                    num     = num * 10 + (ch - '0');
+                    ch      = fgetc(stream);
                 }
-                *s = '\0';
-                ret++;
+                if (started) {
+                    *int_ptr = sign * num;
+                    matched++;
+                    if (ch != EOF)
+                        ungetc(ch, stream);
+                } else {
+                    if (ch != EOF)
+                        ungetc(ch, stream);
+                    break; // No match found
+                }
+            } else if (*fmt == 's') {
+                // Read a string
+                char *str_ptr = va_arg(args, char *);
+                int idx       = 0;
+
+                // Skip whitespace in input
+                while (isspace(ch = fgetc(stream)) && ch != EOF)
+                    ;
+
+                if (ch == EOF)
+                    break;
+
+                do {
+                    str_ptr[idx++] = ch;
+                    ch             = fgetc(stream);
+                } while (!isspace(ch) && ch != EOF);
+
+                str_ptr[idx] = '\0';
+                matched++;
+                if (ch != EOF)
+                    ungetc(ch, stream);
+            } else {
+                // Unsupported format specifier
+                return matched;
             }
+            fmt++;
+        } else {
+            // Literal character match
+            ch = fgetc(stream);
+            if (ch != *fmt) {
+                if (ch != EOF)
+                    ungetc(ch, stream);
+                break;
+            }
+            fmt++;
         }
     }
-    return ret;
+
+    return matched;
 }
 
 int scanf(const char *format, ...)
