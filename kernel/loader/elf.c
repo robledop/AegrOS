@@ -1,8 +1,6 @@
 #include <elf.h>
 #include <kernel.h>
 #include <kernel_heap.h>
-#include <memory.h>
-#include <paging.h>
 #include <process.h>
 #include <serial.h>
 #include <status.h>

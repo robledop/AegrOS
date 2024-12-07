@@ -1,10 +1,8 @@
 #include <idt.h>
 #include <io.h>
-#include <pic.h>
 #include <pit.h>
 #include <spinlock.h>
 #include <stddef.h>
-#include <task.h>
 #include <timer.h>
 
 void timer_callback(struct interrupt_frame *frame);

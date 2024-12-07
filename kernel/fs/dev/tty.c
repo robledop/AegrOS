@@ -151,9 +151,6 @@ int tty_init(void)
         vfs_add_mount_point("/" DEV_DIRECTORY, -1, dev_dir);
     }
 
-    // tasks_sync_init(&tty_sync);
-    // tty_sync.dbg_name = "keyboard";
-
     struct inode *tty_device = {};
     if (dev_dir->ops->lookup(dev_dir, DEV_NAME, &tty_device) == ALL_OK) {
         return ALL_OK;

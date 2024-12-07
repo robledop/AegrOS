@@ -37,7 +37,6 @@ void debug_stats(void)
 {
     print_registers();
     stack_trace();
-    // kernel_heap_print_stats();
 }
 
 struct symbol debug_function_symbol_lookup(const elf32_addr address)

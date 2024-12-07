@@ -6,16 +6,6 @@
 #include <spinlock.h>
 #include <stdint.h>
 
-// Saved registers for kernel context switches.
-// Don't need to save all the segment registers (%cs, etc),
-// because they are constant across kernel contexts.
-// Don't need to save %eax, %ecx, %edx, because the
-// x86 convention is that the caller has saved them.
-// Contexts are stored at the bottom of the stack they
-// describe; the stack pointer is the address of the context.
-// The layout of the context matches the layout of the stack in swtch.S
-// at the "Switch stacks" comment. Switch doesn't save eip explicitly,
-// but it is on the stack and allocproc() manipulates it.
 struct context {
     uint32_t edi;
     uint32_t esi;
@@ -82,7 +72,7 @@ static struct cpu *cpu = nullptr;
 extern struct task *current_task;
 
 #define TASK_ONLY if (current_task != NULL)
-#define TIME_SLICE_SIZE (1 * 1000 * 1000ULL)
+#define TIME_SLICE_SIZE (10 * 1000 * 1000ULL)
 #define FL_IF 0x00000200 // Interrupt Enabled
 #define DPL_USER 0x3     // User DPL;
 

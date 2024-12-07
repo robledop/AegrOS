@@ -386,9 +386,8 @@ void scheduler(void)
             // Switch to chosen process.  It is the process's job
             // to release process_list.lock and then reacquire it
             // before jumping back to us.
-            // current_cpu->proc = p;
             current_task = p->thread;
-            // switch_uvm(p);
+
             pushcli();
             write_tss(5, KERNEL_DATA_SELECTOR, (uintptr_t)p->thread->kernel_stack + KERNEL_STACK_SIZE);
             paging_switch_directory(p->page_directory);
@@ -462,6 +461,7 @@ static void on_timer()
         exit();
     }
 
+    // If no one is holding the process_list lock, wake up the sleeping processes
     if (!holding(&process_list.lock)) {
         wakeup((void *)&timer_tick);
     }
