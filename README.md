@@ -5,7 +5,6 @@ Written in C23, so it requires a version of GCC that supports it.
 
 ## Documentation
 
-[Multi-tasking](docs/MULTITASKING.md)  
 [Things I learned](docs/THINGS_I_LEARNED.md)
 
 <details>
