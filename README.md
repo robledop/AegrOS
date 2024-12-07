@@ -1,4 +1,4 @@
-# OS (no name)
+# AegrOS
 
 Just a little operating system I'm developing for fun.  
 Written in C23, so it requires a version of GCC that supports it.
@@ -55,7 +55,7 @@ Written in C23, so it requires a version of GCC that supports it.
 - ✅ User programs
 - ✅ User shell
 - ✅ Serial
-- ☑️ User standard library (still in progress)
+- ☑️ User standard library (in progress)
 - ✅ Framebuffer text mode
 - ✅ TTY
 - ✅ PIT
