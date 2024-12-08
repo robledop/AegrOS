@@ -2,7 +2,7 @@
 #include <serial.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 
 void *sys_print(void)
 {
@@ -15,7 +15,7 @@ void *sys_print(void)
 
     char buffer[size];
 
-    copy_string_from_task(current_task, message, buffer, sizeof(buffer));
+    copy_string_from_thread(current_thread, message, buffer, sizeof(buffer));
 
     printf(buffer);
 

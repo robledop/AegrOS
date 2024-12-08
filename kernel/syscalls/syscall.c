@@ -3,7 +3,7 @@
 #include <process.h>
 #include <string.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 
 void register_syscalls()
 {
@@ -37,31 +37,30 @@ void register_syscalls()
     register_syscall(SYSCALL_MEMSTAT, sys_memstat);
 }
 
-//
-// /// @brief Get the pointer argument from the stack of the current task
-// /// @param index position of the argument in the stack
+/// @brief Get the pointer argument from the stack of the current task
+/// @param index position of the argument in the stack
 void *get_pointer_argument(const int index)
 {
-    return task_peek_stack_item(current_task, index);
+    return thread_peek_stack_item(current_thread, index);
 }
-//
-// /// @brief Get the int argument from the stack of the current task
-// /// @param index position of the argument in the stack
+
+/// @brief Get the int argument from the stack of the current task
+/// @param index position of the argument in the stack
 int get_integer_argument(const int index)
 {
-    return (int)task_peek_stack_item(current_task, index);
+    return (int)thread_peek_stack_item(current_thread, index);
 }
-//
-// /// @brief Get the int argument from the stack of the current task
-// /// @warning BEWARE: The string is allocated on the kernel heap and must be freed by the caller
-// /// @param index position of the argument in the stack
-// /// @param max_len maximum length of the string
+
+/// @brief Get the int argument from the stack of the current task
+/// @warning BEWARE: The string is allocated on the kernel heap and must be freed by the caller
+/// @param index position of the argument in the stack
+/// @param max_len maximum length of the string
 char *get_string_argument(const int index, const size_t max_len)
 {
     const void *ptr = get_pointer_argument(index);
     char *str       = kzalloc(max_len + 1);
 
-    copy_string_from_task(current_task, ptr, str, max_len);
+    copy_string_from_thread(current_thread, ptr, str, max_len);
     return (char *)str;
 }
 

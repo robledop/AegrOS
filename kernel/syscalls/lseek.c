@@ -1,7 +1,6 @@
 #include <syscall.h>
 #include <vfs.h>
 
-// int lseek(int fd, int offset, int whence);
 void *sys_lseek(void)
 {
     const int fd     = get_integer_argument(2);

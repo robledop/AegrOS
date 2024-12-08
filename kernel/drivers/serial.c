@@ -17,7 +17,6 @@ void serial_put(char a)
         return;
     }
 
-
     while ((inb(PORT + 5) & 0x20) == 0) {
     };
 

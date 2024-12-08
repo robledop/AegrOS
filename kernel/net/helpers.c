@@ -1,4 +1,3 @@
-#include <memory.h>
 #include <net/helpers.h>
 #include <string.h>
 

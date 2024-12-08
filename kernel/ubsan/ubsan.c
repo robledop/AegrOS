@@ -18,9 +18,9 @@
  */
 
 #include <kernel.h>
+#include <printf.h>
 #include <process.h>
-#include <task.h>
-#include <vga_buffer.h>
+#include <thread.h>
 
 #define UNDEFINED_BEHAVIOR 3
 struct undefined_behavior {
@@ -34,7 +34,7 @@ struct undefined_behavior {
 
 void scram(const int event, const struct undefined_behavior *info)
 {
-    struct task *current_task = get_current_task();
+    struct thread *current_task = get_current_thread();
     if (current_task && current_process()) {
         printf(KYEL "\nCurrent thread:" KWHT " %s (%d)\n", current_task->name, current_process()->pid);
     }

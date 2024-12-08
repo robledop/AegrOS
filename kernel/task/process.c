@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <debug.h>
 #include <elf.h>
 #include <idt.h>
@@ -12,16 +13,15 @@
 #include <status.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <task.h>
+#include <thread.h>
 #include <vfs.h>
-#include <x86.h>
 
 extern struct process_list process_list;
 
 struct process *current_process(void)
 {
     pushcli();
-    const struct task *current_task = get_current_task();
+    const struct thread *current_task = get_current_thread();
     if (current_task) {
         popcli();
         return current_task->process;
@@ -532,7 +532,7 @@ out:
 int process_load_for_slot(const char file_name[static 1], struct process **process, const uint16_t pid)
 {
     int res                     = 0;
-    struct task *thread         = nullptr;
+    struct thread *thread       = nullptr;
     struct process *proc        = nullptr;
     void *program_stack_pointer = nullptr;
 
@@ -675,7 +675,7 @@ void process_copy_arguments(struct process *dest, const struct process *src)
 
 void process_copy_thread(struct process *dest, const struct process *src)
 {
-    struct task *thread = thread_create(dest);
+    struct thread *thread = thread_create(dest);
     if (ISERR(thread)) {
         panic("Failed to create thread");
     }

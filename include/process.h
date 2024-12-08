@@ -1,7 +1,7 @@
 #pragma once
 
 #include <config.h>
-#include <task.h>
+#include <thread.h>
 
 #define PROCESS_FILE_TYPE_ELF 0
 #define PROCESS_FILE_TYPE_BINARY 1
@@ -41,7 +41,7 @@ struct process {
     char file_name[MAX_PATH_LENGTH];
     struct page_directory *page_directory;
     struct process *parent;
-    struct task *thread;
+    struct thread *thread;
     int wait_pid;
     int exit_code;
     bool killed;

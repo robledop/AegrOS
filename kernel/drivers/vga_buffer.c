@@ -1,14 +1,14 @@
-#include <assert.h>
 #include <config.h>
 #include <io.h>
 #include <memory.h>
 #include <printf.h>
 #include <spinlock.h>
-#include <stdarg.h>
 #include <string.h>
 #include <vga_buffer.h>
 
-#define BYTES_PER_CHAR 2 // 1 byte for character, 1 byte for attribute (color)
+#define VIDEO_MEMORY 0xB8000
+#define DEFAULT_ATTRIBUTE 0x07 // Light grey on black background
+#define BYTES_PER_CHAR 2       // 1 byte for character, 1 byte for attribute (color)
 #define SCREEN_SIZE (VGA_WIDTH * VGA_HEIGHT * BYTES_PER_CHAR)
 #define ROW_SIZE (VGA_WIDTH * BYTES_PER_CHAR)
 uint8_t attribute = DEFAULT_ATTRIBUTE;
@@ -96,40 +96,6 @@ static void cursor_down()
     update_cursor(cursor_y, cursor_x);
 }
 
-static void write_character(const uint8_t c, const int x, const int y)
-{
-    ASSERT(x < VGA_WIDTH, "X is out of bounds");
-    ASSERT(y < VGA_HEIGHT, "Y is out of bounds");
-
-    // Left arrow key
-    if (c == 228) {
-        cursor_x -= 2;
-        update_cursor(cursor_y, cursor_x);
-        return;
-    }
-
-    // Right arrow key
-    if (c == 229) {
-        update_cursor(cursor_y, cursor_x);
-        return;
-    }
-
-    // CTRL + F1
-    if (c == 232) {
-        // Switch to terminal 1
-        return;
-    }
-
-    // CTRL + F2
-    if (c == 233) {
-        // Switch to terminal 2
-        return;
-    }
-
-    vga_buffer_write(c, attribute, x, y);
-}
-
-
 uint16_t get_cursor_position(void)
 {
     uint16_t pos = 0;
@@ -159,10 +125,8 @@ void scroll_screen()
     update_cursor(cursor_y, cursor_x);
 }
 
-void vga_putchar(const char c, const uint8_t attr)
+void vga_putchar(const char c)
 {
-    attribute = attr == 0 ? DEFAULT_ATTRIBUTE : attr;
-
     switch (c) {
     case 0x08: // Backspace
         if (cursor_x > 0) {
@@ -171,7 +135,7 @@ void vga_putchar(const char c, const uint8_t attr)
                 cursor_x = VGA_WIDTH - 1;
                 cursor_y--;
             }
-            write_character(' ', cursor_x, cursor_y);
+            vga_buffer_write(' ', attribute, cursor_x, cursor_y);
         }
         break;
     case '\n': // Newline
@@ -187,7 +151,7 @@ void vga_putchar(const char c, const uint8_t attr)
         }
         break;
     default:
-        write_character(c, -1, -1);
+        vga_buffer_write(c, attribute, -1, -1);
         cursor_x++;
         if (cursor_x >= VGA_WIDTH) {
             cursor_x = 0;
@@ -208,7 +172,7 @@ void print(const char str[static 1])
 {
     const size_t len = strlen(str);
     for (size_t i = 0; i < len; i++) {
-        vga_putchar(str[i], attribute);
+        vga_putchar(str[i]);
     }
 }
 
@@ -218,7 +182,7 @@ void terminal_clear()
     cursor_y = 0;
     for (int y = 0; y < VGA_HEIGHT; y++) {
         for (int x = 0; x < VGA_WIDTH; x++) {
-            write_character(' ', x, y);
+            vga_buffer_write(' ', attribute, x, y);
         }
     }
 
@@ -243,7 +207,8 @@ void ansi_reset()
     param_count = 1;
 }
 
-bool param_process(int c)
+/// @brief Process parameters of an ANSI escape sequence
+bool param_process(const int c)
 {
     if (c >= '0' && c <= '9') {
         params[param_count - 1] = params[param_count - 1] * 10 + (c - '0');
@@ -271,8 +236,8 @@ bool param_process(int c)
         cursor_right();
         break;
     case 'H':
-        int row = params[0];
-        int col = params[1];
+        const int row = params[0];
+        const int col = params[1];
         update_cursor(row, col);
         break;
     case 'J':
@@ -281,6 +246,7 @@ bool param_process(int c)
             terminal_clear();
             break;
         default:
+            // Not implemented
             break;
         }
         break;
@@ -326,17 +292,17 @@ bool param_process(int c)
                 }
             }
         }
-
         break;
 
     default:
-        // panic("Escape sequence not implemented");
+        // Not implemented
     }
 
     return true;
 }
 
-bool handle_ansi_escape(int c)
+/// @brief Check if the character is part of an ANSI escape sequence and process its parameters
+bool handle_ansi_escape(const int c)
 {
     if (c == 0x1B) {
         ansi_reset();
@@ -361,10 +327,10 @@ bool handle_ansi_escape(int c)
     return false;
 }
 
-void putchar(char c)
+void putchar(const char c)
 {
     if (handle_ansi_escape(c)) {
         return;
     }
-    vga_putchar(c, attribute);
+    vga_putchar(c);
 }

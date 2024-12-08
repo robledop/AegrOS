@@ -1,13 +1,11 @@
-#include <assert.h>
 #include <kernel.h>
 #include <memory.h>
+#include <printf.h>
 #include <root_inode.h>
 #include <status.h>
-#include <task.h>
+#include <thread.h>
 #include <tty.h>
 #include <vfs.h>
-#include <vga_buffer.h>
-#include <x86.h>
 
 enum tty_mode {
     RAW,

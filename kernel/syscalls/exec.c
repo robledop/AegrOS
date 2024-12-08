@@ -5,7 +5,7 @@
 #include <spinlock.h>
 #include <string.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 #include <tss.h>
 #include <vfs.h>
 
@@ -19,17 +19,17 @@ void *sys_exec(void)
 {
     pushcli();
 
-    const void *path_ptr       = task_peek_stack_item(get_current_task(), 1);
-    void *argv_virtual_address = task_peek_stack_item(get_current_task(), 0);
+    const void *path_ptr       = thread_peek_stack_item(get_current_thread(), 1);
+    void *argv_virtual_address = thread_peek_stack_item(get_current_thread(), 0);
 
     char **argv_ptr = nullptr;
 
     if (argv_virtual_address) {
-        argv_ptr = thread_virtual_to_physical_address(get_current_task(), argv_virtual_address);
+        argv_ptr = thread_virtual_to_physical_address(get_current_thread(), argv_virtual_address);
     }
 
     char path[MAX_PATH_LENGTH] = {0};
-    copy_string_from_task(get_current_task(), path_ptr, path, sizeof(path));
+    copy_string_from_thread(get_current_thread(), path_ptr, path, sizeof(path));
 
     char *args[256] = {nullptr};
     if (argv_ptr) {
@@ -39,7 +39,7 @@ void *sys_exec(void)
                 break;
             }
             char *arg = kzalloc(256);
-            copy_string_from_task(get_current_task(), argv_ptr[i], arg, 256);
+            copy_string_from_thread(get_current_thread(), argv_ptr[i], arg, 256);
             args[i] = arg;
             argc++;
         }
@@ -93,7 +93,7 @@ void *sys_exec(void)
     strncpy(process->file_name, full_path, sizeof(process->file_name));
     process->user_stack = program_stack_pointer; // Physical address of the stack for the process
 
-    struct task *thread  = kzalloc(sizeof(struct task));
+    struct thread *thread  = kzalloc(sizeof(struct thread));
     thread->kernel_stack = old_kernel_stack;
     thread->trap_frame   = old_trap_frame;
     thread_init(thread, process);
@@ -110,7 +110,7 @@ void *sys_exec(void)
     write_tss(5, KERNEL_DATA_SELECTOR, (uintptr_t)process->thread->kernel_stack + KERNEL_STACK_SIZE);
     paging_switch_directory(process->page_directory);
 
-    current_task = process->thread;
+    current_thread = process->thread;
 
 
     popcli();

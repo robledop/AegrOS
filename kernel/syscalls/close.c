@@ -2,7 +2,6 @@
 #include <spinlock.h>
 #include <syscall.h>
 #include <vfs.h>
-#include <x86.h>
 
 struct spinlock close_lock = {};
 

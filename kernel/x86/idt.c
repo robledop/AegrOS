@@ -1,19 +1,18 @@
-#include "idt.h"
-
 #include <assert.h>
+#include <config.h>
 #include <debug.h>
+#include <idt.h>
+#include <kernel.h>
+#include <memory.h>
 #include <paging.h>
 #include <pic.h>
+#include <printf.h>
 #include <process.h>
+#include <serial.h>
+#include <status.h>
 #include <string.h>
-#include <task.h>
+#include <thread.h>
 #include <x86.h>
-#include "config.h"
-#include "kernel.h"
-#include "memory.h"
-#include "serial.h"
-#include "status.h"
-#include "vga_buffer.h"
 
 // https://wiki.osdev.org/Interrupt_Descriptor_Table
 typedef void (*INTERRUPT_HANDLER_FUNCTION)(void);
@@ -79,11 +78,11 @@ void interrupt_handler(struct interrupt_frame *frame)
 
     if (interrupt_callbacks[interrupt] != nullptr) {
         kernel_page();
-        if (current_task) {
-            current_task->trap_frame = frame;
+        if (current_thread) {
+            current_thread->trap_frame = frame;
         }
         interrupt_callbacks[interrupt](frame);
-        current_task_page();
+        current_thread_page();
     }
 }
 
@@ -118,8 +117,8 @@ void idt_set(const int interrupt, const INTERRUPT_HANDLER_FUNCTION handler, cons
 
 void idt_exception_handler(struct interrupt_frame *frame)
 {
-    current_task->trap_frame = frame;
-    int interrupt            = (int)frame->interrupt_number;
+    current_thread->trap_frame = frame;
+    int interrupt              = (int)frame->interrupt_number;
     // Page fault exception
     if (interrupt == 14) {
         const uint32_t faulting_address = read_cr2();
@@ -155,7 +154,7 @@ void idt_exception_handler(struct interrupt_frame *frame)
 
     debug_stats();
 
-    if (get_current_task()) {
+    if (get_current_thread()) {
         const int pid = current_process()->pid;
         char name[MAX_PATH_LENGTH];
         strncpy(name, current_process()->file_name, sizeof(name));
@@ -223,7 +222,7 @@ void syscall_handler(struct interrupt_frame *frame)
     const int syscall = (int)frame->eax;
     ASSERT(syscall >= 0 && syscall < MAX_SYSCALLS, "Invalid syscall");
 
-    current_task->trap_frame      = frame;
-    current_task->trap_frame->eax = (uint32_t)syscalls[syscall]();
-    current_task_page();
+    current_thread->trap_frame      = frame;
+    current_thread->trap_frame->eax = (uint32_t)syscalls[syscall]();
+    current_thread_page();
 }

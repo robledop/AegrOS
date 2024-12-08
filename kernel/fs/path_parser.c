@@ -6,7 +6,6 @@
 #include <status.h>
 #include <string.h>
 #include <vfs.h>
-#include <vga_buffer.h>
 #ifndef __KERNEL__
 #include <stdlib.h>
 #endif

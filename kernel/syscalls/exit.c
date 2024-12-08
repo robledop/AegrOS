@@ -1,7 +1,7 @@
 #include <kernel.h>
 #include <process.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 
 extern struct process_list process_list;
 
@@ -10,8 +10,8 @@ extern struct process_list process_list;
     // yield may still be holding the lock
     if (holding(&process_list.lock)) {
         current_process()->killed = true;
-        current_task->state       = TASK_STOPPED;
-        sched();
+        current_thread->state       = TASK_STOPPED;
+        switch_to_scheduler();
     }
 
     exit();

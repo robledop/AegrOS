@@ -17,7 +17,7 @@
 #include <root_inode.h>
 #include <serial.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 #include <timer.h>
 #include <vfs.h>
 #include <vga_buffer.h>
@@ -42,7 +42,6 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
     __builtin_unreachable();
 }
 
-
 void wait_for_network()
 {
     wait_for_network_start = timer_tick;
@@ -59,28 +58,9 @@ void wait_for_network()
 
 void idle()
 {
+    // ReSharper disable once CppDFAEndlessLoop
     while (true) {
-        // printf(KBMAG ".");
-        sti();
         hlt();
-    }
-}
-
-void yellow()
-{
-    for (int i = 0; i < 10; i++) {
-        // int i = 0;
-        // while (true) {
-        printf(KBYEL ".");
-    }
-}
-
-void cyan()
-{
-    for (int i = 0; i < 10; i++) {
-        // int i = 0;
-        // while (true) {
-        printf(KBCYN ".");
     }
 }
 
@@ -92,7 +72,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     init_serial();
     gdt_init();
 
-    // kernel_heap_init();
     display_grub_info(mbd, magic);
     paging_init();
 
@@ -101,7 +80,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     pit_init();
     timer_init(1000);
     init_symbols(mbd);
-    tasks_init();
+    threads_init();
     vfs_init();
     pci_scan();
     wait_for_network();
@@ -110,8 +89,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     register_syscalls();
     keyboard_init();
 
-    struct task *idle_task = create_task(idle, TASK_READY, "idle", KERNEL_MODE);
-    tasks_set_idle_task(idle_task);
+    struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
+    set_idle_thread(idle_task);
 
     start_shell(0);
 

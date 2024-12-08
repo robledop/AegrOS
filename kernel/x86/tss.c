@@ -1,6 +1,6 @@
-#include "tss.h"
-#include "gdt.h"
-#include "memory.h"
+#include <gdt.h>
+#include <memory.h>
+#include <tss.h>
 
 struct tss_entry tss_entry;
 

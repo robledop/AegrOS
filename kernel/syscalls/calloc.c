@@ -6,5 +6,5 @@ void *sys_calloc(void)
 {
     const int size  = get_integer_argument(0);
     const int nmemb = get_integer_argument(1);
-    return process_calloc(get_current_task()->process, nmemb, size);
+    return process_calloc(get_current_thread()->process, nmemb, size);
 }

@@ -103,6 +103,7 @@ trap_return:
 %assign i i+1
 %endrep
 
+; System call interrupt
 isr80h_wrapper:
     ; interrupt frame start
     ; already pushed by the processor:

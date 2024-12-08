@@ -1,7 +1,7 @@
 #include <printf.h>
 #include <string.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 #include <termcolors.h>
 
 // TODO: Re-implement this in userland using a device file

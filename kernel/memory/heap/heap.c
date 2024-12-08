@@ -132,7 +132,7 @@ static int heap_get_entry_type(const HEAP_BLOCK_TABLE_ENTRY entry)
 
 /// @param heap the heap to search in
 /// @param blocks_needed the number of blocks needed
-/// @return the block number of the first block that can hold the requested number of blocks
+/// @return the block number of the first block that can hold the requested number of blocks contiguously
 static int heap_get_start_block(const struct heap *heap, const uint32_t blocks_needed)
 {
     ASSERT(heap != nullptr);
@@ -172,7 +172,7 @@ static int heap_get_start_block(const struct heap *heap, const uint32_t blocks_n
     return start_block;
 }
 
-// Allocate a number of blocks in the heap
+/// @brief Allocate a number of contiguous blocks in the heap
 void *heap_malloc_blocks(const struct heap *heap, const uint32_t blocks_needed)
 {
     void *address         = nullptr;
@@ -213,7 +213,6 @@ void heap_mark_blocks_free(const struct heap *heap, const uint32_t start_block)
     for (size_t i = start_block; i < table->total; i++) {
         const HEAP_BLOCK_TABLE_ENTRY entry = table->entries[i];
         table->entries[i]                  = HEAP_BLOCK_FREE;
-        // printf(KBBLU "." KRESET);
 
         // If the block has no next block, stop
         if ((entry & HEAP_BLOCK_HAS_NEXT) != HEAP_BLOCK_HAS_NEXT) {
@@ -221,7 +220,6 @@ void heap_mark_blocks_free(const struct heap *heap, const uint32_t start_block)
         }
     }
 }
-
 
 // Convert an address to a block number
 uint32_t heap_address_to_block(const struct heap *heap, void *address)
@@ -254,6 +252,7 @@ void *heap_malloc(const struct heap *heap, const size_t size)
     return heap_malloc_blocks(heap, blocks_needed);
 }
 
+/// @brief Allocate a new block of memory in the heap and copy the contents of the old block to the new block
 void *heap_realloc(const struct heap *heap, void *ptr, const size_t size)
 {
     const size_t aligned_size    = heap_align_value_to_upper(size);

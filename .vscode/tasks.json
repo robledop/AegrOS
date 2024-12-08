@@ -4,7 +4,7 @@
     {
       "label": "Launch QEMU with GRUB",
       "type": "shell",
-      "command": "make clean && make qemu_grub"
+      "command": "make clean && make qemu_grub_debug"
     },
     {
       "label": "Launch QEMU without GRUB",

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #endif
 
-// This file is also included in the stdlib
+// This file is also included in the libc
 
 inline void reverse(char s[static 1])
 {

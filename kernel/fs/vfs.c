@@ -12,9 +12,8 @@
 #include <serial.h>
 #include <status.h>
 #include <string.h>
-#include <task.h>
+#include <thread.h>
 #include <vfs.h>
-
 
 extern int errno;
 struct mount_point *mount_points[MAX_MOUNT_POINTS];

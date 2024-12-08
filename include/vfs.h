@@ -10,7 +10,7 @@
 #include <path_parser.h>
 #include <stdint.h>
 #include <sys/stat.h>
-#include <task.h>
+#include <thread.h>
 #include <time.h>
 
 #define MAX_MOUNT_POINTS 10

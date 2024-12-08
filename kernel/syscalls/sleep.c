@@ -1,7 +1,7 @@
 #include <process.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 #include <timer.h>
 
 void *sys_sleep(void)

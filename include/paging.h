@@ -49,11 +49,12 @@ struct page_directory {
     uint32_t *directory_entry;
 };
 
+// Defined in paging.asm
+void enable_paging(void);
+
 struct page_directory *paging_create_directory(uint8_t flags);
 __attribute__((nonnull)) void paging_free_directory(struct page_directory *page_directory);
 __attribute__((nonnull)) void paging_switch_directory(const struct page_directory *directory);
-// Defined in paging.asm
-void enable_paging(void);
 __attribute__((nonnull)) uint32_t *paging_get_directory(const struct page_directory *directory);
 
 __attribute__((nonnull)) uint32_t paging_get(const struct page_directory *directory, void *virtual_address);

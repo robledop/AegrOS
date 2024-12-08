@@ -1,7 +1,7 @@
-#include "paging.h"
-// #include "debug.h"
 #include <assert.h>
 #include <kernel.h>
+#include <paging.h>
+#include <x86.h>
 
 
 #include "kernel_heap.h"
@@ -11,10 +11,7 @@
 // https://wiki.osdev.org/Paging
 
 struct page_directory *kernel_page_directory = nullptr;
-
-static uint32_t *current_page_directory = nullptr;
-// Defined in paging.asm
-void paging_load_directory(uint32_t *directory);
+static uint32_t *current_page_directory      = nullptr;
 
 bool paging_is_video_memory(const uint32_t address)
 {
@@ -85,7 +82,7 @@ void paging_switch_directory(const struct page_directory *directory)
         return;
     }
 
-    paging_load_directory(directory->directory_entry);
+    lcr3((uint32_t)directory->directory_entry);
     current_page_directory = directory->directory_entry;
 }
 
@@ -115,7 +112,7 @@ out:
     return res;
 }
 
-// Align the address to the next page
+/// @brief Align the address to the next page
 void *paging_align_address(void *address)
 {
     if (paging_is_aligned(address)) {
@@ -125,7 +122,7 @@ void *paging_align_address(void *address)
     return (void *)((uint32_t)address + PAGING_PAGE_SIZE - ((uint32_t)address % PAGING_PAGE_SIZE));
 }
 
-// Align the address to the lower page
+/// @brief Align the address to the lower page
 void *paging_align_to_lower_page(void *address)
 {
     return (void *)((uint32_t)address - ((uint32_t)address % PAGING_PAGE_SIZE));
@@ -209,7 +206,7 @@ void *paging_get_physical_address(const struct page_directory *directory, void *
     return (void *)((paging_get(directory, virt_address_new) & 0xFFFFF000) + (uint32_t)offset);
 }
 
-// Get the physical address of a page
+/// @brief Get the physical address of a page
 uint32_t paging_get(const struct page_directory *directory, void *virtual_address)
 {
     uint32_t directory_index = 0;

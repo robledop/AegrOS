@@ -1,5 +1,5 @@
-#include "pit.h"
-#include "io.h"
+#include <io.h>
+#include <pit.h>
 
 // https://wiki.osdev.org/Programmable_Interval_Timer
 

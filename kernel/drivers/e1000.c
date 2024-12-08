@@ -8,7 +8,6 @@
 #include <net/network.h>
 #include <printf.h>
 #include <serial.h>
-#include <vga_buffer.h>
 
 #define IRQ0 0x20
 

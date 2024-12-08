@@ -4,11 +4,8 @@
 #error "This is a kernel header, and should not be included in userspace"
 #endif
 
-#include <assert.h>
 #include <elf.h>
 #include <kernel.h>
-#include <stdarg.h>
-#include <vga_buffer.h>
 
 #define DEBUG_ASSERT
 

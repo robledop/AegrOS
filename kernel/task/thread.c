@@ -11,27 +11,27 @@
 #include <spinlock.h>
 #include <status.h>
 #include <string.h>
-#include <task.h>
+#include <thread.h>
 #include <timer.h>
 #include <tss.h>
 #include <x86.h>
 #include <x86gprintrin.h>
 
-void task_starting(void);
 extern void trap_return(void);
+static void on_timer();
+void thread_starting(void);
 
 struct process_list process_list;
-
 extern struct tss_entry tss_entry;
 extern struct page_directory *kernel_page_directory;
-
-struct task *current_task = nullptr;
-struct task *idle_task    = nullptr;
 static uint64_t instr_per_ns;
-static uint64_t last_time  = 0;
-static uint64_t idle_time  = 0;
-static uint64_t idle_start = 0;
+struct thread *current_thread = nullptr;
+struct thread *idle_thread    = nullptr;
+static uint64_t last_time     = 0;
+static uint64_t idle_time     = 0;
+static uint64_t idle_start    = 0;
 
+/// @brief Nanoseconds since boot
 uint64_t get_cpu_time_ns()
 {
     return (__rdtsc()) / instr_per_ns;
@@ -66,23 +66,25 @@ int get_processes(struct process_info **proc_info)
     return count;
 }
 
-void sched(void)
+/// @brief Switch to the scheduler context (the scheduler() function)
+void switch_to_scheduler(void)
 {
     ASSERT(holding(&process_list.lock));
     ASSERT(get_cpu()->ncli == 1);
-    ASSERT(get_current_task()->state != TASK_RUNNING);
-    ASSERT((read_eflags() & FL_IF) != FL_IF);
+    ASSERT(get_current_thread()->state != TASK_RUNNING);
+    ASSERT((read_eflags() & EFLAGS_IF) != EFLAGS_IF);
 
     const bool interrupts_enabled = get_cpu()->interrupts_enabled;
-    switch_context(&current_task->context, get_cpu()->scheduler);
+    switch_context(&current_thread->context, get_cpu()->scheduler);
     get_cpu()->interrupts_enabled = interrupts_enabled;
 }
 
-struct task *get_current_task(void)
+struct thread *get_current_thread(void)
 {
-    return current_task;
+    return current_thread;
 }
 
+/// @brief Try to discover how many instructions are executed per nanosecond
 static void discover_cpu_speed()
 {
     sti();
@@ -99,47 +101,45 @@ static void discover_cpu_speed()
     cli();
 }
 
-
-static void on_timer();
-
 static inline void stack_push_pointer(char **stack_pointer, const uintptr_t value)
 {
     *(uintptr_t *)stack_pointer -= sizeof(uintptr_t); // make room for a pointer
     **(uintptr_t **)stack_pointer = value;            // push the pointer onto the stack
 }
 
-struct task *create_task(void (*entry)(void), const enum task_state state, const char *name, enum task_mode mode)
+struct thread *thread_allocate(void (*entry)(void), const enum thread_state state, const char *name,
+                               enum thread_mode mode)
 {
-    struct task *new_task = kzalloc(sizeof(struct task));
-    if (new_task == NULL) {
-        panic("Unable to allocate memory for new task struct.");
+    struct thread *new_thread = kzalloc(sizeof(struct thread));
+    if (new_thread == NULL) {
+        panic("Unable to allocate memory for new thread struct.");
         return nullptr;
     }
 
     // ReSharper disable once CppDFAMemoryLeak
     uint8_t *kernel_stack = kzalloc(KERNEL_STACK_SIZE);
     if (kernel_stack == nullptr) {
-        kfree(new_task);
-        panic("Unable to allocate memory for new task stack.");
+        kfree(new_thread);
+        panic("Unable to allocate memory for new thread stack.");
         return nullptr;
     }
 
-    new_task->kernel_stack    = kernel_stack;
+    new_thread->kernel_stack  = kernel_stack;
     auto kernel_stack_pointer = (char *)(kernel_stack + KERNEL_STACK_SIZE);
 
     if (mode == USER_MODE) {
-        // When trap_return is called, it will use the trap frame to restore the state of the task and enter user mode
+        // When trap_return is called, it will use the trap frame to restore the state of the thread and enter user mode
         // so we need to change cs, ds, es, ss, eflags, esp, and eip to point to the program we want to run
-        kernel_stack_pointer -= sizeof(*new_task->trap_frame);
-        new_task->trap_frame = (struct interrupt_frame *)kernel_stack_pointer;
+        kernel_stack_pointer -= sizeof(*new_thread->trap_frame);
+        new_thread->trap_frame = (struct interrupt_frame *)kernel_stack_pointer;
 
-        new_task->trap_frame->cs     = USER_CODE_SELECTOR;
-        new_task->trap_frame->ds     = USER_DATA_SELECTOR;
-        new_task->trap_frame->es     = USER_DATA_SELECTOR;
-        new_task->trap_frame->ss     = USER_DATA_SELECTOR;
-        new_task->trap_frame->eflags = EFLAGS_IF;
-        new_task->trap_frame->esp    = USER_STACK_TOP;
-        new_task->trap_frame->eip    = PROGRAM_VIRTUAL_ADDRESS;
+        new_thread->trap_frame->cs     = USER_CODE_SELECTOR;
+        new_thread->trap_frame->ds     = USER_DATA_SELECTOR;
+        new_thread->trap_frame->es     = USER_DATA_SELECTOR;
+        new_thread->trap_frame->ss     = USER_DATA_SELECTOR;
+        new_thread->trap_frame->eflags = EFLAGS_IF;
+        new_thread->trap_frame->esp    = USER_STACK_TOP;
+        new_thread->trap_frame->eip    = PROGRAM_VIRTUAL_ADDRESS;
 
         stack_push_pointer(&kernel_stack_pointer, (uintptr_t)trap_return);
     } else if (mode == KERNEL_MODE) {
@@ -148,33 +148,35 @@ struct task *create_task(void (*entry)(void), const enum task_state state, const
         struct page_directory *page_directory = paging_create_directory(
             PAGING_DIRECTORY_ENTRY_IS_WRITABLE | PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR);
 
-        new_task->page_directory = page_directory;
+        new_thread->page_directory = page_directory;
     }
 
-    kernel_stack_pointer -= sizeof *new_task->context;
-    new_task->context = (struct context *)kernel_stack_pointer;
-    memset(new_task->context, 0, sizeof *new_task->context);
-    new_task->context->eip = (uintptr_t)task_starting;
+    kernel_stack_pointer -= sizeof *new_thread->context;
+    new_thread->context = (struct context *)kernel_stack_pointer;
+    memset(new_thread->context, 0, sizeof *new_thread->context);
+    new_thread->context->eip = (uintptr_t)thread_starting;
 
-    new_task->next      = nullptr;
-    new_task->state     = state;
-    new_task->time_used = 0;
-    new_task->name      = name;
-    return new_task;
+    new_thread->next      = nullptr;
+    new_thread->state     = state;
+    new_thread->time_used = 0;
+    new_thread->name      = name;
+    return new_thread;
 }
 
-void tasks_set_idle_task(struct task *task)
+void set_idle_thread(struct thread *thread)
 {
-    idle_task = task;
+    idle_thread = thread;
 }
 
-void task_starting(void)
+/// @brief Executed at the beginning of each thread
+/// It runs in the context of the thread
+void thread_starting(void)
 {
     // Still holding process_list.lock from scheduler.
     release(&process_list.lock);
 
     // We can run some initialization code here.
-    // This gets executed in the context of the new task.
+    // This gets executed in the context of the new thread.
 
     // Return to "caller", actually trap_return
 }
@@ -197,9 +199,9 @@ static void wakeup1(const void *chan)
         }
     }
 
-    if (current_task && current_task == idle_task) {
-        idle_task->state = TASK_READY;
-        sched();
+    if (current_thread && current_thread == idle_thread) {
+        idle_thread->state = TASK_READY;
+        switch_to_scheduler();
     }
 }
 
@@ -231,7 +233,7 @@ void exit(void)
 
     // Jump into the scheduler, never to return.
     curproc->thread->state = TASK_STOPPED;
-    sched();
+    switch_to_scheduler();
 
     panic("zombie exit");
 }
@@ -265,7 +267,7 @@ void sleep(void *chan, struct spinlock *lk)
     p->thread->wait_channel = chan;
     p->thread->state        = TASK_SLEEPING;
 
-    sched();
+    switch_to_scheduler();
 
     // Tidy up.
     p->thread->wait_channel = nullptr;
@@ -332,7 +334,7 @@ int kill(const int pid)
             }
             if (p == current_process()) {
                 p->thread->state = TASK_READY;
-                sched();
+                switch_to_scheduler();
             }
 
             release(&process_list.lock);
@@ -347,10 +349,10 @@ int kill(const int pid)
 void yield(void)
 {
     acquire(&process_list.lock);
-    get_current_task()->state     = TASK_READY;
-    get_current_task()->time_used = 0;
+    get_current_thread()->state     = TASK_READY;
+    get_current_thread()->time_used = 0;
 
-    sched();
+    switch_to_scheduler();
     release(&process_list.lock);
 }
 
@@ -359,7 +361,7 @@ void scheduler(void)
 {
     struct cpu *current_cpu = get_cpu();
     // current_cpu->proc       = nullptr;
-    current_task = nullptr;
+    current_thread = nullptr;
 
     // ReSharper disable once CppDFAEndlessLoop
     for (;;) {
@@ -386,7 +388,7 @@ void scheduler(void)
             // Switch to chosen process.  It is the process's job
             // to release process_list.lock and then reacquire it
             // before jumping back to us.
-            current_task = p->thread;
+            current_thread = p->thread;
 
             pushcli();
             write_tss(5, KERNEL_DATA_SELECTOR, (uintptr_t)p->thread->kernel_stack + KERNEL_STACK_SIZE);
@@ -402,18 +404,18 @@ void scheduler(void)
             // Process is done running for now.
             // It should have changed its p->state before coming back.
             // current_cpu->proc = 0;
-            current_task = nullptr;
+            current_thread = nullptr;
         }
 
         if (process_list.active_count == 0) {
-            if (idle_task) {
-                current_task        = idle_task;
-                current_task->state = TASK_RUNNING;
-                idle_start          = get_cpu_time_ns();
-                switch_context(&(current_cpu->scheduler), current_task->context);
+            if (idle_thread) {
+                current_thread        = idle_thread;
+                current_thread->state = TASK_RUNNING;
+                idle_start            = get_cpu_time_ns();
+                switch_context(&(current_cpu->scheduler), current_thread->context);
                 idle_start = idle_start - get_cpu_time_ns();
                 idle_time += idle_start;
-                current_task = nullptr;
+                current_thread = nullptr;
             }
         }
 
@@ -421,21 +423,21 @@ void scheduler(void)
     }
 }
 
-void tasks_update_time()
+void thread_update_time()
 {
     const uint64_t current_time = get_cpu_time_ns();
     const uint64_t delta        = current_time - last_time;
-    if (current_task == idle_task) {
+    if (current_thread == idle_thread) {
         idle_time += delta;
-    } else if (current_task) {
-        current_task->time_used += delta;
+    } else if (current_thread) {
+        current_thread->time_used += delta;
     }
     last_time = current_time;
 }
 
 static void on_timer()
 {
-    tasks_update_time();
+    thread_update_time();
 
     // if (process_list.count == 0) {
     //     start_shell(0);
@@ -452,7 +454,7 @@ static void on_timer()
     // Force process to give up CPU on clock tick.
     // If interrupts were on while locks held, would need to check nlock.
     if (current_process() && current_process()->thread->state == TASK_RUNNING &&
-        current_task->time_used >= TIME_SLICE_SIZE) {
+        current_thread->time_used >= TIME_SLICE_SIZE) {
         yield();
     }
 
@@ -467,16 +469,16 @@ static void on_timer()
     }
 }
 
-void *task_peek_stack_item(const struct task *task, const int index)
+void *thread_peek_stack_item(const struct thread *thread, const int index)
 {
-    const uintptr_t *stack_pointer = (uintptr_t *)task->trap_frame->esp;
-    current_task_page();
+    const uintptr_t *stack_pointer = (uintptr_t *)thread->trap_frame->esp;
+    current_thread_page();
     auto const result = (void *)stack_pointer[index];
     kernel_page();
     return result;
 }
 
-int copy_string_from_task(const struct task *task, const void *virtual, void *physical, const size_t max)
+int copy_string_from_thread(const struct thread *thread, const void *virtual, void *physical, const size_t max)
 {
     int res   = 0;
     char *tmp = kzalloc(max);
@@ -486,17 +488,17 @@ int copy_string_from_task(const struct task *task, const void *virtual, void *ph
         goto out;
     }
 
-    const uint32_t old_entry = paging_get(task->page_directory, tmp);
+    const uint32_t old_entry = paging_get(thread->page_directory, tmp);
 
-    paging_map(task->page_directory,
+    paging_map(thread->page_directory,
                tmp,
                tmp,
                PAGING_DIRECTORY_ENTRY_IS_WRITABLE | PAGING_DIRECTORY_ENTRY_IS_PRESENT |
                    PAGING_DIRECTORY_ENTRY_SUPERVISOR);
-    paging_switch_directory(task->page_directory);
+    paging_switch_directory(thread->page_directory);
     strncpy(tmp, virtual, max);
     kernel_page();
-    res = paging_set(task->page_directory, tmp, old_entry);
+    res = paging_set(thread->page_directory, tmp, old_entry);
     if (res < 0) {
         dbgprintf("Failed to set page\n");
         res = -EIO;
@@ -511,7 +513,7 @@ out:
     return res;
 }
 
-int thread_init(struct task *thread, struct process *process)
+int thread_init(struct thread *thread, struct process *process)
 {
     thread->process = process;
     thread->process->page_directory =
@@ -539,11 +541,11 @@ int thread_init(struct task *thread, struct process *process)
     return ALL_OK;
 }
 
-struct task *thread_create(struct process *process)
+struct thread *thread_create(struct process *process)
 {
     int res = 0;
 
-    struct task *thread = create_task(nullptr, TASK_READY, process->file_name, USER_MODE);
+    struct thread *thread = thread_allocate(nullptr, TASK_READY, process->file_name, USER_MODE);
 
     if (!thread) {
         panic("Failed to allocate memory for thread\n");
@@ -571,21 +573,20 @@ out:
     return thread;
 }
 
-void *thread_virtual_to_physical_address(const struct task *thread, void *virtual_address)
+void *thread_virtual_to_physical_address(const struct thread *thread, void *virtual_address)
 {
     return paging_get_physical_address(thread->process->page_directory, virtual_address);
 }
 
-
-void current_task_page()
+void current_thread_page()
 {
-    if (current_task) {
+    if (current_thread) {
         set_user_mode_segments();
-        paging_switch_directory(current_task->page_directory);
+        paging_switch_directory(current_thread->page_directory);
     }
 }
 
-void tasks_init(void)
+void threads_init(void)
 {
     cpu = kzalloc(sizeof(struct cpu));
     initlock(&process_list.lock, "process table");

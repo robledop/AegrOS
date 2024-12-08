@@ -1,5 +1,5 @@
 #include <syscall.h>
-#include <task.h>
+#include <thread.h>
 
 void *sys_yield(void)
 {

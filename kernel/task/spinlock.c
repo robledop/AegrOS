@@ -4,15 +4,13 @@
 #include <printf.h>
 #include <spinlock.h>
 #include <string.h>
-#include <task.h>
-#include <vfs.h>
+#include <thread.h>
 #include <x86.h>
 
 void initlock(struct spinlock *lk, char *name)
 {
     lk->name   = name;
     lk->locked = 0;
-    lk->cpu    = nullptr;
 }
 
 // Acquire the lock.
@@ -38,8 +36,6 @@ void acquire_(struct spinlock *lk, const char *file, int line)
     __sync_synchronize();
 
     // Record info about lock acquisition for debugging.
-    lk->cpu = get_cpu();
-
     memcpy(lk->file, file, strlen(file));
     lk->line = line;
 }
@@ -50,9 +46,6 @@ void release(struct spinlock *lk)
     if (!holding(lk)) {
         panic("release");
     }
-
-    lk->pcs[0] = 0;
-    lk->cpu    = nullptr;
 
     // Tell the C compiler and the processor to not move loads or stores
     // past this point, to ensure that all the stores in the critical
@@ -66,6 +59,7 @@ void release(struct spinlock *lk)
     // not be atomic. A real OS would use C atomics here.
     asm volatile("movl $0, %0" : "+m"(lk->locked) :);
     memset(lk->file, 0, 100);
+    lk->line = -1;
 
     popcli();
 }
@@ -74,7 +68,7 @@ void release(struct spinlock *lk)
 int holding(struct spinlock *lock)
 {
     pushcli();
-    const int r = lock->locked && lock->cpu == get_cpu();
+    const int r = lock->locked == 1;
     popcli();
     return r;
 }
@@ -89,14 +83,14 @@ void pushcli(void)
     cli();
     auto const cpu = get_cpu();
     if (cpu->ncli == 0) {
-        cpu->interrupts_enabled = eflags & FL_IF;
+        cpu->interrupts_enabled = eflags & EFLAGS_IF;
     }
     cpu->ncli += 1;
 }
 
 void popcli(void)
 {
-    if (read_eflags() & FL_IF) {
+    if (read_eflags() & EFLAGS_IF) {
         panic("popcli - interruptible");
     }
     auto const cpu = get_cpu();

@@ -39,6 +39,7 @@
 #ifndef PRINTF_H_
 #define PRINTF_H_
 
+#include <termcolors.h>
 #ifdef __cplusplus
 #include <cstdarg>
 #include <cstddef>

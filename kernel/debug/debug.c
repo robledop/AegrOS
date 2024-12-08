@@ -1,8 +1,8 @@
 #include <debug.h>
 #include <idt.h>
-#include <kernel_heap.h>
+#include <printf.h>
 #include <string.h>
-#include <task.h>
+#include <thread.h>
 #include <x86.h>
 
 void print_registers();
@@ -25,7 +25,7 @@ void stack_trace(void)
         auto const symbol = debug_function_symbol_lookup(stack->eip);
         printf("\t%#lx " KBWHT "[" KCYN "%s" KWHT " + %#lx" KBWHT "]\n" KWHT,
                stack->eip,
-               (symbol.name == NULL) ? "[unknown]" : symbol.name,
+               (symbol.name == nullptr) ? "[unknown]" : symbol.name,
                stack->eip - symbol.address);
         stack = stack->ebp;
     }
@@ -42,19 +42,19 @@ void debug_stats(void)
 struct symbol debug_function_symbol_lookup(const elf32_addr address)
 {
     if (!symtab_section_header) {
-        return (struct symbol){0, NULL};
+        return (struct symbol){0, nullptr};
     }
 
     auto const symbols_table = (struct elf32_sym *)symtab_section_header->sh_addr;
     if (!symbols_table) {
-        return (struct symbol){0, NULL};
+        return (struct symbol){0, nullptr};
     }
     const uint32_t symtab_entries = symtab_section_header->sh_size / sizeof(struct elf32_sym);
 
     const struct elf32_shdr *strtab_sh = &elf_section_headers[symtab_section_header->sh_link];
     auto const strtab_addr             = (char *)strtab_sh->sh_addr;
 
-    const struct elf32_sym *closest_func = NULL;
+    const struct elf32_sym *closest_func = nullptr;
     for (uint32_t i = 0; i < symtab_entries; i++) {
         const struct elf32_sym *sym = &symbols_table[i];
         if (sym->st_value == address) {
@@ -79,7 +79,7 @@ struct symbol debug_function_symbol_lookup(const elf32_addr address)
         return symbol;
     }
 
-    return (struct symbol){0, NULL};
+    return (struct symbol){0, nullptr};
 }
 
 void init_symbols(const multiboot_info_t *mbd)
@@ -106,7 +106,7 @@ void init_symbols(const multiboot_info_t *mbd)
 
 void print_registers()
 {
-    struct task *current_task     = get_current_task();
+    struct thread *current_task     = get_current_thread();
     struct interrupt_frame *frame = current_task->trap_frame;
     printf(KBWHT "Registers:\n" KWHT);
     printf("\tEAX: %#010lx", frame->eax);

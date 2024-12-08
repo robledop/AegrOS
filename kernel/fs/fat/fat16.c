@@ -385,55 +385,6 @@ error_out:
     return res;
 }
 
-void tests(const struct disk *disk)
-{
-
-    char data[] = "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! Hello, World! "
-                  "END OF FILE";
-
-    fat16_create_directory("/bin/test");
-    fat16_create_directory("/mydir");
-    fat16_create_directory("/mydir/test");
-
-    for (int i = 0; i < 5; i++) {
-        char path[MAX_PATH_LENGTH];
-        sprintf(path, "/mydir/file%d.txt", i);
-        fat16_create_file(path, data, (int)strlen(data));
-    }
-
-    fat16_create_file("/create.txt", data, (int)strlen(data));
-
-    fat16_load_root_directory(disk);
-}
-
 int fat16_resolve(struct disk *disk)
 {
     int res = 0;

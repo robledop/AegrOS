@@ -1,12 +1,9 @@
 #include <config.h>
-// #include <debug.h>
-#include <assert.h>
 #include <heap.h>
 #include <kernel.h>
 #include <kernel_heap.h>
 #include <memory.h>
 #include <printf.h>
-#include <serial.h>
 
 struct heap kernel_heap;
 struct heap_table kernel_heap_table;

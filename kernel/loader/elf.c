@@ -159,7 +159,7 @@ int elf_process_pheaders(struct elf_file *elf_file)
         const struct elf32_phdr *phdr = elf_program_header(header, i);
         res                           = elf_process_pheader(elf_file, phdr);
         if (res < 0) {
-            warningf("Failed to process program header %d\n", i);
+            panic("Failed to process program header\n");
             break;
         }
     }

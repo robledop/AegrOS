@@ -4,7 +4,6 @@
 #include <net/helpers.h>
 #include <net/icmp.h>
 #include <net/network.h>
-#include <serial.h>
 #include <string.h>
 
 const char *icmp_request_payload = "osdev icmp request payload";

@@ -11,6 +11,11 @@ uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 struct arp_cache_entry *arp_cache;
 
+void arp_init()
+{
+    arp_cache = kzalloc(sizeof(struct arp_cache_entry) * ARP_CACHE_SIZE);
+}
+
 void arp_cache_remove_expired_entries()
 {
     const uint32_t current_time = timer_tick;
@@ -45,11 +50,6 @@ void arp_cache_add(uint8_t ip[static 4], uint8_t mac[static 6])
             return;
         }
     }
-}
-
-void arp_init()
-{
-    arp_cache = kzalloc(sizeof(struct arp_cache_entry) * ARP_CACHE_SIZE);
 }
 
 void arp_receive_reply(uint8_t *packet)

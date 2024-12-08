@@ -27,5 +27,6 @@
     "pci.h": "c",
     "my_fat.h": "c"
   },
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "C_Cpp.default.cStandard": "gnu23"
 }

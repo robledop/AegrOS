@@ -2,7 +2,7 @@
 #include <net/dhcp.h>
 #include <net/helpers.h>
 #include <net/network.h>
-#include <vga_buffer.h>
+#include <printf.h>
 
 // TODO: This does not implement things that require the client to store state (like lease time)
 
@@ -40,7 +40,6 @@ void set_request_dhcp_options(uint8_t *options, uint8_t ip[4], uint8_t server_ip
     // Option 255: End of Options
     options[offset] = DHCP_OPT_END;
 }
-
 
 int dhcp_options_get_dns_servers(const uint8_t options[static DHCP_OPTIONS_LEN], uint32_t dns_servers[static 1],
                                  size_t *dns_server_count)
