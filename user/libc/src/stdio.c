@@ -10,31 +10,6 @@
 #include <sys/types.h>
 #include <syscall.h>
 
-// FAT Directory entry attributes
-#define FAT_FILE_READ_ONLY 0x01
-#define FAT_FILE_HIDDEN 0x02
-#define FAT_FILE_SYSTEM 0x04
-#define FAT_FILE_VOLUME_LABEL 0x08
-#define FAT_FILE_SUBDIRECTORY 0x10
-#define FAT_FILE_ARCHIVE 0x20
-#define FAT_FILE_LONG_NAME 0x0F
-
-struct fat_directory_entry {
-    uint8_t name[8];
-    uint8_t ext[3];
-    uint8_t attributes;
-    uint8_t reserved;
-    uint8_t creation_time_tenths;
-    uint16_t creation_time;
-    uint16_t creation_date;
-    uint16_t access_date;
-    uint16_t cluster_high;
-    uint16_t modification_time;
-    uint16_t modification_date;
-    uint16_t first_cluster;
-    uint32_t size;
-} __attribute__((packed));
-
 extern int errno;
 
 void clear_screen()
@@ -69,7 +44,6 @@ int write(int fd, const char *buffer, size_t size)
 
 void putchar(char c)
 {
-    // syscall1(SYSCALL_PUTCHAR, c);
     write(1, &c, 1);
 }
 
@@ -82,7 +56,6 @@ int lseek(int fd, int offset, int whence)
 {
     return syscall3(SYSCALL_LSEEK, fd, offset, whence);
 }
-
 
 DIR *opendir(const char *path)
 {
@@ -120,7 +93,7 @@ DIR *opendir(const char *path)
     return dirp;
 }
 
-#define BUFFER_SIZE 10240
+#define BUFFER_SIZE 1024
 struct dirent *readdir(DIR *dirp)
 {
     ASSERT(dirp != nullptr);
@@ -172,7 +145,6 @@ struct dirent *readdir(DIR *dirp)
     return &entry;
 }
 
-
 int closedir(DIR *dir)
 {
     if (dir == nullptr) {
@@ -198,15 +170,18 @@ char *getcwd()
 {
     return (char *)syscall0(SYSCALL_GETCWD);
 }
+
 // Set the current directory for the current process
 int chdir(const char path[static 1])
 {
     return syscall1(SYSCALL_CHDIR, path);
 }
+
 void exit()
 {
     syscall0(SYSCALL_EXIT);
 }
+
 int getkey()
 {
     int c = 0;
@@ -221,8 +196,6 @@ int getkey_blocking()
     while (key == 0) {
         key = getkey();
     }
-
-    __sync_synchronize();
 
     return key;
 }
@@ -247,8 +220,6 @@ int parse_mode(const char *mode_str, int *flags)
     return 0;
 }
 
-#define BUFSIZ 1024
-
 FILE *fopen(const char *pathname, const char *mode)
 {
     int flags;
@@ -271,7 +242,7 @@ FILE *fopen(const char *pathname, const char *mode)
     }
 
     stream->fd          = fd;
-    stream->buffer_size = BUFSIZ;
+    stream->buffer_size = BUFFER_SIZE;
     stream->buffer      = malloc(stream->buffer_size);
     if (!stream->buffer) {
         errno = ENOMEM;
@@ -287,7 +258,6 @@ FILE *fopen(const char *pathname, const char *mode)
 
     return stream;
 }
-
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
@@ -323,7 +293,6 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 
     return bytes_read / size;
 }
-
 
 int fclose(FILE *stream)
 {

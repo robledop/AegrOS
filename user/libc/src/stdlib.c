@@ -92,7 +92,6 @@ void memstat()
     syscall0(SYSCALL_MEMSTAT);
 }
 
-
 void abort(void)
 {
     syscall0(SYSCALL_EXIT);
