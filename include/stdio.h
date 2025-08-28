@@ -9,7 +9,12 @@
 #include <printf.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <termcolors.h>
+
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
 
 #define CURSOR_UP "\033[A"
 #define CURSOR_DOWN "\033[B"
@@ -61,7 +66,6 @@ int getkey(void);
 int getkey_blocking(void);
 char *getcwd(void);
 int chdir(const char path[static 1]);
-void exit(void);
 
 FILE *fopen(const char *pathname, const char *mode);
 int fstat(int fd, struct stat *stat);
@@ -74,9 +78,14 @@ int feof(FILE *stream);
 int ferror(FILE *stream);
 void clearerr(FILE *stream);
 bool isascii(int c);
+bool isprint(int c);
 
+ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+
+void perror(const char *s);
 
 int scanf(const char *format, ...);
+int sscanf(const char *str, const char *format, ...);
 int fscanf(FILE *stream, const char *format, ...);
 int fgetc(FILE *stream);
 int vfscanf(FILE *stream, const char *format, va_list args);
@@ -85,5 +94,7 @@ int getc();
 void rewind(FILE *stream);
 int ftell(FILE *stream);
 
+int fprintf(FILE *stream, const char *format, ...);
+int vfprintf(FILE *stream, const char *format, va_list args);
 
 void clear_screen(void);

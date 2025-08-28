@@ -516,3 +516,19 @@ int vfs_lseek(const int fd, const int offset, const enum FILE_SEEK_MODE whence)
 
     return desc->inode->ops->seek(desc, offset, whence);
 }
+
+int vfs_ioctl(struct process *current_process, int fd, int request, void *arg)
+{
+    struct file *desc;
+    if (current_process) {
+        desc = process_get_file_descriptor(current_process, fd);
+    } else {
+        desc = sys_get_file_descriptor(fd);
+    }
+    if (!desc) {
+        warningf("Invalid file descriptor\n");
+        return -EINVARG;
+    }
+
+    return desc->inode->ops->ioctl(desc, request, arg);
+}

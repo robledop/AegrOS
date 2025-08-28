@@ -1,9 +1,8 @@
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
 
-#define time_t int64_t
+#define time_t long long int
 
 struct tm {
     int tm_sec;   // seconds after the minute - [0, 60] including leap second
@@ -22,3 +21,4 @@ void unix_timestamp_to_tm(time_t timestamp, struct tm *tm);
 int days_in_month(int year, int month);
 int is_leap_year(int year);
 size_t strftime(const char *format, const struct tm *tm, char *buffer, size_t max);
+time_t time(time_t *timer);

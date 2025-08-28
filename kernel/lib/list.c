@@ -1,6 +1,7 @@
-// #include <debug.h>
 #include <assert.h>
 #include <list.h>
+
+// Taken from PintOS
 
 /** Our doubly linked lists have two header elements: the "head"
    just before the first element and the "tail" just after the

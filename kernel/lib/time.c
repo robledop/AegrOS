@@ -109,6 +109,11 @@ size_t strftime(const char *format, const struct tm *tm, char *buffer, size_t ma
     return written;
 }
 
+time_t time(long long int *time)
+{
+    return 0;
+}
+
 int days_in_month(const int year, const int month)
 {
     static const int month_days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};

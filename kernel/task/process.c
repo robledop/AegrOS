@@ -196,7 +196,7 @@ void process_free(struct process *process, void *ptr)
                                   allocation->ptr,
                                   allocation->ptr,
                                   paging_align_address((char *)allocation->ptr + allocation->size),
-                                  PAGING_DIRECTORY_ENTRY_UNMAPPED);
+                                  PDE_UNMAPPED);
 
     if (res < 0) {
         ASSERT(false, "Failed to unmap memory");
@@ -241,12 +241,12 @@ void *process_malloc(struct process *process, const size_t size)
         goto out_error;
     }
 
-    const int res = paging_map_to(process->page_directory,
-                                  ptr,
-                                  ptr,
-                                  paging_align_address((char *)ptr + size),
-                                  PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_IS_WRITABLE |
-                                      PAGING_DIRECTORY_ENTRY_SUPERVISOR); // TODO: Get rid of supervisor flag
+    const int res =
+        paging_map_to(process->page_directory,
+                      ptr,
+                      ptr,
+                      paging_align_address((char *)ptr + size),
+                      PDE_IS_PRESENT | PDE_IS_WRITABLE | PDE_SUPERVISOR); // TODO: Get rid of supervisor flag
     if (res < 0) {
         ASSERT(false, "Failed to map memory for process");
         goto out_error;
@@ -262,6 +262,26 @@ out_error:
         kfree(ptr);
     }
     return NULL;
+}
+
+void *process_realloc(struct process *process, void *ptr, const size_t size)
+{
+    struct process_allocation *allocation = process_get_allocation_by_address(process, ptr);
+    if (!allocation) {
+        ASSERT(false, "Failed to find allocation for address");
+        return NULL;
+    }
+
+    void *new_ptr = process_malloc(process, size);
+    if (!new_ptr) {
+        ASSERT(false, "Failed to allocate memory for reallocation");
+        return NULL;
+    }
+
+    memcpy(new_ptr, ptr, allocation->size);
+    process_free(process, ptr);
+
+    return new_ptr;
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
@@ -354,8 +374,7 @@ static int process_map_binary(const struct process *process)
                          (void *)PROGRAM_VIRTUAL_ADDRESS,
                          process->pointer,
                          paging_align_address((char *)process->pointer + process->size),
-                         PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_IS_WRITABLE |
-                             PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+                         PDE_IS_PRESENT | PDE_IS_WRITABLE | PDE_SUPERVISOR);
 }
 
 static int process_unmap_binary(const struct process *process)
@@ -364,7 +383,7 @@ static int process_unmap_binary(const struct process *process)
                          (void *)PROGRAM_VIRTUAL_ADDRESS,
                          process->pointer,
                          paging_align_address((char *)process->pointer + process->size),
-                         PAGING_DIRECTORY_ENTRY_UNMAPPED);
+                         PDE_UNMAPPED);
 }
 
 static int process_map_elf(struct process *process)
@@ -387,11 +406,10 @@ static int process_map_elf(struct process *process)
             return -ENOMEM;
         }
 
-        int flags =
-            PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR; // TODO: Get rid of supervisor
+        int flags = PDE_IS_PRESENT | PDE_SUPERVISOR; // TODO: Get rid of supervisor
 
         if (phdr->p_flags & PF_W) {
-            flags |= PAGING_DIRECTORY_ENTRY_IS_WRITABLE;
+            flags |= PDE_IS_WRITABLE;
         }
 
         res = paging_map_to(process->page_directory,
@@ -429,7 +447,7 @@ static int process_unmap_elf(const struct process *process)
                             paging_align_to_lower_page((void *)phdr->p_vaddr),
                             paging_align_to_lower_page(phdr_phys_address),
                             paging_align_address((char *)phdr_phys_address + phdr->p_memsz),
-                            PAGING_DIRECTORY_ENTRY_UNMAPPED);
+                            PDE_UNMAPPED);
         if (ISERR(res)) {
             ASSERT(false, "Failed to unmap ELF file");
             break;
@@ -461,8 +479,7 @@ int process_map_memory(struct process *process)
                         (char *)USER_STACK_BOTTOM, // stack grows down
                         process->user_stack,
                         paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
-                        PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_IS_WRITABLE |
-                            PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+                        PDE_IS_PRESENT | PDE_IS_WRITABLE | PDE_SUPERVISOR);
 
 
 out:
@@ -494,7 +511,7 @@ int process_unmap_memory(const struct process *process)
                         (char *)USER_STACK_BOTTOM, // stack grows down
                         process->user_stack,
                         paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
-                        PAGING_DIRECTORY_ENTRY_UNMAPPED);
+                        PDE_UNMAPPED);
     return res;
 }
 

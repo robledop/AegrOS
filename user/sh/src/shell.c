@@ -1,5 +1,6 @@
 #include "shell.h"
 #include <config.h>
+#include <errno.h>
 #include <os.h>
 #include <status.h>
 #include <stdio.h>
@@ -24,10 +25,15 @@ void rand_test();
 char *command_history[256];
 uint8_t history_index = 0;
 
+void exit_shell()
+{
+    exit(0);
+}
+
 const cmd commands[] = {
     {"cls",      clear_screen   },
     {"clear",    clear_screen   },
-    {"exit",     exit           },
+    {"exit",     exit_shell     },
     {"reboot",   reboot         },
     {"shutdown", shutdown       },
     {"help",     print_help     },
@@ -216,7 +222,7 @@ void rand_test()
     printf("\n");
     while (true) {
         char random[sizeof(int)];
-        read(&random, sizeof(int), 1, fd2);
+        read(fd2, &random, sizeof(int));
         printf("%s", random);
     }
     close(fd2);
@@ -296,7 +302,8 @@ int main(int argc, char **argv)
         const int pid = create_process((char *)buffer, current_directory);
         if (pid < 0) {
             printf("\nCommand: %s\n", (char *)buffer);
-            printf("Error: %s", get_error_message(pid));
+            errno = pid;
+            perror("Error: ");
         } else {
             if (return_immediately) {
                 continue;

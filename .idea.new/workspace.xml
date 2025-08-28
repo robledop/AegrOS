@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="BackendCodeEditorMiscSettings">
+    <option name="/Default/Environment/StickyLines/DisabledLanguageList/@EntryValue" value="Jupyter" type="string" />
+  </component>
+  <component name="CMakeRunConfigurationManager">
+    <generated>
+      <config projectName="AegrOS" targetName="iso" />
+      <config projectName="AegrOS" targetName="qemu_debug" />
+      <config projectName="AegrOS" targetName="qemu_grub_debug_no_net" />
+      <config projectName="AegrOS" targetName="apps" />
+      <config projectName="AegrOS" targetName="qemu_iso" />
+      <config projectName="AegrOS" targetName="qemu" />
+      <config projectName="AegrOS" targetName="apps_clean" />
+      <config projectName="AegrOS" targetName="FORCE" />
+      <config projectName="AegrOS" targetName="grub" />
+      <config projectName="AegrOS" targetName="test" />
+      <config projectName="AegrOS" targetName="qemu_grub" />
+      <config projectName="AegrOS" targetName="qemu_grub_debug" />
+      <config projectName="AegrOS" targetName="all" />
+    </generated>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="00485f7f-b299-4036-9018-b70eb381136b" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/include/ctype.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/errno.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/fcntl.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/signal.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/sys/ioctl.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/sys/time.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/include/termios.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kernel/syscalls/ioctl.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kernel/syscalls/realloc.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/.vscode/settings.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/LICENSE" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/Makefile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/TODO" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/linker.ld" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/kilo/src/kilo.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/libc/src/sys/ioctl.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/libc/src/termios.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user/libc/src/unistd.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gdbinit" beforeDir="false" afterPath="$PROJECT_DIR$/.gdbinit" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/customTargets.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/editor.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/editor.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/prettier.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/clean.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/grub.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_GDB.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_debug.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub_GDB.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub_LLDB.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub_debug.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub_debug_no_net.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/qemu_grub_no_net_GDB.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/multiboot.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/multiboot.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/paging.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/paging.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/process.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/process.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/status.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/status.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/stdio.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/stdio.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/stdlib.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/stdlib.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/string.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/string.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/syscall.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/syscall.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/time.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/time.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/unistd.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/unistd.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/vfs.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/vfs.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/debug/debug.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/debug/debug.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/fs/dev/tty.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/fs/dev/tty.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/fs/vfs.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/fs/vfs.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/lib/errno.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/lib/errno.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/lib/list.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/lib/list.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/lib/math.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/lib/math.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/lib/string.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/lib/string.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/lib/time.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/lib/time.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/main/kernel.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/main/kernel.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/memory/paging/paging.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/memory/paging/paging.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/syscalls/syscall.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/syscalls/syscall.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/task/process.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/task/process.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/task/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/task/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kernel/x86/idt.asm" beforeDir="false" afterPath="$PROJECT_DIR$/kernel/x86/idt.asm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/cat/src/cat.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/cat/src/cat.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/echo/src/echo.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/echo/src/echo.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/forktest/src/forktest.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/forktest/src/forktest.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/libc/src/start.asm" beforeDir="false" afterPath="$PROJECT_DIR$/user/libc/src/crt0.asm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/libc/src/start.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/libc/src/crt0.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/libc/src/stdio.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/libc/src/stdio.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/libc/src/stdlib.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/libc/src/stdlib.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/mkdir/src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/mkdir/src/mkdir.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/sh/src/shell.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/sh/src/shell.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user/touch/src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/user/touch/src/touch.c" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "robledop"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/robledop/AegrOS",
+    "accountId": "e6e10e22-f055-49dd-a6d0-963e8a4d4a90"
+  }
+}]]></component>
+  <component name="MakefileLocalSettings">
+    <option name="toolchainName" value="Cross gcc" />
+    <option name="availableProjects">
+      <map>
+        <entry>
+          <key>
+            <ExternalProjectPojo>
+              <option name="name" value="AegrOS" />
+              <option name="path" value="$PROJECT_DIR$" />
+            </ExternalProjectPojo>
+          </key>
+          <value>
+            <list>
+              <ExternalProjectPojo>
+                <option name="name" value="AegrOS" />
+                <option name="path" value="$PROJECT_DIR$" />
+              </ExternalProjectPojo>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="projectSyncType">
+      <map>
+        <entry key="$PROJECT_DIR$" value="RE_IMPORT" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectApplicationVersion">
+    <option name="ide" value="CLion" />
+    <option name="majorVersion" value="2025" />
+    <option name="minorVersion" value="2" />
+    <option name="productBranch" value="Classic" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="31tV0aYwrxfCD6pLL46IBlOz8ot" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+    <option name="showScratchesAndConsoles" value="false" />
+    <option name="showVisibilityIcons" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "master",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "MakefileSettings",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager" selected="Native Application.all">
+    <configuration default="true" type="BIBTEX_RUN_CONFIGURATION" factoryName="LaTeX configuration factory">
+      <texify-bibtex>
+        <compiler />
+        <compiler-path />
+        <compiler-arguments />
+        <envs />
+        <main-file />
+        <aux-dir />
+        <latex-distribution>PROJECT_SDK</latex-distribution>
+      </texify-bibtex>
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="FORCE" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="FORCE" CONFIG_NAME="FORCE" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="all" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="all" CONFIG_NAME="all" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="apps" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="apps" CONFIG_NAME="apps" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="apps_clean" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="apps_clean" CONFIG_NAME="apps_clean" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="grub" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="grub" CONFIG_NAME="grub" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="iso" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="iso" CONFIG_NAME="iso" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu" CONFIG_NAME="qemu" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu_debug" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu_debug" CONFIG_NAME="qemu_debug" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu_grub" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu_grub" CONFIG_NAME="qemu_grub" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu_grub_debug" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu_grub_debug" CONFIG_NAME="qemu_grub_debug" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu_grub_debug_no_net" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu_grub_debug_no_net" CONFIG_NAME="qemu_grub_debug_no_net" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="qemu_iso" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="qemu_iso" CONFIG_NAME="qemu_iso" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="test" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="AegrOS" TARGET_NAME="test" CONFIG_NAME="test" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="EXTERNAL_TOOL_RUN_CONFIGURATION" factoryName="LaTeX configuration factory">
+      <texify-external>
+        <program>PYTHONTEX</program>
+        <main-file />
+        <work-dir />
+        <envs />
+      </texify-external>
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="MAKEINDEX_RUN_CONFIGURATION" factoryName="LaTeX configuration factory">
+      <texify-makeindex>
+        <program>MAKEINDEX</program>
+        <main-file />
+        <command-line-args />
+        <work-dir />
+      </texify-makeindex>
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Native Application.all" />
+      <item itemvalue="Native Application.apps" />
+      <item itemvalue="Native Application.apps_clean" />
+      <item itemvalue="Native Application.FORCE" />
+      <item itemvalue="Native Application.grub" />
+      <item itemvalue="Native Application.iso" />
+      <item itemvalue="Native Application.qemu" />
+      <item itemvalue="Native Application.qemu_debug" />
+      <item itemvalue="Native Application.qemu_grub" />
+      <item itemvalue="Native Application.qemu_grub_debug" />
+      <item itemvalue="Native Application.qemu_iso" />
+      <item itemvalue="Native Application.test" />
+      <item itemvalue="Native Application.qemu_grub_debug_no_net" />
+    </list>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="00485f7f-b299-4036-9018-b70eb381136b" name="Changes" comment="" />
+      <created>1756343133919</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1756343133919</updated>
+      <workItem from="1756343136272" duration="93000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

@@ -144,3 +144,4 @@ int vfs_find_mount_point(const char *prefix);
 struct mount_point *vfs_get_mount_point(int index);
 int vfs_mkdir(const char *path);
 int vfs_lseek(int fd, int offset, enum FILE_SEEK_MODE whence);
+int vfs_ioctl(struct process *current_process, int fd, int request, void *arg);

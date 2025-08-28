@@ -4,10 +4,10 @@ QEMU=qemu-system-i386
 MEMORY=512
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=on,window-close=on,grab-on-hover=off
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
-CC=i686-elf-gcc
+CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 AS=nasm
-LD=i686-elf-ld
-OBJCOPY=i686-elf-objcopy
+LD=$(HOME)/opt/cross/bin/i686-elf-ld
+OBJCOPY=$(HOME)/opt/cross/bin/i686-elf-objcopy
 SRC_DIRS := $(shell find ./kernel -type d ! -path './kernel/boot')
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))
 $(shell mkdir -p $(BUILD_DIRS))
@@ -93,6 +93,7 @@ endif
 .PHONY: all
 # Build that uses my own 2-stage bootloader
 all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
+	./scripts/env.sh
 	./scripts/c_to_nasm.sh ./include $(AS_HEADERS)
 	rm -rf ./bin/disk.img
 	dd if=/dev/zero of=./bin/disk.img bs=512 count=65536
@@ -101,7 +102,7 @@ all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
 	dd if=./bin/stage2.bin of=./bin/disk.img bs=512 count=1 seek=1 conv=notrunc
 	dd if=./bin/kernel.bin of=./bin/disk.img bs=512 count=510 seek=2 conv=notrunc
 	sudo mount -t vfat ./bin/disk.img /mnt/d
-	#./scripts/generate-files.sh
+        #./scripts/generate-files.sh
 	sudo cp -r ./rootfs/. /mnt/d/
 	sudo umount /mnt/d
 

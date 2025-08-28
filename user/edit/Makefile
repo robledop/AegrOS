@@ -3,6 +3,7 @@ current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 # By default, the output file is the name of the directory
 OUTPUT = $(current_dir)
+CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 
 $(shell mkdir -p build)
 SRC_DIRS := $(shell find ./src -type d)
@@ -40,13 +41,13 @@ FLAGS = -g \
 FLAGS += -D__USER__
 
 all: $(FILES) ../libc
-	i686-elf-gcc -g -T ./linker.ld -o ../../rootfs/bin/$(OUTPUT) -ffreestanding -O0 -nostdlib -fpic -g $(FILES) ../libc/libc.a
+	$(CC) -g -T ./linker.ld -o ../../rootfs/bin/$(OUTPUT) -ffreestanding -O0 -nostdlib -fpic -g $(FILES) ../libc/libc.a
 
 ./build/%.asm.o: ./src/%.asm
 	nasm -f elf -g $< -o $@
 
 ./build/%.o: ./src/%.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 clean:
 	rm -rf ./build ../../rootfs/bin/$(OUTPUT)

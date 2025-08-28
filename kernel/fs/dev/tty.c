@@ -3,6 +3,7 @@
 #include <printf.h>
 #include <root_inode.h>
 #include <status.h>
+#include <termios.h>
 #include <thread.h>
 #include <tty.h>
 #include <vfs.h>
@@ -109,6 +110,35 @@ static int tty_close(void *descriptor)
 
 static int tty_ioctl(void *descriptor, int request, void *arg)
 {
+    switch (request) {
+    case TCGETS:
+        if (arg) {
+            struct termios *termios = (struct termios *)arg;
+            termios->c_iflag        = 0;
+            termios->c_oflag        = 0;
+            termios->c_cflag        = 0;
+            termios->c_lflag        = 0;
+            termios->c_line         = 0;
+
+            memset(termios->c_cc, 0, sizeof(termios->c_cc));
+        }
+        break;
+    case TCSETS:
+        if (arg) {
+            struct termios *termios = (struct termios *)arg;
+            if (termios->c_lflag & ICANON) {
+                tty.mode = CANONICAL;
+            } else {
+                tty.mode = RAW;
+            }
+        }
+        break;
+    case TCSANOW:
+        break;
+    default:
+        break;
+    }
+
     return 0;
 }
 

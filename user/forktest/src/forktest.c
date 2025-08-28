@@ -42,7 +42,7 @@ int main(const int argc, char **argv)
             printf("Fork failed\n");
         } else if (r == 0) {
             printf(KGRN "Forked child %d (pid:%d)\t" KWHT, i, getpid());
-            exit();
+            exit(0);
         } else {
             wait(nullptr);
             printf(KYEL "Parent of %d (pid:%d)\t" KWHT, i, getpid());
@@ -84,7 +84,7 @@ int main(const int argc, char **argv)
             printf("Fork failed\n");
         } else if (r == 0) {
             printf(KGRN "\tForked child %d (pid:%d)" KWHT, i, getpid());
-            exit();
+            exit(0);
         } else {
             // waitpid(r, nullptr);
             printf(KYEL "\tParent of %d (pid:%d)" KWHT, i, getpid());
@@ -127,14 +127,14 @@ int main(const int argc, char **argv)
             printf("Fork failed\n");
         } else if (r == 0) {
             printf(KGRN "\tForked child %d (pid:%d)" KWHT, i, getpid());
-            exit();
+            exit(0);
         } else {
             wait(nullptr);
             printf(KYEL "\tParent of %d (pid:%d)" KWHT, i, getpid());
         }
     }
 
-    exit();
+    exit(0);
 
     return 0;
 }

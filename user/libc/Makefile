@@ -1,5 +1,6 @@
 $(shell mkdir -p build)
 $(shell mkdir -p ../../rootfs/lib)
+CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 SRC_DIRS := $(shell find ./src -type d)
 BUILD_DIRS := $(patsubst ./src/%,./build/%,$(SRC_DIRS))
 $(shell mkdir -p $(BUILD_DIRS))
@@ -43,29 +44,29 @@ all: $(FILES) ./build/memory.o ./build/string.o ./build/printf.o ./build/math.o 
 	nasm -f elf -g $< -o $@
 
 ./build/%.o: ./src/%.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 # Files shared with the kernel
 ./build/memory.o: ../../kernel/lib/memory.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/string.o: ../../kernel/lib/string.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/printf.o: ../../kernel/lib/printf.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/math.o: ../../kernel/lib/math.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/time.o: ../../kernel/lib/time.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/assert.o: ../../kernel/lib/assert.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 ./build/errno.o: ../../kernel/lib/errno.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(CC) $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 clean:
 	rm -rf ./build  ./libc.a ../../rootfs/lib

@@ -40,13 +40,13 @@ FLAGS = -g \
 FLAGS += -D__USER__
 
 all: $(FILES)
-	i686-elf-gcc -g -T ./linker.ld -o ../../rootfs/bin/$(OUTPUT) -ffreestanding -O0 -nostdlib -fpic -g $(FILES) ../libc/libc.a
+	$(HOME)/opt/cross/bin/i686-elf-gcc -g -T ./linker.ld -o ../../rootfs/bin/$(OUTPUT) -ffreestanding -O0 -nostdlib -fpic -g $(FILES) ../libc/libc.a
 
 ./build/%.asm.o: ./src/%.asm
 	nasm -f elf -g $< -o $@
 
 ./build/%.o: ./src/%.c
-	i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
+	$(HOME)/opt/cross/bin/i686-elf-gcc $(INCLUDES) $(FLAGS) -std=gnu23 -c $< -o $@
 
 clean:
 	rm -rf ./build ../../rootfs/bin/$(OUTPUT)

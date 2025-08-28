@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <memory.h>
+#include <printf.h>
 #include <status.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,6 +10,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <syscall.h>
+#include <unistd.h>
 
 extern int errno;
 
@@ -22,26 +24,6 @@ int fstat(int fd, struct stat *stat)
     return syscall2(SYSCALL_STAT, fd, stat);
 }
 
-int open(const char name[static 1], const int mode)
-{
-    return syscall2(SYSCALL_OPEN, name, mode);
-}
-
-int close(int fd)
-{
-    return syscall1(SYSCALL_CLOSE, fd);
-}
-
-int read(void *ptr, unsigned int size, unsigned int nmemb, int fd)
-{
-    return syscall4(SYSCALL_READ, ptr, size, nmemb, fd);
-}
-
-int write(int fd, const char *buffer, size_t size)
-{
-    return syscall3(SYSCALL_WRITE, fd, buffer, size);
-}
-
 void putchar(char c)
 {
     write(1, &c, 1);
@@ -50,11 +32,6 @@ void putchar(char c)
 int mkdir(const char *path)
 {
     return syscall1(SYSCALL_MKDIR, path);
-}
-
-int lseek(int fd, int offset, int whence)
-{
-    return syscall3(SYSCALL_LSEEK, fd, offset, whence);
 }
 
 DIR *opendir(const char *path)
@@ -177,15 +154,11 @@ int chdir(const char path[static 1])
     return syscall1(SYSCALL_CHDIR, path);
 }
 
-void exit()
-{
-    syscall0(SYSCALL_EXIT);
-}
 
 int getkey()
 {
     int c = 0;
-    read(&c, 1, 1, 0); // Read from stdin
+    read(0, &c, 1); // Read from stdin
     return c;
 }
 
@@ -268,7 +241,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     while (bytes_read < total_bytes) {
         if (stream->bytes_available == 0) {
             // Buffer is empty; read from file
-            ssize_t n = read(stream->buffer, stream->buffer_size, 1, stream->fd);
+            ssize_t n = read(stream->fd, stream->buffer, stream->buffer_size);
             if (n == -1) {
                 stream->error = 1;
                 return bytes_read / size;
@@ -407,6 +380,26 @@ int ftell(FILE *stream)
     return lseek(stream->fd, 0, SEEK_CURRENT);
 }
 
+int vfprintf(FILE *stream, const char *format, va_list args)
+{
+    char buffer[1024];
+    int len = vsnprintf(buffer, sizeof(buffer), format, args);
+    if (len < 0) {
+        return len;
+    }
+
+    return fwrite(buffer, len, 1, stream);
+}
+
+int fprintf(FILE *stream, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int ret = vfprintf(stream, format, args);
+    va_end(args);
+    return ret;
+}
+
 void rewind(FILE *stream)
 {
     fseek(stream, 0, SEEK_SET);
@@ -415,7 +408,7 @@ void rewind(FILE *stream)
 int getc()
 {
     int c = 0;
-    read(&c, 1, 1, 0); // Read from stdin
+    read(STDIN_FILENO, &c, 1); // Read from stdin
     return c;
 }
 
@@ -534,6 +527,24 @@ int scanf(const char *format, ...)
     va_end(args);
     return ret;
 }
+int sscanf(const char *str, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    FILE stream = {
+        .fd              = -1,
+        .buffer_size     = 0,
+        .buffer          = (char *)str,
+        .pos             = 0,
+        .bytes_available = strlen(str),
+        .eof             = 0,
+        .error           = 0,
+        .mode            = O_RDONLY,
+    };
+    int ret = vfscanf(&stream, format, args);
+    va_end(args);
+    return ret;
+}
 
 int fscanf(FILE *stream, const char *format, ...)
 {
@@ -572,4 +583,65 @@ void clearerr(FILE *stream)
 bool isascii(int c)
 {
     return c >= 0 && c <= 127;
+}
+
+bool isprint(int c)
+{
+    return c >= 32 && c <= 126;
+}
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream)
+{
+    if (!lineptr || !n) {
+        errno = EINVARG;
+        return -1;
+    }
+
+    size_t size = 0;
+    char *line  = *lineptr;
+
+    if (!line) {
+        line = malloc(128);
+        if (!line) {
+            errno = ENOMEM;
+            return -1;
+        }
+        size = 128;
+    }
+
+    size_t i = 0;
+    int c;
+    while ((c = fgetc(stream)) != EOF) {
+        if (i >= size - 1) {
+            size *= 2;
+            char *new_line = realloc(line, size);
+            if (!new_line) {
+                free(line);
+                errno = ENOMEM;
+                return -1;
+            }
+            line = new_line;
+        }
+
+        line[i++] = c;
+        if (c == '\n') {
+            break;
+        }
+    }
+
+    if (c == EOF && i == 0) {
+        free(line);
+        return -1;
+    }
+
+    line[i]  = '\0';
+    *lineptr = line;
+    *n       = size;
+
+    return i;
+}
+
+void perror(const char *s)
+{
+    fprintf(stderr, "%s: %s\n", s, strerror(errno));
 }

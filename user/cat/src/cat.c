@@ -1,4 +1,5 @@
 #include <config.h>
+#include <errno.h>
 #include <os.h>
 #include <status.h>
 #include <stdio.h>
@@ -33,7 +34,8 @@ int main(const int argc, char **argv)
 
     if (fd <= 0) {
         printf("\nFailed to open file: %s", full_path);
-        printf("\nError: %s (%d)", get_error_message(fd), fd);
+        errno = fd;
+        perror("Error: ");
         return fd;
     }
 
@@ -41,15 +43,17 @@ int main(const int argc, char **argv)
     int res = fstat(fd, &s);
     if (res < 0) {
         printf("\nFailed to get file stat. File: %s", full_path);
-        printf("\nError: %s", get_error_message(res));
+        errno = res;
+        perror("Error: ");
         return res;
     }
 
     char *buffer = malloc(s.st_size + 1);
-    res          = read((void *)buffer, s.st_size, 1, fd);
+    res          = read(fd, (void *)buffer, s.st_size);
     if (res < 0) {
         printf("\nFailed to read file: %s", full_path);
-        printf("\nError: %s", get_error_message(res));
+        errno = res;
+        perror("Error: ");
         return res;
     }
     buffer[s.st_size] = 0x00;

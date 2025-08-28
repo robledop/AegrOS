@@ -146,7 +146,7 @@ struct thread *thread_allocate(void (*entry)(void), const enum thread_state stat
         stack_push_pointer(&kernel_stack_pointer, (size_t)entry);
 
         struct page_directory *page_directory = paging_create_directory(
-            PAGING_DIRECTORY_ENTRY_IS_WRITABLE | PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+            PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
 
         new_thread->page_directory = page_directory;
     }
@@ -493,8 +493,8 @@ int copy_string_from_thread(const struct thread *thread, const void *virtual, vo
     paging_map(thread->page_directory,
                tmp,
                tmp,
-               PAGING_DIRECTORY_ENTRY_IS_WRITABLE | PAGING_DIRECTORY_ENTRY_IS_PRESENT |
-                   PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+               PDE_IS_WRITABLE | PDE_IS_PRESENT |
+                   PDE_SUPERVISOR);
     paging_switch_directory(thread->page_directory);
     strncpy(tmp, virtual, max);
     kernel_page();
@@ -517,7 +517,7 @@ int thread_init(struct thread *thread, struct process *process)
 {
     thread->process = process;
     thread->process->page_directory =
-        paging_create_directory(PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+        paging_create_directory(PDE_IS_PRESENT | PDE_SUPERVISOR);
     thread->page_directory = thread->process->page_directory;
 
     ASSERT(thread->page_directory == thread->process->page_directory);

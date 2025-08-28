@@ -33,12 +33,14 @@
 #define ENOTSUP 15
 // Buffer full
 #define EBUFFULL 16
+// Not a typewriter
+#define ENOTTY 17
 
 // End of file
 #define EOF -1
 
 
-static inline char *get_error_message(const int error)
+static inline char *strerror(const int error)
 {
     switch (error) {
     case -EIO:

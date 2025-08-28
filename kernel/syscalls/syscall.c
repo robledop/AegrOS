@@ -11,6 +11,7 @@ void register_syscalls()
     register_syscall(SYSCALL_PUTCHAR, sys_putchar);
     register_syscall(SYSCALL_PRINT, sys_print);
     register_syscall(SYSCALL_MALLOC, sys_malloc);
+    register_syscall(SYSCALL_REALLOC, sys_realloc);
     register_syscall(SYSCALL_CALLOC, sys_calloc);
     register_syscall(SYSCALL_FREE, sys_free);
     register_syscall(SYSCALL_CREATE_PROCESS, sys_create_process);
@@ -35,6 +36,7 @@ void register_syscalls()
     register_syscall(SYSCALL_YIELD, sys_yield);
     register_syscall(SYSCALL_PS, sys_ps);
     register_syscall(SYSCALL_MEMSTAT, sys_memstat);
+    register_syscall(SYSCALL_IOCTL, sys_ioctl);
 }
 
 /// @brief Get the pointer argument from the stack of the current task

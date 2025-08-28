@@ -384,3 +384,26 @@ bool str_ends_with(const char *str, const char *suffix)
 
     return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
 }
+
+char *strstr(const char *haystack, const char *needle)
+{
+    if (*needle == '\0') {
+        return (char *)haystack;
+    }
+
+    for (; *haystack != '\0'; haystack++) {
+        if (*haystack == *needle) {
+            const char *h = haystack;
+            const char *n = needle;
+            while (*h == *n && *n != '\0') {
+                h++;
+                n++;
+            }
+            if (*n == '\0') {
+                return (char *)haystack;
+            }
+        }
+    }
+
+    return nullptr;
+}

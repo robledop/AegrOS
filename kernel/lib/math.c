@@ -292,20 +292,20 @@ int __popcountdi2(arith64_u64 a)
 }
 
 // Return the quotient of the unsigned division of a by b.
-arith64_u64 __udivdi3(arith64_u64 a, arith64_u64 b)
+arith64_u64 __udivdi3(arith64_u64 a, arith64_u64 b) // NOLINT(*-reserved-identifier)
 {
     return __divmoddi4(a, b, (void *)0);
 }
 
 // Return the remainder of the unsigned division of a by b.
-arith64_u64 __umoddi3(arith64_u64 a, arith64_u64 b)
+arith64_u64 __umoddi3(arith64_u64 a, arith64_u64 b) // NOLINT(*-reserved-identifier)
 {
     arith64_u64 r;
     __divmoddi4(a, b, &r);
     return r;
 }
 
-uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t *rem_p)
+uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t *rem_p) // NOLINT(*-reserved-identifier)
 {
     uint64_t quot = 0, qbit = 1;
 

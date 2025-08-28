@@ -8,6 +8,7 @@ enum SysCalls {
     SYSCALL_PRINT,
     SYSCALL_MALLOC,
     SYSCALL_CALLOC,
+    SYSCALL_REALLOC,
     SYSCALL_FREE,
     SYSCALL_CREATE_PROCESS,
     SYSCALL_FORK,
@@ -31,6 +32,7 @@ enum SysCalls {
     SYSCALL_YIELD,
     SYSCALL_PS,      // TODO: I should use a device file for this instead
     SYSCALL_MEMSTAT, // TODO: I should use a device file for this instead
+    SYSCALL_IOCTL,
 };
 
 #ifdef __KERNEL__
@@ -43,6 +45,7 @@ void *sys_getkey(void);
 void *sys_putchar(void);
 void *sys_print(void);
 void *sys_malloc(void);
+void *sys_realloc(void);
 void *sys_free(void);
 void *sys_create_process(void);
 void *sys_get_program_arguments(void);
@@ -67,6 +70,7 @@ void *sys_sleep(void);
 void *sys_yield(void);
 void *sys_ps(void);
 void *sys_memstat(void);
+void *sys_ioctl(void);
 
 void *get_pointer_argument(int index);
 int get_integer_argument(int index);

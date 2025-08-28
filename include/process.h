@@ -65,6 +65,7 @@ __attribute__((nonnull)) int process_load_for_slot(const char file_name[static 1
                                                    uint16_t pid);
 __attribute__((nonnull)) void *process_malloc(struct process *process, size_t size);
 __attribute__((nonnull)) void *process_calloc(struct process *process, size_t nmemb, size_t size);
+__attribute__((nonnull)) void *process_realloc(struct process *process, void *ptr, size_t size);
 __attribute__((nonnull)) void process_free(struct process *process, void *ptr);
 __attribute__((nonnull)) void process_get_arguments(struct process *process, int *argc, char ***argv);
 __attribute__((nonnull)) int process_inject_arguments(struct process *process,

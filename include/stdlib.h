@@ -4,13 +4,17 @@
 #error "This is a user-space header file. It should not be included in the kernel."
 #endif
 
+#include <memory.h>
 #include <stddef.h>
 #include <stdint.h>
+
+typedef void (*atexit_function)(void);
 
 enum PROCESS_STATE { RUNNING, ZOMBIE, WAITING, TERMINATED };
 
 void *malloc(size_t size);
 void *calloc(int number_of_items, int size);
+void *realloc(void *ptr, int size);
 __attribute__((nonnull)) void free(void *ptr);
 int waitpid(int pid, const int *return_status);
 int wait(const int *return_status);
@@ -24,3 +28,6 @@ void sleep(uint32_t milliseconds);
 void yield(void);
 void ps(void);
 void memstat();
+
+void exit(int status);
+int atexit(void (*function)(void));

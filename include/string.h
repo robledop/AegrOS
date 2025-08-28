@@ -30,3 +30,5 @@ char *strchr(const char *s, int c);
 uint32_t atoi(const char str[static 1]);
 bool starts_with(const char pre[static 1], const char str[static 1]);
 bool str_ends_with(const char *str, const char *suffix);
+
+char *strstr(const char *haystack, const char *needle);

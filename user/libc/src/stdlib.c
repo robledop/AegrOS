@@ -1,9 +1,12 @@
 #include <config.h>
+#include <errno.h>
 #include <os.h>
 #include <status.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syscall.h>
+
+extern atexit_function atexit_functions[32];
 
 void *malloc(size_t size)
 {
@@ -16,6 +19,11 @@ void *malloc(size_t size)
 void *calloc(const int number_of_items, const int size)
 {
     return (void *)syscall2(SYSCALL_CALLOC, number_of_items, size);
+}
+
+void *realloc(void *ptr, int size)
+{
+    return (void *)syscall2(SYSCALL_REALLOC, ptr, size);
 }
 
 void free(void *ptr)
@@ -91,6 +99,31 @@ void memstat()
 {
     syscall0(SYSCALL_MEMSTAT);
 }
+
+void exit(int status)
+{
+    for (int i = 0; i < 32; i++) {
+        if (atexit_functions[i] != nullptr) {
+            atexit_functions[i]();
+        }
+    }
+
+    errno = status;
+    syscall0(SYSCALL_EXIT);
+}
+
+int atexit(void (*function)())
+{
+    for (int i = 0; i < 32; i++) {
+        if (atexit_functions[i] == nullptr) {
+            atexit_functions[i] = function;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 
 void abort(void)
 {

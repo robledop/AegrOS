@@ -58,9 +58,7 @@ idt_load:
     global int%1
     int%1:
         ; List of interrupts that push an error code onto the stack
-        %if (%1 = 8) || (%1 = 10) || (%1 = 11) || (%1 = 12) || (%1 = 13) || (%1 = 14) || (%1 = 17) || (%1 = 18) || (%1 = 19)
-            ; Interrupt pushes error code
-        %else
+        %if (%1 != 8) && (%1 != 10) && (%1 != 11) && (%1 != 12) && (%1 != 13) && (%1 != 14) && (%1 != 17) && (%1 != 18) && (%1 != 19)
             ; No error code
             push dword 0
         %endif

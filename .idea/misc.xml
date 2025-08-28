@@ -9,7 +9,7 @@
       <MakefileProjectSettings>
         <option name="buildDirectory" value="" />
         <option name="buildOptions" value="--jobs 24" />
-        <option name="buildTarget" value="grub" />
+        <option name="buildTarget" value="qemu_grub_debug" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>

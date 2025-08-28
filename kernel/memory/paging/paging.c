@@ -46,7 +46,7 @@ struct page_directory *paging_create_directory(const uint8_t flags)
             table[j] = (offset + (j * PAGING_PAGE_SIZE)) | flags;
         }
         offset             = offset + (PAGING_ENTRIES_PER_TABLE * PAGING_PAGE_SIZE);
-        directory_entry[i] = (uint32_t)table | flags | PAGING_DIRECTORY_ENTRY_IS_WRITABLE;
+        directory_entry[i] = (uint32_t)table | flags | PDE_IS_WRITABLE;
     }
 
     struct page_directory *directory = kzalloc(sizeof(struct page_directory));
@@ -251,7 +251,7 @@ int paging_set(const struct page_directory *directory, void *virtual_address, co
 void paging_init()
 {
     kernel_page_directory = paging_create_directory(
-        PAGING_DIRECTORY_ENTRY_IS_WRITABLE | PAGING_DIRECTORY_ENTRY_IS_PRESENT | PAGING_DIRECTORY_ENTRY_SUPERVISOR);
+        PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
     paging_switch_directory(kernel_page_directory);
     enable_paging();
 }
