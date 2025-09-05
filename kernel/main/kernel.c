@@ -92,14 +92,14 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
     set_idle_thread(idle_task);
 
-    start_shell(0);
+    start_shell();
 
     scheduler();
 
     panic("Kernel terminated");
 }
 
-void start_shell(const int console)
+void start_shell()
 {
     struct process *process = nullptr;
     int res                 = process_load_enqueue("/bin/sh", &process);

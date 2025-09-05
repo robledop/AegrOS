@@ -10,7 +10,7 @@
 void kernel_main(const multiboot_info_t *mbd, uint32_t magic);
 void panic(const char *msg);
 void set_kernel_mode_segments(void);
-void start_shell(int console);
+void start_shell();
 void system_reboot(void);
 void system_shutdown(void);
 

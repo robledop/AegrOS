@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - -std=c23
+    - -Wall
+    - -Wextra
+    - -nostdlib
+    - -nostartfiles
+    - -nodefaultlibs
+    - -D__KERNEL__
+    - -I/home/robledo/source/osdev/AegrOS/include
+  Remove:
+    - -march=*
+    - -mcpu=*
