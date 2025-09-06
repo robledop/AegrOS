@@ -13,6 +13,7 @@ void *sys_print(void)
         return nullptr;
     }
 
+    // TODO: Remove the use of VLAs
     char buffer[size];
 
     copy_string_from_thread(current_thread, message, buffer, sizeof(buffer));

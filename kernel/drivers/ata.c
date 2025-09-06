@@ -130,7 +130,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
             }
             outw(ATA_PRIMARY_IO, word);
             // Tiny delay between writes
-            asm volatile("nop; nop; nop;");
+            __asm__ volatile("nop; nop; nop;");
         }
         outb(ATA_REG_CMD, ATA_CMD_CACHE_FLUSH);
         ata_wait_for_ready();

@@ -9,3 +9,4 @@ rootfs/testdir/
 *.img
 *.iso
 config.asm
+.cache/

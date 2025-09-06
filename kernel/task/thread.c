@@ -145,8 +145,8 @@ struct thread *thread_allocate(void (*entry)(void), const enum thread_state stat
     } else if (mode == KERNEL_MODE) {
         stack_push_pointer(&kernel_stack_pointer, (size_t)entry);
 
-        struct page_directory *page_directory = paging_create_directory(
-            PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
+        struct page_directory *page_directory =
+            paging_create_directory(PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
 
         new_thread->page_directory = page_directory;
     }
@@ -319,9 +319,7 @@ int wait(void)
     }
 }
 
-// Kill the process with the given pid.
-// Process won't exit until it returns
-// to user space (see trap in trap.c).
+// Kill the process with the given pid.  Process won't exit until it returns  to user space.
 int kill(const int pid)
 {
     acquire(&process_list.lock);
@@ -490,11 +488,7 @@ int copy_string_from_thread(const struct thread *thread, const void *virtual, vo
 
     const uint32_t old_entry = paging_get(thread->page_directory, tmp);
 
-    paging_map(thread->page_directory,
-               tmp,
-               tmp,
-               PDE_IS_WRITABLE | PDE_IS_PRESENT |
-                   PDE_SUPERVISOR);
+    paging_map(thread->page_directory, tmp, tmp, PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
     paging_switch_directory(thread->page_directory);
     strncpy(tmp, virtual, max);
     kernel_page();
@@ -515,10 +509,9 @@ out:
 
 int thread_init(struct thread *thread, struct process *process)
 {
-    thread->process = process;
-    thread->process->page_directory =
-        paging_create_directory(PDE_IS_PRESENT | PDE_SUPERVISOR);
-    thread->page_directory = thread->process->page_directory;
+    thread->process                 = process;
+    thread->process->page_directory = paging_create_directory(PDE_IS_PRESENT | PDE_SUPERVISOR);
+    thread->page_directory          = thread->process->page_directory;
 
     ASSERT(thread->page_directory == thread->process->page_directory);
     if (!thread->process->page_directory) {

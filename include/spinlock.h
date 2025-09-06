@@ -1,12 +1,13 @@
 #pragma once
 #include <stdint.h>
+#define NAME_LEN 25
 
 // Mutual exclusion lock.
 struct spinlock {
     uint32_t locked; // Is the lock held?
 
     // For debugging:
-    char *name; // Name of lock.
+    char name[NAME_LEN]; // Name of lock.
     char file[100];
     int line;
 };

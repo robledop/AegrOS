@@ -9,7 +9,7 @@
 
 void initlock(struct spinlock *lk, char *name)
 {
-    lk->name   = name;
+    strncpy(lk->name, name, sizeof(lk->name));
     lk->locked = 0;
 }
 
@@ -57,7 +57,7 @@ void release(struct spinlock *lk)
     // Release the lock, equivalent to lk->locked = 0.
     // This code can't use a C assignment, since it might
     // not be atomic. A real OS would use C atomics here.
-    asm volatile("movl $0, %0" : "+m"(lk->locked) :);
+    __asm__ volatile("movl $0, %0" : "+m"(lk->locked) :);
     memset(lk->file, 0, 100);
     lk->line = -1;
 
