@@ -427,6 +427,11 @@ static int process_map_elf(struct process *process)
         if (phdr->p_filesz > 0) {
             memcpy(phys_addr, (char *)elf_memory(elf_file) + phdr->p_offset, phdr->p_filesz);
         }
+
+        // Zero-initialize the BSS section (p_memsz > p_filesz)
+        if (phdr->p_memsz > phdr->p_filesz) {
+            memset((char *)phys_addr + phdr->p_filesz, 0, phdr->p_memsz - phdr->p_filesz);
+        }
     }
 
     return res;
@@ -441,7 +446,10 @@ static int process_unmap_elf(const struct process *process)
 
     for (int i = 0; i < header->e_phnum; i++) {
         const struct elf32_phdr *phdr = &phdrs[i];
-        void *phdr_phys_address       = elf_phdr_phys_address(elf_file, phdr);
+        if (phdr->p_type != PT_LOAD) {
+            continue; // Skip non-loadable segments
+        }
+        void *phdr_phys_address = elf_phdr_phys_address(elf_file, phdr);
 
         res = paging_map_to(process->page_directory,
                             paging_align_to_lower_page((void *)phdr->p_vaddr),
