@@ -9,7 +9,19 @@ void *sys_fork(void)
 {
     acquire(&fork_lock);
 
-    auto const child               = process_clone(current_process());
+    struct process *parent = current_process();
+    if (!parent) {
+        release(&fork_lock);
+        return (void *)-1;
+    }
+
+    auto const child = process_clone(parent);
+    if (!child) {
+        release(&fork_lock);
+        return (void *)-1; // Fork failed
+    }
+
+    // Set return value for child process
     child->thread->trap_frame->eax = 0;
 
     release(&fork_lock);
