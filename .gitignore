@@ -10,6 +10,7 @@ rootfs/testdir/
 *.iso
 config.asm
 .cache/
+.ccls-cache/
 
 .idea/**/workspace.xml
 .idea/**/tasks.xml
