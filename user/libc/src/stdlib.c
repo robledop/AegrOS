@@ -103,7 +103,7 @@ void memstat()
 void exit(int status)
 {
     for (int i = 0; i < 32; i++) {
-        if (atexit_functions[i] != nullptr) {
+        if (atexit_functions[i]) {
             atexit_functions[i]();
         }
     }
