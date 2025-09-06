@@ -346,6 +346,9 @@ int kill(const int pid)
 // Give up the CPU for one scheduling round.
 void yield(void)
 {
+    // BUG: yield is getting called again before the previous one is complete when we compile with -O3
+    // I believe this happens when there are more than 2 threads running. It switches threads twice (or more) and
+    // so the lock remains active.
     acquire(&process_list.lock);
     get_current_thread()->state     = TASK_READY;
     get_current_thread()->time_used = 0;

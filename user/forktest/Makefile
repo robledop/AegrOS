@@ -16,7 +16,7 @@ FILES := $(ASM_OBJS) $(C_OBJS)
 INCLUDES = -I./ -I../../include
 FLAGS = -g \
 	-ffreestanding \
-	-O0 \
+	-O3 \
 	-nostdlib \
 	-falign-jumps \
 	-falign-functions \

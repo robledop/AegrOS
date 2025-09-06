@@ -2,8 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+void at_exit()
+{
+    printf("Finished\n");
+}
+
 int main(const int argc, char **argv)
 {
+    atexit(at_exit);
     printf("\n exec\n");
 
     printf(KBRED "\n##################################\n"
@@ -36,7 +42,7 @@ int main(const int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 10; i++) {
         const int r = fork();
         if (r < 0) {
             printf("Fork failed\n");
@@ -44,7 +50,7 @@ int main(const int argc, char **argv)
             exit(0);
             printf(KGRN "Forked child %d (pid:%d)\t" KWHT, i, getpid());
         } else {
-            // wait(nullptr);
+            wait(nullptr);
             printf(KYEL "Parent of %d (pid:%d)\t" KWHT, i, getpid());
         }
     }
@@ -68,7 +74,7 @@ int main(const int argc, char **argv)
         printf(KYEL "\nAfter forking. Parent of %d (pid:%d)", rc, getpid());
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 10; i++) {
         const char *current_directory = getcwd();
         printf("\n create_process: %d", i);
         const int pid = create_process((char *)"echo lalala", current_directory);
@@ -78,7 +84,7 @@ int main(const int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 10; i++) {
         const int r = fork();
         if (r < 0) {
             printf("Fork failed\n");
@@ -90,7 +96,6 @@ int main(const int argc, char **argv)
             printf(KYEL "\tParent of %d (pid:%d)" KWHT, i, getpid());
         }
     }
-
 
     printf(KBRED "\n##################################\n"
                  "Tests without wait()\n"

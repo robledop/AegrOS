@@ -19,7 +19,7 @@ struct cpu {
     int ncli;                  // Depth of pushcli nesting.
 
     bool interrupts_enabled; // Were interrupts enabled before pushcli?
-    struct process *proc;    // The process running on this cpu or null
+    // struct process *proc;    // The process running on this cpu or null
 };
 
 enum thread_state {

@@ -643,5 +643,5 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 
 void perror(const char *s)
 {
-    fprintf(stderr, "%s: %s\n", s, strerror(errno));
+    printf("%s %s\n", s, strerror(errno));
 }

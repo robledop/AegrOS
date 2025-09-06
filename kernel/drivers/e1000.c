@@ -11,7 +11,6 @@
 
 #define IRQ0 0x20
 
-
 void e1000_receive();
 bool e1000_start();
 void e1000_linkup();
@@ -112,7 +111,6 @@ bool e1000_read_mac_address()
 
 void e1000_rx_init()
 {
-    // ReSharper disable once CppDFAMemoryLeak
     const uint8_t *ptr = (uint8_t *)(kmalloc(sizeof(struct e1000_rx_desc) * E1000_RX_RING_SIZE + 16));
 
     const struct e1000_rx_desc *descs = (struct e1000_rx_desc *)ptr;
@@ -138,7 +136,6 @@ void e1000_rx_init()
 
 void e1000_tx_init()
 {
-    // ReSharper disable once CppDFAMemoryLeak
     const uint8_t *ptr = (uint8_t *)(kmalloc(sizeof(struct e1000_tx_desc) * E1000_TX_RING_SIZE + 16));
 
     const struct e1000_tx_desc *descs = (struct e1000_tx_desc *)ptr;

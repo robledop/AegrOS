@@ -90,7 +90,6 @@ void icmp_receive(uint8_t *packet, const uint16_t len)
             //           icmp_header->sequence / 256);
 
             icmp_send_echo_reply(packet, len);
-
             icmp_send_echo_request((uint8_t[]){192, 168, 0, 1}, icmp_header->sequence);
         }
         break;

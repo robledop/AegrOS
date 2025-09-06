@@ -115,8 +115,8 @@ void network_receive(uint8_t *packet, const uint16_t len)
         arp_receive(packet);
         break;
     case ETHERTYPE_IP:
-        const struct ipv4_header *ipv4_header = (struct ipv4_header *)(packet + sizeof(struct ether_header));
-        const uint8_t protocol                = ipv4_header->protocol;
+        auto ipv4_header       = (struct ipv4_header *)(packet + sizeof(struct ether_header));
+        const uint8_t protocol = ipv4_header->protocol;
         switch (protocol) {
         case IP_PROTOCOL_ICMP:
             if (my_ip_address && network_compare_ip_addresses(ipv4_header->dest_ip, my_ip_address)) {
@@ -126,8 +126,7 @@ void network_receive(uint8_t *packet, const uint16_t len)
         case IP_PROTOCOL_TCP:
             break;
         case IP_PROTOCOL_UDP:
-            struct udp_header *udp_header =
-                (struct udp_header *)(packet + sizeof(struct ether_header) + sizeof(struct ipv4_header));
+            auto udp_header = (struct udp_header *)(packet + sizeof(struct ether_header) + sizeof(struct ipv4_header));
 
             if (udp_header->dest_port == htons(DHCP_SOURCE_PORT)) {
                 dhcp_receive(packet);

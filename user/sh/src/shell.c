@@ -303,7 +303,7 @@ int main(int argc, char **argv)
         if (pid < 0) {
             printf("\nCommand: %s\n", (char *)buffer);
             errno = pid;
-            perror("Error: ");
+            perror("Error:");
         } else {
             if (return_immediately) {
                 continue;

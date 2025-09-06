@@ -33,27 +33,27 @@ int main(const int argc, char **argv)
     }
 
     if (fd <= 0) {
-        printf("\nFailed to open file: %s", full_path);
+        printf("\nFailed to open file: %s\n", full_path);
         errno = fd;
-        perror("Error: ");
+        perror("Error:");
         return fd;
     }
 
     struct stat s;
     int res = fstat(fd, &s);
     if (res < 0) {
-        printf("\nFailed to get file stat. File: %s", full_path);
+        printf("\nFailed to get file stat. File: %s\n", full_path);
         errno = res;
-        perror("Error: ");
+        perror("Error");
         return res;
     }
 
     char *buffer = malloc(s.st_size + 1);
     res          = read(fd, (void *)buffer, s.st_size);
     if (res < 0) {
-        printf("\nFailed to read file: %s", full_path);
+        printf("\nFailed to read file: %s\n", full_path);
         errno = res;
-        perror("Error: ");
+        perror("Error");
         return res;
     }
     buffer[s.st_size] = 0x00;
