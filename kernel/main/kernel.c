@@ -19,6 +19,7 @@
 #include <syscall.h>
 #include <thread.h>
 #include <timer.h>
+#include <vbe.h>
 #include <vfs.h>
 #include <vga_buffer.h>
 #include <x86.h>
@@ -75,6 +76,13 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     init_symbols(mbd);
     display_grub_info(mbd, magic);
+
+    vbe_info->height      = mbd->framebuffer_height;
+    vbe_info->width       = mbd->framebuffer_width;
+    vbe_info->bpp         = mbd->framebuffer_bpp;
+    vbe_info->pitch       = mbd->framebuffer_pitch;
+    vbe_info->framebuffer = mbd->framebuffer_addr;
+
     paging_init();
 
     idt_init();
@@ -92,6 +100,10 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
     set_idle_thread(idle_task);
+
+    // Initialize video and clear screen
+    clear_screen(0xFF5555AA);
+    // simple_test_screen();
 
     start_shell();
 
@@ -123,6 +135,13 @@ void display_grub_info(const multiboot_info_t *mbd, const unsigned int magic)
 #ifdef GRUB
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         panic("invalid magic number!");
+    }
+
+    if (mbd->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
+        printf("[ " KBGRN "INFO" KWHT " ] Framebuffer info available\n");
+        printf("[ " KBGRN "INFO" KWHT " ] Type: %d (0=indexed, 1=RGB, 2=EGA text)\n", mbd->framebuffer_type);
+    } else {
+        printf("[ " KBYEL "WARN" KWHT " ] No framebuffer info from GRUB\n");
     }
 
     /* Check bit 6 to see if we have a valid memory map */

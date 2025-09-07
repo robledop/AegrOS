@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/include/gui.h">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/include/gui.h" />
+              <option name="updatedContent" value="#pragma once&#10;&#10;#include &lt;stdint.h&gt;&#10;#include &lt;vbe.h&gt;&#10;&#10;// Basic color type for 32-bit RGBA&#10;typedef struct {&#10;    uint8_t b, g, r, a;  // BGRA format (common in framebuffers)&#10;} color_t;&#10;&#10;// Basic GUI context&#10;typedef struct {&#10;    uint32_t *framebuffer;  // Virtual address of framebuffer&#10;    uint32_t width;&#10;    uint32_t height;&#10;    uint32_t pitch;         // Bytes per row&#10;    uint8_t bpp;            // Bits per pixel&#10;    uint8_t bytes_per_pixel;&#10;    bool initialized;&#10;} gui_context_t;&#10;&#10;// Color constants&#10;#define COLOR_BLACK   ((color_t){0, 0, 0, 255})&#10;#define COLOR_WHITE   ((color_t){255, 255, 255, 255})&#10;#define COLOR_RED     ((color_t){0, 0, 255, 255})&#10;#define COLOR_GREEN   ((color_t){0, 255, 0, 255})&#10;#define COLOR_BLUE    ((color_t){255, 0, 0, 255})&#10;#define COLOR_GRAY    ((color_t){128, 128, 128, 255})&#10;&#10;// Function declarations&#10;int gui_init(void);&#10;void gui_clear_screen(color_t color);&#10;void gui_put_pixel(int x, int y, color_t color);&#10;void gui_draw_rect(int x, int y, int width, int height, color_t color);&#10;void gui_draw_filled_rect(int x, int y, int width, int height, color_t color);&#10;uint32_t color_to_pixel(color_t color);&#10;gui_context_t* gui_get_context(void);" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
