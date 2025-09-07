@@ -22,7 +22,7 @@ void timer_init(const uint32_t freq)
     idt_register_interrupt_callback(0x20, timer_callback);
 }
 
-void timer_callback(struct interrupt_frame *frame)
+void timer_callback([[maybe_unused]] struct interrupt_frame *frame)
 {
     acquire(&tickslock);
     timer_tick++;

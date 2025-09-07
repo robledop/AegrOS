@@ -250,8 +250,7 @@ int paging_set(const struct page_directory *directory, void *virtual_address, co
 
 void paging_init()
 {
-    kernel_page_directory = paging_create_directory(
-        PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
+    kernel_page_directory = paging_create_directory(PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
     paging_switch_directory(kernel_page_directory);
     enable_paging();
 }

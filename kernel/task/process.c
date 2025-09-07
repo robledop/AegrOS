@@ -192,11 +192,8 @@ void process_free(struct process *process, void *ptr)
         return;
     }
 
-    const int res = paging_map_to(process->page_directory,
-                                  allocation->ptr,
-                                  allocation->ptr,
-                                  paging_align_address((char *)allocation->ptr + allocation->size),
-                                  PDE_UNMAPPED);
+    const int res = paging_map_to(
+        process->page_directory, ptr, ptr, paging_align_address((char *)ptr + allocation->size), PDE_UNMAPPED);
 
     if (res < 0) {
         ASSERT(false, "Failed to unmap memory");

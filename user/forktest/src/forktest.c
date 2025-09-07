@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define ITERATIONS 10
+
 void at_exit()
 {
     printf("Finished\n");
 }
 
-int main(const int argc, char **argv)
+int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
 {
     atexit(at_exit);
     printf("\n exec\n");
@@ -32,7 +34,7 @@ int main(const int argc, char **argv)
         printf(KYEL "\nAfter forking. Parent of %d (pid:%d)", rc, getpid());
     }
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         char *current_directory = getcwd();
         printf("create_process: %d", i);
         const int pid = create_process((char *)"echo lalala", current_directory);
@@ -42,7 +44,7 @@ int main(const int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         const int r = fork();
         if (r < 0) {
             printf("Fork failed\n");
@@ -68,23 +70,23 @@ int main(const int argc, char **argv)
         printf("Child will exec blank.elf" KWHT " ");
         exec("/bin/blank.elf", nullptr);
 
-        printf("This should not be printed\n");
+        printf("THIS SHOULD NOT BE PRINTED\n");
     } else {
         // waitpid(rc, nullptr);
         printf(KYEL "\nAfter forking. Parent of %d (pid:%d)", rc, getpid());
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         const char *current_directory = getcwd();
         printf("\n create_process: %d", i);
         const int pid = create_process((char *)"echo lalala", current_directory);
         if (pid < 0) {
         } else {
-            waitpid(pid, nullptr);
+            // waitpid(pid, nullptr);
         }
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         const int r = fork();
         if (r < 0) {
             printf("Fork failed\n");
@@ -110,13 +112,13 @@ int main(const int argc, char **argv)
         printf("Child will exec blank.elf" KWHT " ");
         exec("/bin/blank.elf", nullptr);
 
-        printf("This should not be printed\n");
+        printf("THIS SHOULD NOT BE PRINTED\n");
     } else {
         wait(nullptr);
         printf(KYEL "\tAfter forking. Parent of %d (pid:%d)", rc, getpid());
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         const char *current_directory = getcwd();
         printf("\t create_process: %d", i);
         const int pid = create_process((char *)"echo lalala", current_directory);
@@ -126,7 +128,7 @@ int main(const int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ITERATIONS; i++) {
         const int r = fork();
         if (r < 0) {
             printf("Fork failed\n");

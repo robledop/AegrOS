@@ -37,7 +37,7 @@ int serial_printf(const char fmt[static 1], ...)
 {
     int written = 0;
 #if defined(DEBUG_SERIAL) || defined(DEBUG_WARNINGS)
-    acquire(&serial_lock);
+    // acquire(&serial_lock);
 
     va_list args;
 
@@ -89,7 +89,7 @@ int serial_printf(const char fmt[static 1], ...)
 
     va_end(args);
 
-    release(&serial_lock);
+    // release(&serial_lock);
 
 #endif
     return written;

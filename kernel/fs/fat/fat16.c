@@ -756,7 +756,7 @@ struct fat_item *fat16_find_item_in_directory(const struct disk *disk, const str
 
 struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct path_part *path)
 {
-    dbgprintf("Getting directory entry for: %s\n", path->part);
+    dbgprintf("Getting directory entry for: %s\n", path->name);
     const struct fat_private *fat_private = disk->fs_private;
     struct fat_item *current_item         = {};
     struct fat_item *root_item = fat16_find_item_in_directory(disk, &fat_private->root_directory, path->name);

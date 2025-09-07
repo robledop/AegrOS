@@ -1,7 +1,7 @@
 $(shell mkdir -p ./bin)
 $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
-MEMORY=512
+MEMORY=128 # Be careful not to allocate too much memory as the page table may overlap with the heap
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=on,window-close=on,grab-on-hover=off
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 CC=$(HOME)/opt/cross/bin/i686-elf-gcc
@@ -20,7 +20,7 @@ INCLUDES = -I ./include
 AS_INCLUDES = -I ./include
 AS_HEADERS = config.asm
 DEBUG_FLAGS = -g
-OPTIMIZATION_FLAGS = -O0
+OPTIMIZATION_FLAGS = -O3
 STAGE2_FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
 	-nostdlib \

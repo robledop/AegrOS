@@ -33,6 +33,7 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
 
 [[noreturn]] void panic(const char *msg)
 {
+    debug_stats();
     printf(KRED "\nKERNEL PANIC: " KWHT "%s\n", msg);
 
     while (1) {
@@ -68,10 +69,11 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 {
     cli();
 
-    vga_buffer_init();
     init_serial();
+    vga_buffer_init();
     gdt_init();
 
+    init_symbols(mbd);
     display_grub_info(mbd, magic);
     paging_init();
 
@@ -79,7 +81,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     pic_init();
     pit_init();
     timer_init(1000);
-    init_symbols(mbd);
     threads_init();
     vfs_init();
     pci_scan();
