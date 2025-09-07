@@ -9,8 +9,12 @@ extern struct process_list process_list;
 {
     // yield may still be holding the lock
     if (holding(&process_list.lock)) {
-        current_process()->killed = true;
-        current_thread->state       = TASK_STOPPED;
+        current_thread->state = TASK_STOPPED;
+        auto p                = current_thread->process;
+        int pid               = p->pid;
+        process_zombify(p);
+        process_set(pid, nullptr);
+
         switch_to_scheduler();
     }
 

@@ -31,11 +31,7 @@ void c_start()
 
     main(arguments.argc, arguments.argv);
 
-    // for (int i = 0; i < 32; i++) {
-    //     if (atexit_functions[i] != nullptr) {
-    //         atexit_functions[i]();
-    //     }
-    // }
+    exit(0);
 }
 
 void init_standard_streams()

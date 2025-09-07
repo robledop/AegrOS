@@ -29,7 +29,6 @@ enum thread_state {
     TASK_BLOCKED,
     TASK_STOPPED,
     TASK_PAUSED,
-    TASK_STATE_COUNT,
 };
 
 enum thread_mode { KERNEL_MODE, USER_MODE };

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ITERATIONS 10
+#define ITERATIONS 100
 
 void at_exit()
 {

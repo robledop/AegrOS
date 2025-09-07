@@ -232,7 +232,12 @@ void exit(void)
     // TODO: Pass abandoned children to init.
 
     // Jump into the scheduler, never to return.
+
     curproc->thread->state = TASK_STOPPED;
+    int pid                = curproc->pid;
+    process_zombify(curproc);
+    process_set(pid, nullptr);
+
     switch_to_scheduler();
 
     panic("zombie exit");
@@ -370,12 +375,6 @@ void scheduler(void)
         acquire(&process_list.lock);
         for (int i = 0; i < MAX_PROCESSES - 1; i++) {
             struct process *p = process_list.processes[i];
-            if ((p && p->killed && p->parent == nullptr) || (p && p->parent && p->parent->thread == nullptr) ||
-                (p && p->thread->state == TASK_STOPPED && p->parent->wait_pid != p->pid)) {
-                const int pid = p->pid;
-                process_zombify(p);
-                process_set(pid, nullptr);
-            }
 
             if (!p || !p->thread || p->thread->state != TASK_READY) {
                 continue;

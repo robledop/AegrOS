@@ -20,7 +20,7 @@ INCLUDES = -I ./include
 AS_INCLUDES = -I ./include
 AS_HEADERS = config.asm
 DEBUG_FLAGS = -g
-OPTIMIZATION_FLAGS = -O3
+OPTIMIZATION_FLAGS = -O0
 STAGE2_FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
 	-nostdlib \
