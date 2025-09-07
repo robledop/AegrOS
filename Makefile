@@ -20,7 +20,7 @@ INCLUDES = -I ./include
 AS_INCLUDES = -I ./include
 AS_HEADERS = config.asm
 DEBUG_FLAGS = -g
-OPTIMIZATION_FLAGS = -O0
+OPTIMIZATION_FLAGS = -Og
 STAGE2_FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
 	-nostdlib \
@@ -42,7 +42,6 @@ STAGE2_FLAGS = -ffreestanding \
 	-nodefaultlibs \
 	-save-temps \
 	-Wextra \
-	-fsanitize=undefined \
 	-std=gnu23 \
 	-pedantic \
 	-Werror \
@@ -161,11 +160,12 @@ iso: grub FORCE
 
 .PHONY: qemu_debug
 qemu_debug: all FORCE
+	./scripts/create_tap.sh
 	qemu-system-i386 -S -gdb tcp::1234 -boot d -hda ./bin/disk.img -m $(MEMORY) -daemonize -serial file:serial.log -d int -D qemu.log
 
 .PHONY: qemu
 qemu: all FORCE
-	qemu-system-i386 -boot d -hda ./bin/disk.img -m $(MEMORY) -serial stdio
+	$(QEMU) -boot d -hda ./bin/disk.img -m $(MEMORY) -serial stdio
 
 .PHONY: qemu_grub_debug
 qemu_grub_debug: grub FORCE

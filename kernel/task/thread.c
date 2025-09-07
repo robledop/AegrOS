@@ -218,16 +218,18 @@ void wakeup(const void *chan)
 // until its parent calls wait() to find out it exited.
 void exit(void)
 {
+    acquire(&process_list.lock);
+
     struct process *curproc = current_process();
 
     // TODO: Close all open files.
 
     curproc->current_directory = nullptr;
 
-    acquire(&process_list.lock);
-
     // Parent might be sleeping in wait().
-    wakeup1(curproc->parent);
+    if (curproc->parent && curproc->parent->thread && curproc->parent->thread->state == TASK_SLEEPING) {
+        wakeup1(curproc->parent);
+    }
 
     // TODO: Pass abandoned children to init.
 
