@@ -259,8 +259,7 @@ void sleep(void *chan, struct spinlock *lk)
     // (wakeup runs with process_list.lock locked),
     // so it's okay to release lk.
     if (lk != &process_list.lock) {
-        // DOC: sleeplock0
-        acquire(&process_list.lock); // DOC: sleeplock1
+        acquire(&process_list.lock);
         release(lk);
     }
     // Go to sleep.
@@ -274,12 +273,10 @@ void sleep(void *chan, struct spinlock *lk)
 
     // Reacquire original lock.
     if (lk != &process_list.lock) {
-        // DOC: sleeplock2
         release(&process_list.lock);
         acquire(lk);
     }
 }
-
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
@@ -361,8 +358,7 @@ void yield(void)
 void scheduler(void)
 {
     struct cpu *current_cpu = get_cpu();
-    // current_cpu->proc       = nullptr;
-    current_thread = nullptr;
+    current_thread          = nullptr;
 
     // ReSharper disable once CppDFAEndlessLoop
     for (;;) {
@@ -374,7 +370,8 @@ void scheduler(void)
         acquire(&process_list.lock);
         for (int i = 0; i < MAX_PROCESSES - 1; i++) {
             struct process *p = process_list.processes[i];
-            if ((p && p->killed && p->parent == nullptr) || (p && p->parent && p->parent->thread == nullptr)) {
+            if ((p && p->killed && p->parent == nullptr) || (p && p->parent && p->parent->thread == nullptr) ||
+                (p && p->thread->state == TASK_STOPPED && p->parent->wait_pid != p->pid)) {
                 const int pid = p->pid;
                 process_zombify(p);
                 process_set(pid, nullptr);
@@ -440,10 +437,6 @@ static void on_timer()
 {
     thread_update_time();
 
-    // if (process_list.count == 0) {
-    //     start_shell(0);
-    // }
-
     // Force process exit if it has been killed and is in user space.
     // (If it is still executing in the kernel, let it keep running
     // until it gets to the regular system call return.)
@@ -453,8 +446,9 @@ static void on_timer()
     }
 
     // Force process to give up CPU on clock tick.
-    // If interrupts were on while locks held, would need to check nlock.
-    if (current_process() && current_process()->thread->state == TASK_RUNNING &&
+    // Only yield when the lock is not being held
+    // HACK: xv6 does not check if the lock is being held and we shouldn't either
+    if (!holding(&process_list.lock) && current_process() && current_process()->thread->state == TASK_RUNNING &&
         current_thread->time_used >= TIME_SLICE_SIZE) {
         yield();
     }
