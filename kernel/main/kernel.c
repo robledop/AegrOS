@@ -66,6 +66,15 @@ void idle()
     }
 }
 
+void set_vbe_info(const multiboot_info_t *mbd)
+{
+    vbe_info->height      = mbd->framebuffer_height;
+    vbe_info->width       = mbd->framebuffer_width;
+    vbe_info->bpp         = mbd->framebuffer_bpp;
+    vbe_info->pitch       = mbd->framebuffer_pitch;
+    vbe_info->framebuffer = mbd->framebuffer_addr;
+}
+
 void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 {
     cli();
@@ -76,15 +85,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     init_symbols(mbd);
     display_grub_info(mbd, magic);
-
-    vbe_info->height      = mbd->framebuffer_height;
-    vbe_info->width       = mbd->framebuffer_width;
-    vbe_info->bpp         = mbd->framebuffer_bpp;
-    vbe_info->pitch       = mbd->framebuffer_pitch;
-    vbe_info->framebuffer = mbd->framebuffer_addr;
-
+    set_vbe_info(mbd);
     paging_init();
-
     idt_init();
     pic_init();
     pit_init();
@@ -102,8 +104,9 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     set_idle_thread(idle_task);
 
     // Initialize video and clear screen
-    clear_screen(0xFF5555AA);
+    // clear_screen(0xFF5555AA);
     // simple_test_screen();
+    text_mode_hello_world();
 
     start_shell();
 

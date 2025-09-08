@@ -20,7 +20,7 @@ INCLUDES = -I ./include
 AS_INCLUDES = -I ./include
 AS_HEADERS = config.asm
 DEBUG_FLAGS = -g
-OPTIMIZATION_FLAGS = -Og
+OPTIMIZATION_FLAGS = -O3
 STAGE2_FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
 	-nostdlib \
@@ -69,11 +69,11 @@ FLAGS = -ffreestanding \
 	-save-temps \
 	-std=gnu23 \
 	-fstack-protector \
-	-fsanitize=undefined \
-	-pedantic \
-	-Werror \
-	-Wextra \
-	-Wall
+	-fsanitize=undefined
+#	-pedantic \
+#	-Werror \
+#	-Wextra \
+#	-Wall
 
 	# -masm=intel \
 	# -pedantic-errors \

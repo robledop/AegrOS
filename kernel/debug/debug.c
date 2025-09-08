@@ -4,6 +4,7 @@
 #include <string.h>
 #include <thread.h>
 #include <x86.h>
+#define STB_SPRINTF_IMPLEMENTATION
 
 void print_registers();
 typedef struct stack_frame {
