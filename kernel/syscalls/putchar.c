@@ -1,6 +1,9 @@
 #include <printf.h>
 #include <syscall.h>
 
+#include "vbe.h"
+
+
 void *sys_putchar(void)
 {
     const char c = (char)get_integer_argument(0);

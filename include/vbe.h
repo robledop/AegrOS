@@ -35,6 +35,9 @@ extern struct vbe_mode_info *vbe_info;
 void clear_screen(uint32_t color);
 void putpixel_rgb(int x, int y, uint8_t r, uint8_t g, uint8_t b);
 void simple_test_screen(void);
+void vesa_put_char16(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b);
+void vesa_draw_window();
+void putchar(char c);
 
 
 void text_mode_hello_world(void);

@@ -327,7 +327,7 @@ bool handle_ansi_escape(const int c)
     return false;
 }
 
-void putchar(const char c)
+void v_putchar(const char c)
 {
     if (handle_ansi_escape(c)) {
         return;

@@ -59,6 +59,8 @@
 #include <status.h>
 #include <stdio.h>
 #include <stdlib.h>
+#else
+#include <vbe.h>
 #endif
 
 

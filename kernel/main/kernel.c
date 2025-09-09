@@ -79,13 +79,14 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 {
     cli();
 
+    set_vbe_info(mbd);
+    vesa_draw_window();
     init_serial();
     vga_buffer_init();
     gdt_init();
 
     init_symbols(mbd);
     display_grub_info(mbd, magic);
-    set_vbe_info(mbd);
     paging_init();
     idt_init();
     pic_init();
@@ -106,9 +107,10 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     // Initialize video and clear screen
     // clear_screen(0xFF5555AA);
     // simple_test_screen();
-    text_mode_hello_world();
+    // text_mode_hello_world();
 
     start_shell();
+
 
     scheduler();
 

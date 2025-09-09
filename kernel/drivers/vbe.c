@@ -3,6 +3,13 @@
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
+#define CHAR_WIDTH 8
+#define LINE_HEIGHT 12
+#define MARGIN 15
+
+int cursor_x = MARGIN;
+int cursor_y = MARGIN;
+
 // Contains an 8x8 font map for unicode points U+0000 - U+007F (basic latin)
 char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0000 (nul)
@@ -215,7 +222,7 @@ void simple_test_screen(void)
     }
 }
 
-void vesa_put_char(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b)
+void vesa_put_char8(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b)
 {
     for (int l = 0; l < 8; l++) {
         for (int i = 8; i >= 0; i--) {
@@ -237,19 +244,36 @@ void vesa_put_char16(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_
     }
 }
 
+void vesa_fillrect(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b)
+{
+    for (int j = y; j < (y + h); j++)
+        for (int i = x; i < (x + w); i++)
+            putpixel_rgb(i, j, r, g, b);
+}
+
+void vesa_draw_window()
+{
+    vesa_fillrect(695, 495, 310, 210, 0xFF, 0xFF, 0xFF);
+    vesa_fillrect(700, 500, 300, 20, 0x00, 0xCC, 0xCC);
+    vesa_fillrect(700, 520, 300, 180, 0xFF, 0xCC, 0xCC);
+}
+
 void text_mode_hello_world(void)
 {
     if (!vbe_info || vbe_info->framebuffer == 0) {
         return;
     }
-    uint32_t screen_w = vbe_info->width;
-    uint32_t screen_h = vbe_info->height;
+    uint16_t screen_w = vbe_info->width;
+    uint16_t screen_h = vbe_info->height;
 
     if (vbe_info->bpp != 32) {
         return;
     }
 
-    clear_screen(0xFF5555AA);
+    clear_screen(0xFFAAAAAA);
+    vesa_fillrect(5, 5, screen_w - 10, screen_h - 10, 0x55, 0x55, 0xAA);
+
+    vesa_draw_window();
 
     const char *msg = "Hey! Look at me! Bah bah bah... Whaaaaat???\n"
                       "Hey! Look at me! Bah bah bah... Whaaaaat???\n"
@@ -272,22 +296,51 @@ void text_mode_hello_world(void)
                       "Hey! Look at me! Bah bah bah... Whaaaaat???\n"
                       "Hey! Look at me! Bah bah bah... Whaaaaat???\n";
 
-    int cursor_x = 10;
-    int cursor_y = 10;
 
     for (const char *p = msg; *p; ++p) {
         constexpr int line_h = 24;
         constexpr int char_w = 16;
         if (*p == '\n') {
-            cursor_x = 10;
+            cursor_x = 15;
             cursor_y += line_h;
             continue;
         }
         vesa_put_char16(*p, cursor_x, cursor_y, 0xFF, 0xFF, 0xFF);
         cursor_x += char_w;
         if ((uint32_t)cursor_x + char_w > screen_w) {
-            cursor_x = 10;
+            cursor_x = 15;
             cursor_y += line_h;
         }
+    }
+}
+
+void putchar(char c)
+{
+    if (c == '\n') {
+        cursor_x = MARGIN;
+        cursor_y += LINE_HEIGHT;
+        return;
+    }
+
+    // if (c == '\r') {
+    //     cursor_x = 15;
+    // }
+
+    if (c == '\t') {
+        cursor_x += 4 * CHAR_WIDTH;
+        return;
+    }
+
+    // if (c == '\b') {
+    //     if (cursor_x > 15) {
+    //         cursor_x -= CHAR_WIDTH;
+    //     }
+    // }
+
+    vesa_put_char8(c, cursor_x, cursor_y, 0xFF, 0xFF, 0xFF);
+    cursor_x += CHAR_WIDTH;
+    if (cursor_x + CHAR_WIDTH + MARGIN > vbe_info->width) {
+        cursor_x = MARGIN;
+        cursor_y += LINE_HEIGHT;
     }
 }
