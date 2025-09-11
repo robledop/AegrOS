@@ -327,10 +327,12 @@ bool handle_ansi_escape(const int c)
     return false;
 }
 
-void v_putchar(const char c)
+#ifndef PIXEL_RENDERING
+void putchar(const char c)
 {
     if (handle_ansi_escape(c)) {
         return;
     }
     vga_putchar(c);
 }
+#endif

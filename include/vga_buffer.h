@@ -8,4 +8,7 @@
 
 
 void vga_buffer_init();
-void vga_putchar(char c);
+
+#ifndef PIXEL_RENDERING
+void putchar(char c);
+#endif

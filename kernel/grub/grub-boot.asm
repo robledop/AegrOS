@@ -2,7 +2,11 @@
 MBALIGN  equ  1 << 0            ; align loaded modules on page boundaries
 MEMINFO  equ  1 << 1            ; provide memory map
 VIDEOMODE equ  1 << 2            ; request video mode
-MBFLAGS  equ  MBALIGN | MEMINFO | VIDEOMODE ; this is the Multiboot 'flag' field
+%ifdef PIXEL_RENDERING
+MBFLAGS equ MBALIGN | MEMINFO | VIDEOMODE
+%else
+MBFLAGS equ MBALIGN | MEMINFO
+%endif
 MAGIC    equ  0x1BADB002        ; 'magic number' lets bootloader find the header
 CHECKSUM equ -(MAGIC + MBFLAGS)   ; checksum of above, to prove we are multiboot
 

@@ -21,6 +21,7 @@ AS_INCLUDES = -I ./include
 AS_HEADERS = config.asm
 DEBUG_FLAGS = -g
 OPTIMIZATION_FLAGS = -O3
+AS_FLAGS =
 STAGE2_FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
 	-nostdlib \
@@ -69,12 +70,12 @@ FLAGS = -ffreestanding \
 	-save-temps \
 	-std=gnu23 \
 	-fstack-protector \
-	-fsanitize=undefined
-#	-pedantic \
-#	-Werror \
-#	-Wextra \
-#	-Wall
+	-fsanitize=undefined \
+	-pedantic \
+	-Wextra \
+	-Wall
 
+	# -Werror \
 	# -masm=intel \
 	# -pedantic-errors \
 	# -fstack-protector \
@@ -82,12 +83,18 @@ FLAGS = -ffreestanding \
 
 FLAGS += -D__KERNEL__
 
-ifeq ($(filter grub,$(MAKECMDGOALS)),grub)
-    FLAGS += -DGRUB
-endif
-ifeq ($(filter qemu_grub_debug,$(MAKECMDGOALS)),qemu_grub_debug)
-    FLAGS += -DGRUB
-endif
+#ifeq ($(filter grub,$(MAKECMDGOALS)),grub)
+#    FLAGS += -DGRUB
+#endif
+#ifeq ($(filter qemu_grub_debug,$(MAKECMDGOALS)),qemu_grub_debug)
+#    FLAGS += -DGRUB
+#endif
+
+grub: FLAGS += -DGRUB
+qemu_grub_debug: FLAGS += -DGRUB
+
+qemu_grub_debug_pixel: FLAGS += -DPIXEL_RENDERING -DGRUB
+qemu_grub_debug_pixel: AS_FLAGS += -DPIXEL_RENDERING
 
 .PHONY: all
 # Build that uses my own 2-stage bootloader
@@ -124,7 +131,7 @@ all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
 	./scripts/pad.sh ./bin/stage2.bin 512
 
 ./build/%.asm.o: ./kernel/%.asm .asm_headers FORCE
-	$(AS) $(AS_INCLUDES) -f elf $(DEBUG_FLAGS) $< -o $@
+	$(AS) $(AS_FLAGS) $(AS_INCLUDES) -f elf $(DEBUG_FLAGS) $< -o $@
 
 .PHONY: .asm_headers
 .asm_headers: FORCE
@@ -171,6 +178,11 @@ qemu: all FORCE
 qemu_grub_debug: grub FORCE
 	./scripts/create_tap.sh
 	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK)  -serial file:serial.log # -d int -D qemu.log
+
+.PHONY: qemu_grub_debug_pixel
+qemu_grub_debug_pixel: qemu_grub_debug FORCE
+	#./scripts/create_tap.sh
+	#$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) -serial file:serial.log
 
 qemu_grub_debug_no_net: grub FORCE
 	$(QEMU)  -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize -serial file:serial.log $(QEMU_DISPLAY)

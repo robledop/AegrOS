@@ -79,10 +79,17 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 {
     cli();
 
+#ifdef PIXEL_RENDERING
     set_vbe_info(mbd);
     vesa_draw_window();
+#endif
+
     init_serial();
+
+#ifndef PIXEL_RENDERING
     vga_buffer_init();
+#endif
+
     gdt_init();
 
     init_symbols(mbd);

@@ -1,5 +1,7 @@
 #include <vbe.h>
 
+#include "memory.h"
+
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
@@ -9,6 +11,73 @@ struct vbe_mode_info *vbe_info = &vbe_info_;
 
 int cursor_x = MARGIN;
 int cursor_y = MARGIN;
+
+bool v_param_escaping = false;
+bool v_param_inside   = false;
+int v_params[10]      = {0};
+int v_param_count     = 1;
+
+int forecolor = 0xFFFFFF;
+int backcolor = 0;
+
+int ansi_to_rgb(int ansi)
+{
+    int r = 0;
+    int g = 0;
+    int b = 0;
+
+    switch (ansi) {
+    case 30: // Black
+        r = 0;
+        g = 0;
+        b = 0;
+        break;
+    case 31: // Red
+        r = 128;
+        g = 0;
+        b = 0;
+        break;
+    case 32: // Green
+        r = 0;
+        g = 128;
+        b = 0;
+        break;
+    case 33: // Yellow
+        r = 128;
+        g = 128;
+        b = 0;
+        break;
+    case 34: // Blue
+        r = 0;
+        g = 0;
+        b = 128;
+        break;
+    case 35: // Magenta
+        r = 128;
+        g = 0;
+        b = 128;
+        break;
+    case 36: // Cyan
+        r = 0;
+        g = 128;
+        b = 128;
+        break;
+    case 37: // White
+        r = 192;
+        g = 192;
+        b = 192;
+        break;
+
+    default: // Default to black if unknown
+        r = 0;
+        g = 0;
+        b = 0;
+        break;
+    }
+
+    return (r << 16) | (g << 8) | b; // Combine RGB into a single integer
+}
+
 
 // Contains an 8x8 font map for unicode points U+0000 - U+007F (basic latin)
 char font8x8_basic[128][8] = {
@@ -314,6 +383,163 @@ void text_mode_hello_world(void)
     }
 }
 
+
+void reset()
+{
+    v_param_escaping = false;
+    v_param_inside   = false;
+
+    v_param_inside = 0;
+    memset(v_params, 0, sizeof(v_params));
+    v_param_count = 1;
+}
+
+void cursor_up()
+{
+    if (cursor_y > 0) {
+        cursor_y -= LINE_HEIGHT;
+    }
+}
+
+void cursor_down()
+{
+    if (cursor_y < vbe_info->height - LINE_HEIGHT) {
+        cursor_y += LINE_HEIGHT;
+    }
+}
+
+void cursor_left()
+{
+    if (cursor_x > 0) {
+        cursor_x -= CHAR_WIDTH;
+    }
+}
+
+void cursor_right()
+{
+    if (cursor_x < vbe_info->width - CHAR_WIDTH) {
+        cursor_x += CHAR_WIDTH;
+    }
+}
+
+
+bool v_param_process(const int c)
+{
+    if (c >= '0' && c <= '9') {
+        v_params[v_param_count - 1] = v_params[v_param_count - 1] * 10 + (c - '0');
+
+        return false;
+    }
+
+    if (c == ';') {
+        v_param_count++;
+
+        return false;
+    }
+
+    switch (c) {
+    case 'A': // Cursor up
+        cursor_up();
+        break;
+    case 'B': // Cursor down
+        cursor_down();
+        break;
+    case 'C': // Cursor forward
+        cursor_left();
+        break;
+    case 'D': // Cursor back
+        cursor_right();
+        break;
+    case 'H':
+        const int row = v_params[0];
+        const int col = v_params[1];
+        // update_cursor(row, col);
+        break;
+    case 'J':
+        switch (v_params[0]) {
+        case 2:
+            clear_screen(0);
+            break;
+        default:
+            // Not implemented
+            break;
+        }
+        break;
+    case 'm':
+        static bool bold    = false;
+        static int blinking = 0;
+
+        for (int i = 0; i < v_param_count; i++) {
+            switch (v_params[i]) {
+            case 0:
+                // attribute = DEFAULT_ATTRIBUTE;
+                blinking = 0;
+                bold     = false;
+                break;
+            case 1:
+                bold = true;
+                break;
+            case 5:
+                blinking = 1;
+                break;
+            case 22:
+                bold = false;
+                break;
+            case 25:
+                blinking = 0;
+                break;
+            default:
+                if (v_params[i] >= 30 && v_params[i] <= 47) {
+                    if (v_params[i] >= 30 && v_params[i] <= 37) {
+                        forecolor = ansi_to_rgb(v_params[i]);
+                        // if (bold) {
+                        //     forecolor |= 0x08; // Set intensity bit for bold text
+                        // }
+                    } else if (v_params[i] >= 40 && v_params[i] <= 47) {
+                        backcolor = ansi_to_rgb(v_params[i]);
+                    }
+
+                    // attribute = ((blinking & 1) << 7) | ((backcolor & 0x07) << 4) | (forecolor & 0x0F);
+                }
+            }
+        }
+        break;
+
+    default:
+        // Not implemented
+    }
+
+    return true;
+}
+
+
+bool v_handle_ansi_escape(const int c)
+{
+    if (c == 0x1B) {
+        reset();
+        v_param_escaping = true;
+        return true;
+    }
+
+    if (v_param_escaping && c == '[') {
+        reset();
+        v_param_escaping = true;
+        v_param_inside   = true;
+        return true;
+    }
+
+    if (v_param_escaping && v_param_inside) {
+        if (v_param_process(c)) {
+            reset();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+
+#ifdef PIXEL_RENDERING
 void putchar(char c)
 {
     if (c == '\n') {
@@ -321,26 +547,31 @@ void putchar(char c)
         cursor_y += LINE_HEIGHT;
         return;
     }
-
-    // if (c == '\r') {
-    //     cursor_x = 15;
+    //
+    // // if (c == '\r') {
+    // //     cursor_x = 15;
+    // // }
+    //
+    // if (c == '\t') {
+    //     cursor_x += 4 * CHAR_WIDTH;
+    //     return;
     // }
 
-    if (c == '\t') {
-        cursor_x += 4 * CHAR_WIDTH;
+    if (v_handle_ansi_escape(c)) {
         return;
     }
 
-    // if (c == '\b') {
-    //     if (cursor_x > 15) {
-    //         cursor_x -= CHAR_WIDTH;
-    //     }
-    // }
+    uint8_t r = forecolor & 0xFF;
+    uint8_t g = forecolor >> 8 & 0xFF;
+    uint8_t b = forecolor >> 16 & 0xFF;
 
-    vesa_put_char8(c, cursor_x, cursor_y, 0xFF, 0xFF, 0xFF);
+
+    vesa_put_char8(c, cursor_x, cursor_y, r, g, b);
     cursor_x += CHAR_WIDTH;
     if (cursor_x + CHAR_WIDTH + MARGIN > vbe_info->width) {
         cursor_x = MARGIN;
         cursor_y += LINE_HEIGHT;
     }
 }
+
+#endif
