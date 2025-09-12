@@ -1,21 +1,10 @@
+#include "echo.hpp"
 #include <stdio.h>
-#include <stdlib.h>
 
-class Echo
+void Echo::print(int argc, char **argv)
 {
-public:
-    static void print(int argc, char **argv)
-    {
-        putchar('\n');
-        for (int i = 1; i < argc; i++) {
-            printf("%s ", argv[i]);
-        }
+    putchar('\n');
+    for (int i = 1; i < argc; i++) {
+        printf("%s ", argv[i]);
     }
-};
-
-int main(const int argc, char **argv)
-{
-    Echo::print(argc, argv);
-
-    return 0;
 }
