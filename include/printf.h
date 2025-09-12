@@ -41,8 +41,10 @@
 
 #include <termcolors.h>
 #ifdef __cplusplus
-#include <cstdarg>
-#include <cstddef>
+// #include <cstdarg>
+// #include <cstddef>
+#include <stdarg.h>
+#include <stddef.h>
 extern "C" {
 #else
 #include <stdarg.h>

@@ -149,7 +149,7 @@ char *getcwd()
 }
 
 // Set the current directory for the current process
-int chdir(const char path[static 1])
+int chdir(const char *path)
 {
     return syscall1(SYSCALL_CHDIR, path);
 }

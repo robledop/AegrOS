@@ -56,7 +56,7 @@ int fork()
     return syscall0(SYSCALL_FORK);
 }
 
-int exec(const char path[static 1], const char **args)
+int exec(const char *path, const char **args)
 {
     return syscall2(SYSCALL_EXEC, path, args);
 }
@@ -66,7 +66,7 @@ int getpid()
     return syscall0(SYSCALL_GET_PID);
 }
 
-int create_process(const char path[static 1], const char *current_directory)
+int create_process(const char *path, const char *current_directory)
 {
     char buffer[512];
     strncpy(buffer, path, sizeof(buffer));

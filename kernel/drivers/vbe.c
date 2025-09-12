@@ -498,7 +498,6 @@ bool v_param_process(const int c)
         for (int i = 0; i < v_param_count; i++) {
             switch (v_params[i]) {
             case 0:
-                // attribute = DEFAULT_ATTRIBUTE;
                 blinking = 0;
                 bold     = false;
                 break;
@@ -518,9 +517,6 @@ bool v_param_process(const int c)
                 if (v_params[i] >= 30 && v_params[i] <= 47) {
                     if (v_params[i] >= 30 && v_params[i] <= 37) {
                         forecolor = ansi_to_rgb(v_params[i], bold);
-                        // if (bold) {
-                        //     forecolor |= 0x08; // Set intensity bit for bold text
-                        // }
                     } else if (v_params[i] >= 40 && v_params[i] <= 47) {
                         backcolor = ansi_to_rgb(v_params[i], false);
                     }
@@ -579,15 +575,19 @@ void putchar(char c)
         }
         return;
     }
-    //
-    // // if (c == '\r') {
-    // //     cursor_x = 15;
-    // // }
-    //
-    // if (c == '\t') {
-    //     cursor_x += 4 * CHAR_WIDTH;
-    //     return;
-    // }
+
+    if (c == '\t') {
+        cursor_x += 4 * CHAR_WIDTH;
+        return;
+    }
+
+    if (c == '\b') {
+        erase_cursor(cursor_x + CHAR_WIDTH, cursor_y);
+        cursor_x -= CHAR_WIDTH;
+        erase_cursor(cursor_x, cursor_y);
+        draw_cursor(cursor_x, cursor_y);
+        return;
+    }
 
     if (v_handle_ansi_escape(c)) {
         return;

@@ -59,13 +59,13 @@ extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
 
-int print(const char str[static 1], uint32_t size);
+int print(const char *str, uint32_t size);
 int mkdir(const char *path);
 DIR *opendir(const char *path);
 int getkey(void);
 int getkey_blocking(void);
 char *getcwd(void);
-int chdir(const char path[static 1]);
+int chdir(const char *path);
 
 FILE *fopen(const char *pathname, const char *mode);
 int fstat(int fd, struct stat *stat);
