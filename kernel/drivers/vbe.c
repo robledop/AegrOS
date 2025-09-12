@@ -10,6 +10,8 @@ struct vbe_mode_info *vbe_info = &vbe_info_;
 #define LINE_HEIGHT 12
 #define MARGIN 15
 
+bool cursor_visible = true;
+
 // Contains an 8x8 font map for unicode points U+0000 - U+007F (basic latin)
 char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0000 (nul)
@@ -199,6 +201,21 @@ unsigned char computer_icon[32 * 32] = {
     0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa};
 
 
+// TODO: Implement double buffering
+void vbe_scroll_up()
+{
+    uint8_t *framebuffer     = (uint8_t *)vbe_info->framebuffer;
+    uint32_t bytes_per_pixel = vbe_info->bpp / 8;
+    uint32_t pitch           = vbe_info->pitch;
+    uint32_t height          = vbe_info->height;
+
+    memmove(framebuffer, framebuffer + pitch * LINE_HEIGHT, pitch * (height - LINE_HEIGHT));
+
+    for (uint32_t i = pitch * (height - LINE_HEIGHT); i < pitch * height; i++) {
+        framebuffer[i] = 0;
+    }
+}
+
 void putpixel_rgb(int x, int y, uint8_t r, uint8_t g, uint8_t b)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
@@ -275,6 +292,39 @@ void vesa_fillrect(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b)
             putpixel_rgb(i, j, r, g, b);
 }
 
+void vesa_draw_line(int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_t b)
+{
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    int d  = 2 * dy - dx;
+    int y  = y1;
+    int x  = x1;
+    putpixel_rgb(x, y, r, g, b);
+    while (x < x2) {
+        if (d >= 0) {
+            y++;
+            d -= 2 * dx;
+        }
+        x++;
+        d += 2 * dy;
+        putpixel_rgb(x, y, r, g, b);
+    }
+
+    d = 2 * dx - dy;
+    x = x2;
+    while (y < y2) {
+        if (d >= 0) {
+            x--;
+            d -= 2 * dy;
+        }
+
+        y++;
+        d += 2 * dx;
+        putpixel_rgb(x, y, r, g, b);
+    }
+}
+
+
 void vesa_draw_window(int x, int y, int w, int h)
 {
     vesa_fillrect(x, y, w, h, 0xFF, 0xFF, 0xFF);
@@ -295,8 +345,24 @@ void vesa_draw_window(int x, int y, int w, int h)
     }
 
     vesa_puticon32(x + 2, y + 20, computer_icon);
+
+    vesa_draw_line(x + 1, y + 55, x + w - 2, y + 1, 0x33, 0x33, 0xFF);
+    vesa_draw_line(x + 1, y + 105, x + 1, y + h - 2, 0x33, 0x33, 0xFF);
+
+
+    vesa_draw_line(x + 50, y + 55, x + 50, y + 250, 0x33, 0x33, 0xFF);
+    vesa_draw_line(x + 50, y + 55, x + 150, y + 250, 0x33, 0x33, 0xFF);
 }
 
+void draw_cursor(int x, int y)
+{
+    vesa_fillrect(x, y + CHAR_WIDTH - 3, CHAR_WIDTH, 3, 0xFF, 0xFF, 0xFF);
+}
+
+void erase_cursor(int x, int y)
+{
+    vesa_fillrect(x, y, CHAR_WIDTH, CHAR_WIDTH, 0, 0, 0);
+}
 
 // ############### Terminal ###########################3
 
@@ -311,64 +377,29 @@ int v_param_count     = 1;
 int forecolor = 0xFFFFFF;
 int backcolor = 0;
 
-int ansi_to_rgb(int ansi)
+int ansi_to_rgb(int ansi, bool bold)
 {
-    int r = 0;
-    int g = 0;
-    int b = 0;
-
     switch (ansi) {
-    case 30: // Black
-        r = 0;
-        g = 0;
-        b = 0;
-        break;
-    case 31: // Red
-        r = 128;
-        g = 0;
-        b = 0;
-        break;
-    case 32: // Green
-        r = 0;
-        g = 128;
-        b = 0;
-        break;
-    case 33: // Yellow
-        r = 128;
-        g = 128;
-        b = 0;
-        break;
-    case 34: // Blue
-        r = 0;
-        g = 0;
-        b = 128;
-        break;
-    case 35: // Magenta
-        r = 128;
-        g = 0;
-        b = 128;
-        break;
-    case 36: // Cyan
-        r = 0;
-        g = 128;
-        b = 128;
-        break;
-    case 37: // White
-        r = 192;
-        g = 192;
-        b = 192;
-        break;
-
-    default: // Default to black if unknown
-        r = 0;
-        g = 0;
-        b = 0;
-        break;
+    case 30:
+        return 0x000000; // Black
+    case 31:
+        return bold ? 0xFF0000 : 0x990000; // Red
+    case 32:
+        return bold ? 0x00FF00 : 0x009900; // Green
+    case 33:
+        return bold ? 0xFFFF22 : 0x999900; // Yellow
+    case 34:
+        return bold ? 0x8888FF : 0x555599; // Blue
+    case 35:
+        return bold ? 0xFF00FF : 0x990099; // Magenta
+    case 36:
+        return bold ? 0x00FFFF : 0x009999; // Cyan
+    case 37:
+        return bold ? 0xFFFFFF : 0x999999; // White
+    default:
+        return 0x000000; // Fallback: black
     }
-
-    return (r << 16) | (g << 8) | b; // Combine RGB into a single integer
 }
-
 void reset()
 {
     v_param_escaping = false;
@@ -384,6 +415,8 @@ void cursor_up()
     if (cursor_y > 0) {
         cursor_y -= LINE_HEIGHT;
     }
+
+    draw_cursor(cursor_x + CHAR_WIDTH, cursor_y);
 }
 
 void cursor_down()
@@ -391,6 +424,8 @@ void cursor_down()
     if (cursor_y < vbe_info->height - LINE_HEIGHT) {
         cursor_y += LINE_HEIGHT;
     }
+
+    draw_cursor(cursor_x + CHAR_WIDTH, cursor_y);
 }
 
 void cursor_left()
@@ -398,6 +433,8 @@ void cursor_left()
     if (cursor_x > 0) {
         cursor_x -= CHAR_WIDTH;
     }
+
+    draw_cursor(cursor_x + CHAR_WIDTH, cursor_y);
 }
 
 void cursor_right()
@@ -405,6 +442,8 @@ void cursor_right()
     if (cursor_x < vbe_info->width - CHAR_WIDTH) {
         cursor_x += CHAR_WIDTH;
     }
+
+    draw_cursor(cursor_x + CHAR_WIDTH, cursor_y);
 }
 
 
@@ -444,6 +483,8 @@ bool v_param_process(const int c)
         switch (v_params[0]) {
         case 2:
             clear_screen(0);
+            cursor_x = MARGIN;
+            cursor_y = MARGIN;
             break;
         default:
             // Not implemented
@@ -476,12 +517,12 @@ bool v_param_process(const int c)
             default:
                 if (v_params[i] >= 30 && v_params[i] <= 47) {
                     if (v_params[i] >= 30 && v_params[i] <= 37) {
-                        forecolor = ansi_to_rgb(v_params[i]);
+                        forecolor = ansi_to_rgb(v_params[i], bold);
                         // if (bold) {
                         //     forecolor |= 0x08; // Set intensity bit for bold text
                         // }
                     } else if (v_params[i] >= 40 && v_params[i] <= 47) {
-                        backcolor = ansi_to_rgb(v_params[i]);
+                        backcolor = ansi_to_rgb(v_params[i], false);
                     }
 
                     // attribute = ((blinking & 1) << 7) | ((backcolor & 0x07) << 4) | (forecolor & 0x0F);
@@ -527,10 +568,15 @@ bool v_handle_ansi_escape(const int c)
 #ifdef PIXEL_RENDERING
 void putchar(char c)
 {
+    erase_cursor(cursor_x, cursor_y);
 
     if (c == '\n') {
         cursor_x = MARGIN;
         cursor_y += LINE_HEIGHT;
+        if (cursor_y + LINE_HEIGHT > vbe_info->height) {
+            vbe_scroll_up();
+            cursor_y = vbe_info->height - LINE_HEIGHT;
+        }
         return;
     }
     //
@@ -547,16 +593,20 @@ void putchar(char c)
         return;
     }
 
-    uint8_t r = forecolor & 0xFF;
-    uint8_t g = forecolor >> 8 & 0xFF;
-    uint8_t b = forecolor >> 16 & 0xFF;
-
+    /* forecolor is in 0xRRGGBB format */
+    uint8_t r = (forecolor >> 16) & 0xFF;
+    uint8_t g = (forecolor >> 8) & 0xFF;
+    uint8_t b = forecolor & 0xFF;
 
     vesa_put_char8(c, cursor_x, cursor_y, r, g, b);
     cursor_x += CHAR_WIDTH;
     if (cursor_x + CHAR_WIDTH + MARGIN > vbe_info->width) {
         cursor_x = MARGIN;
         cursor_y += LINE_HEIGHT;
+    }
+
+    if (cursor_visible) {
+        draw_cursor(cursor_x, cursor_y);
     }
 }
 
