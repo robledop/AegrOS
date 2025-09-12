@@ -81,7 +81,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 #ifdef PIXEL_RENDERING
     set_vbe_info(mbd);
-    vesa_draw_window();
+    vesa_draw_window(700, 10, 300, 200);
 #endif
 
     init_serial();
