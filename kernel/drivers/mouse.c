@@ -4,11 +4,14 @@
 #include <string.h>
 #include <vbe.h>
 
+#include "compositor.h"
 #include "kernel.h"
 #include "pic.h"
 #include "printf.h"
 
 #define ISR_PS2_MOUSE (0x20 + 12)
+
+extern window_t *windows[MAX_WINDOWS];
 
 static struct ps2_mouse mouse_device = {};
 
@@ -50,10 +53,9 @@ uint8_t mouse_read()
 
 void draw_mouse_cursor(void)
 {
-
     char *flags = "     ";
     vesa_print_string("     ", 5, 850, 0, 0x000000, 0x000000);
-    itoa(mouse_device.flags, flags);
+    itohex(mouse_device.flags, flags);
     vesa_print_string(flags, strlen(flags), 850, 0, 0xFFFFFF, 0x000000);
 
     char *x = "     ";
@@ -66,7 +68,33 @@ void draw_mouse_cursor(void)
     itoa(mouse_device.y, y);
     vesa_print_string(y, strlen(y), 950, 0, 0xFFFFFF, 0x000000);
 
-    vesa_put_char8('.', mouse_device.x, mouse_device.y, 0xFFFFFF, 0x000000);
+    vesa_restore_mouse_cursor();
+    vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
+
+    if (mouse_device.flags & MOUSE_LEFT) {
+        vesa_print_string("L", 1, 800, 0, 0xFFFFFF, 0x000000);
+
+        for (int i = 0; i < MAX_WINDOWS; i++) {
+            auto clicked = window_was_clicked(windows[i], mouse_device.x, mouse_device.y);
+            if (clicked) {
+                printf("Clicked window %s\n", windows[i]->name);
+            }
+        }
+    } else {
+        vesa_print_string(" ", 1, 800, 0, 0xFFFFFF, 0x000000);
+    }
+
+    if (mouse_device.flags & MOUSE_RIGHT) {
+        vesa_print_string("R", 1, 810, 0, 0xFFFFFF, 0x000000);
+    } else {
+        vesa_print_string(" ", 1, 810, 0, 0xFFFFFF, 0x000000);
+    }
+
+    if (mouse_device.flags & MOUSE_MIDDLE) {
+        vesa_print_string("M", 1, 820, 0, 0xFFFFFF, 0x000000);
+    } else {
+        vesa_print_string(" ", 1, 820, 0, 0xFFFFFF, 0x000000);
+    }
 }
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
@@ -108,11 +136,11 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
                         mouse_device.y = 0;
                     }
 
-                    if (mouse_device.x > vbe_info->width - CHAR_WIDTH) {
-                        mouse_device.x = vbe_info->width - CHAR_WIDTH;
+                    if (mouse_device.x > vbe_info->width) {
+                        mouse_device.x = vbe_info->width;
                     }
-                    if (mouse_device.y > vbe_info->height - LINE_HEIGHT) {
-                        mouse_device.y = vbe_info->height - LINE_HEIGHT;
+                    if (mouse_device.y > vbe_info->height) {
+                        mouse_device.y = vbe_info->height;
                     }
 
                     // Start over

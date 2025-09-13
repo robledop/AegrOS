@@ -36,6 +36,12 @@
 #define MOUSE_X_OVERFLOW (1 << 6)
 #define MOUSE_Y_OVERFLOW (1 << 7)
 
+// Mouse clicks
+
+#define MOUSE_LEFT (1 << 0)
+#define MOUSE_RIGHT (1 << 1)
+#define MOUSE_MIDDLE (1 << 2)
+
 struct ps2_mouse_packet {
     uint8_t flags;
     int8_t x, y;

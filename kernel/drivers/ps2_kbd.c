@@ -43,7 +43,7 @@ uint8_t keyboard_get_char()
     const unsigned int st = inb(KBD_STATUS_PORT);
     if ((st & KBD_DATA_IN_BUFFER) == 0) {
         release(&keyboard_getchar_lock);
-        return -1;
+        return 0;
     }
     unsigned int data = inb(KBD_DATA_PORT);
 
@@ -118,16 +118,8 @@ int ps2_keyboard_init()
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 {
     pic_acknowledge((int)frame->interrupt_number);
-
-    // Check if this is actually mouse data
-    uint8_t status = inb(KBD_STATUS_PORT);
-    if (status & MOUSE_F_BIT) { // Data is from mouse
-        // This is mouse data, discard it
-        inb(KBD_DATA_PORT);
-        return;
-    }
-
     const uint8_t c = keyboard_get_char();
+
     // Delete key
     if (c > 0 && c != 233) {
         keyboard_push(c);

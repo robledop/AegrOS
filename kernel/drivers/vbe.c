@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <vbe.h>
 
+#include "compositor.h"
 #include "memory.h"
 #include "string.h"
 
@@ -8,6 +9,17 @@ static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
 #define MARGIN 15
+#define CHAR_WIDTH 8
+#define LINE_HEIGHT 12
+
+struct mouse_cursor {
+    int x;
+    int y;
+    uint32_t pixels[8][8];
+    bool valid;
+};
+
+struct mouse_cursor mouse_cursor_backup = {};
 
 bool cursor_visible = true;
 
@@ -143,6 +155,17 @@ char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}  // U+007F
 };
 
+uint8_t mouse_cursor[8][8] = {
+    {1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 0},
+    {1, 1, 1, 1, 1, 1, 0, 0},
+    {1, 1, 1, 1, 1, 1, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 0, 0, 1, 1, 1, 0},
+    {1, 0, 0, 0, 0, 1, 0, 0},
+};
+
 unsigned char computer_icon[32 * 32] = {
     0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0x92, 0x92, 0x92, 0x92, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa,
     0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa, 0xfa,
@@ -213,20 +236,34 @@ void vbe_scroll_up()
     for (uint32_t i = pitch * (height - LINE_HEIGHT); i < pitch * height; i++) {
         framebuffer[i] = 0;
     }
+
+    draw_windows();
 }
 
-void putpixel_rgb(int x, int y, uint8_t r, uint8_t g, uint8_t b)
+void putpixel_rgb(int x, int y, uint32_t rgb)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
         return; // Out of bounds
     }
 
-    uint8_t *framebuffer     = (uint8_t *)vbe_info->framebuffer;
+    auto framebuffer         = (uint8_t *)vbe_info->framebuffer;
     uint32_t bytes_per_pixel = vbe_info->bpp / 8;
     uint8_t *pixel           = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
 
-    *((uint32_t *)pixel) = (r << 16) | (g << 8) | b;
+    *((uint32_t *)pixel) = rgb;
 }
+
+uint32_t getpixel_rgb(int x, int y)
+{
+    if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
+        return 0; // Out of bounds
+    }
+    auto framebuffer         = (uint8_t *)vbe_info->framebuffer;
+    uint32_t bytes_per_pixel = vbe_info->bpp / 8;
+    uint8_t *pixel           = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
+    return *((uint32_t *)pixel);
+}
+
 
 void vesa_puticon32(int x, int y, const unsigned char *icon)
 {
@@ -234,10 +271,11 @@ void vesa_puticon32(int x, int y, const unsigned char *icon)
         for (int i = 0; i < 32; i++) {
             uint8_t color_index = icon[j * 32 + i];
             if (color_index != 0xfa) { // Assuming 0xfa is the transparent color
-                uint8_t r = color_index;
-                uint8_t g = color_index;
-                uint8_t b = color_index;
-                putpixel_rgb(x + i, y + j, r, g, b);
+                uint8_t r    = color_index;
+                uint8_t g    = color_index;
+                uint8_t b    = color_index;
+                uint32_t rgb = (r << 16) | (g << 8) | b;
+                putpixel_rgb(x + i, y + j, rgb);
             }
         }
     }
@@ -260,6 +298,8 @@ void clear_screen(uint32_t color)
             *((uint32_t *)pixel) = color;
         }
     }
+
+    draw_windows();
 }
 
 void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
@@ -268,25 +308,17 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
         return;
     }
 
-    uint8_t bg_r = (bg >> 16) & 0xff;
-    uint8_t bg_g = (bg >> 8) & 0xff;
-    uint8_t bg_b = bg & 0xff;
-
-    uint8_t r = (color >> 16) & 0xff;
-    uint8_t g = (color >> 8) & 0xff;
-    uint8_t b = color & 0xff;
-
     // Clear background
     for (int i = 0; i < CHAR_WIDTH; i++) {
         for (int j = 0; j < LINE_HEIGHT; j++) {
-            putpixel_rgb(x + i, y + j, bg_r, bg_g, bg_b);
+            putpixel_rgb(x + i, y + j, bg);
         }
     }
 
     for (int l = 0; l < 8; l++) {
         for (int i = 8; i >= 0; i--) {
             if (font8x8_basic[c][l] & (1 << i)) {
-                putpixel_rgb((x) + i, (y) + l, r, g, b);
+                putpixel_rgb((x) + i, (y) + l, color);
             }
         }
     }
@@ -300,32 +332,32 @@ void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, u
     }
 }
 
-void vesa_put_char16(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b)
+void vesa_put_char16(unsigned char c, int x, int y, uint32_t color)
 {
     for (int l = 0; l < 16; l++) {
         for (int i = 15; i >= 0; i--) {
             if (font8x8_basic[c][l / 2] & (1 << (i / 2))) {
-                putpixel_rgb((x) + i, (y) + l, r, g, b);
+                putpixel_rgb((x) + i, (y) + l, color);
             }
         }
     }
 }
 
-void vesa_fillrect(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b)
+void vesa_fillrect(int x, int y, int w, int h, uint32_t color)
 {
     for (int j = y; j < (y + h); j++)
         for (int i = x; i < (x + w); i++)
-            putpixel_rgb(i, j, r, g, b);
+            putpixel_rgb(i, j, color);
 }
 
-void vesa_draw_line(int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_t b)
+void vesa_draw_line(int x1, int y1, int x2, int y2, uint32_t color)
 {
     int dx = x2 - x1;
     int dy = y2 - y1;
     int d  = 2 * dy - dx;
     int y  = y1;
     int x  = x1;
-    putpixel_rgb(x, y, r, g, b);
+    putpixel_rgb(x, y, color);
     while (x < x2) {
         if (d >= 0) {
             y++;
@@ -333,7 +365,7 @@ void vesa_draw_line(int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_
         }
         x++;
         d += 2 * dy;
-        putpixel_rgb(x, y, r, g, b);
+        putpixel_rgb(x, y, color);
     }
 
     d = 2 * dx - dy;
@@ -346,18 +378,17 @@ void vesa_draw_line(int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_
 
         y++;
         d += 2 * dx;
-        putpixel_rgb(x, y, r, g, b);
+        putpixel_rgb(x, y, color);
     }
 }
 
-
 void vesa_draw_window(int x, int y, int w, int h)
 {
-    vesa_fillrect(x, y, w, h, 0xFF, 0xFF, 0xFF);
-    vesa_fillrect(x + 1, y + 1, w - 2, h - 2, 0x00, 0xCC, 0xCC);
-    vesa_fillrect(x + 2, y + 2, w - 4, h - 4, 0xFF, 0xCC, 0xCC);
+    vesa_fillrect(x, y, w, h, 0xFFFFFF);
+    vesa_fillrect(x + 1, y + 1, w - 2, h - 2, 0x00CCCC);
+    vesa_fillrect(x + 2, y + 2, w - 4, h - 4, 0xFFCCCC);
     // Title bar
-    vesa_fillrect(x + 1, y + 1, w - 2, 18, 0x00, 0xCC, 0xCC);
+    vesa_fillrect(x + 1, y + 1, w - 2, 18, 0x00CCCC);
     const char *title = "My ugly window";
 
     int c_x = x + 10;
@@ -365,31 +396,64 @@ void vesa_draw_window(int x, int y, int w, int h)
 
     vesa_print_string(title, strlen(title), c_x, c_y, 0xFFFFFF, 0x00CCCC);
 
-    // for (const char *p = title; *p; ++p) {
-    //     constexpr int char_w = 8;
-    //
-    //     vesa_put_char8(*p, c_x, c_y, 0xFFFFFF, 0x000000);
-    //     c_x += char_w;
-    // }
-
     vesa_puticon32(x + 2, y + 20, computer_icon);
 
-    vesa_draw_line(x + 1, y + 55, x + w - 2, y + 1, 0x33, 0x33, 0xFF);
-    vesa_draw_line(x + 1, y + 105, x + 1, y + h - 2, 0x33, 0x33, 0xFF);
-
-
-    vesa_draw_line(x + 50, y + 55, x + 50, y + 250, 0x33, 0x33, 0xFF);
-    vesa_draw_line(x + 50, y + 55, x + 150, y + 250, 0x33, 0x33, 0xFF);
+    vesa_draw_line(x + 1, y + 55, x + w - 2, y + 1, 0x3333FF);
+    vesa_draw_line(x + 1, y + 105, x + 1, y + h - 2, 0x3333FF);
 }
 
 void draw_cursor(int x, int y)
 {
-    vesa_fillrect(x, y + CHAR_WIDTH - 3, CHAR_WIDTH, 3, 0xFF, 0xFF, 0xFF);
+    vesa_fillrect(x, y + CHAR_WIDTH - 3, CHAR_WIDTH, 3, 0xFFFFFF);
 }
 
 void erase_cursor(int x, int y)
 {
-    vesa_fillrect(x, y, CHAR_WIDTH, CHAR_WIDTH, 0, 0, 0);
+    vesa_fillrect(x, y, CHAR_WIDTH, CHAR_WIDTH, 0);
+}
+
+void vesa_backup_mouse_cursor(int x, int y)
+{
+    mouse_cursor_backup.x = x;
+    mouse_cursor_backup.y = y;
+
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            uint32_t pixel                   = getpixel_rgb(x + i, y + j);
+            mouse_cursor_backup.pixels[j][i] = pixel;
+        }
+    }
+    mouse_cursor_backup.valid = true;
+}
+
+void vesa_restore_mouse_cursor()
+{
+    if (!mouse_cursor_backup.valid) {
+        return;
+    }
+    int x = mouse_cursor_backup.x;
+    int y = mouse_cursor_backup.y;
+
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            uint32_t pixel = mouse_cursor_backup.pixels[j][i];
+            putpixel_rgb(x + i, y + j, pixel);
+        }
+    }
+}
+
+void vesa_draw_mouse_cursor(int x, int y)
+{
+    vesa_backup_mouse_cursor(x, y);
+
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            uint8_t pixel = mouse_cursor[j][i];
+            if (pixel != 0) {
+                putpixel_rgb(x + i, y + j, 0xffffff);
+            }
+        }
+    }
 }
 
 // ############### Terminal ###########################3
@@ -543,6 +607,7 @@ bool v_param_process(const int c)
                 break;
             default:
                 if (v_params[i] >= 30 && v_params[i] <= 47) {
+
                     if (v_params[i] >= 30 && v_params[i] <= 37) {
                         forecolor = ansi_to_rgb(v_params[i], bold);
                     } else if (v_params[i] >= 40 && v_params[i] <= 47) {
@@ -620,11 +685,6 @@ void putchar(char c)
     if (v_handle_ansi_escape(c)) {
         return;
     }
-
-    /* forecolor is in 0xRRGGBB format */
-    uint8_t r = (forecolor >> 16) & 0xFF;
-    uint8_t g = (forecolor >> 8) & 0xFF;
-    uint8_t b = forecolor & 0xFF;
 
     vesa_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
     cursor_x += CHAR_WIDTH;

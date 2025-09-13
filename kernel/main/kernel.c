@@ -25,6 +25,8 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
+#include "compositor.h"
+
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
 
 #define STACK_CHK_GUARD 0xe2dee396
@@ -82,7 +84,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 #ifdef PIXEL_RENDERING
     set_vbe_info(mbd);
-    vesa_draw_window(700, 50, 300, 200);
 #endif
 
     init_serial();
@@ -116,6 +117,10 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     start_shell();
 
     mouse_init();
+
+    window_create("test 1", 700, 200, 300, 200);
+    window_create("test 2", 600, 500, 400, 250);
+    draw_windows();
 
     scheduler();
 
