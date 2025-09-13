@@ -85,6 +85,27 @@ window_t *window_create(char *name, int x, int y, int width, int height)
     return w;
 }
 
+void window_destroy(window_t *window)
+{
+    if (window == nullptr) {
+        return;
+    }
+
+    for (int i = 0; i < window_count; i++) {
+        if (windows[i] == window) {
+            kfree(window);
+            windows[i] = nullptr;
+            // Shift remaining windows
+            for (int j = i; j < window_count - 1; j++) {
+                windows[j] = windows[j + 1];
+            }
+            windows[window_count - 1] = nullptr;
+            window_count--;
+            return;
+        }
+    }
+}
+
 void window_draw(window_t *window)
 {
     int x = window->x;
