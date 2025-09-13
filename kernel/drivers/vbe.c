@@ -1,9 +1,8 @@
+#include <compositor.h>
+#include <memory.h>
 #include <stdint.h>
+#include <string.h>
 #include <vbe.h>
-
-#include "compositor.h"
-#include "memory.h"
-#include "string.h"
 
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
@@ -24,7 +23,7 @@ struct mouse_cursor mouse_cursor_backup = {};
 bool cursor_visible = true;
 
 // Contains an 8x8 font map for unicode points U+0000 - U+007F (basic latin)
-char font8x8_basic[128][8] = {
+uint8_t font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0000 (nul)
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0001
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0002
@@ -226,10 +225,10 @@ unsigned char computer_icon[32 * 32] = {
 // TODO: Implement double buffering
 void vbe_scroll_up()
 {
-    uint8_t *framebuffer     = (uint8_t *)vbe_info->framebuffer;
-    uint32_t bytes_per_pixel = vbe_info->bpp / 8;
-    uint32_t pitch           = vbe_info->pitch;
-    uint32_t height          = vbe_info->height;
+    uint8_t *framebuffer = (uint8_t *)vbe_info->framebuffer;
+    // uint32_t bytes_per_pixel = vbe_info->bpp / 8;
+    uint32_t pitch  = vbe_info->pitch;
+    uint32_t height = vbe_info->height;
 
     memmove(framebuffer, framebuffer + pitch * LINE_HEIGHT, pitch * (height - LINE_HEIGHT));
 
@@ -394,7 +393,7 @@ void vesa_draw_window(int x, int y, int w, int h)
     int c_x = x + 10;
     int c_y = y + 5;
 
-    vesa_print_string(title, strlen(title), c_x, c_y, 0xFFFFFF, 0x00CCCC);
+    vesa_print_string(title, (int)strlen(title), c_x, c_y, 0xFFFFFF, 0x00CCCC);
 
     vesa_puticon32(x + 2, y + 20, computer_icon);
 
@@ -567,8 +566,8 @@ bool v_param_process(const int c)
         cursor_right();
         break;
     case 'H':
-        const int row = v_params[0];
-        const int col = v_params[1];
+        // const int row = v_params[0];
+        // const int col = v_params[1];
         // update_cursor(row, col);
         break;
     case 'J':
@@ -584,26 +583,26 @@ bool v_param_process(const int c)
         }
         break;
     case 'm':
-        static bool bold    = false;
-        static int blinking = 0;
+        static bool bold = false;
+        // static int blinking = 0;
 
         for (int i = 0; i < v_param_count; i++) {
             switch (v_params[i]) {
             case 0:
-                blinking = 0;
-                bold     = false;
+                // blinking = 0;
+                bold = false;
                 break;
             case 1:
                 bold = true;
                 break;
             case 5:
-                blinking = 1;
+                // blinking = 1;
                 break;
             case 22:
                 bold = false;
                 break;
             case 25:
-                blinking = 0;
+                // blinking = 0;
                 break;
             default:
                 if (v_params[i] >= 30 && v_params[i] <= 47) {

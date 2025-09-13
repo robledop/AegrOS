@@ -1,10 +1,8 @@
 #include <compositor.h>
 #include <kernel_heap.h>
+#include <printf.h>
 #include <string.h>
-
-#include "printf.h"
-#include "vbe.h"
-
+#include <vbe.h>
 
 int window_count               = 0;
 window_t *windows[MAX_WINDOWS] = {};
@@ -116,10 +114,10 @@ void window_draw(window_t *window)
     vesa_fillrect(x, y, w, h, 0xFFFFFF);
     vesa_fillrect(x + 1, y + 1, w - 2, h - 2, 0x00CCCC);
     vesa_fillrect(x + 2, y + 2, w - 4, h - 4, 0xFFCCCC);
+
     // Title bar
     vesa_fillrect(x + 1, y + 1, w - 2, 18, 0x00CCCC);
-
-    vesa_print_string(window->name, strlen(window->name), x + 10, y + 5, 0xFFFFFF, 0x00CCCC);
+    vesa_print_string(window->name, (int)strlen(window->name), x + 10, y + 5, 0xFFFFFF, 0x00CCCC);
 
     vesa_puticon32(x + 2, y + 20, computer_icon_1);
 }
@@ -148,7 +146,7 @@ bool window_was_clicked(window_t *window, int x, int y)
 void window_print_message(window_t *window, char *message)
 {
     auto message_length = strlen(message);
-    auto center_x       = (window->x + window->width / 2) - (message_length * 8) / 2;
+    auto center_x       = window->x + window->width / 2 - (message_length * 8) / 2;
     auto center_y       = window->y + window->height / 2;
-    vesa_print_string(message, strlen(message), center_x, center_y, 0x000000, 0xFFCCCC);
+    vesa_print_string(message, (int)strlen(message), (int)center_x, center_y, 0x000000, 0xFFCCCC);
 }

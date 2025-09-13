@@ -56,17 +56,17 @@ void draw_mouse_cursor(void)
     char *flags = "     ";
     vesa_print_string("     ", 5, 850, 0, 0x000000, 0x000000);
     itohex(mouse_device.flags, flags);
-    vesa_print_string(flags, strlen(flags), 850, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(flags, (int)strlen(flags), 850, 0, 0xFFFFFF, 0x000000);
 
     char *x = "     ";
     vesa_print_string("     ", 5, 900, 0, 0x000000, 0x000000);
     itoa(mouse_device.x, x);
-    vesa_print_string(x, strlen(x), 900, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(x, (int)strlen(x), 900, 0, 0xFFFFFF, 0x000000);
 
     char *y = "     ";
     vesa_print_string("     ", 5, 950, 0, 0x000000, 0x000000);
     itoa(mouse_device.y, y);
-    vesa_print_string(y, strlen(y), 950, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(y, (int)strlen(y), 950, 0, 0xFFFFFF, 0x000000);
 
     vesa_restore_mouse_cursor();
     vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
@@ -101,7 +101,7 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
     uint8_t status                 = inb(MOUSE_STATUS);
     struct ps2_mouse_packet packet = {};
     while (status & MOUSE_B_BIT) {
-        char mouse_in = inb(MOUSE_PORT);
+        int8_t mouse_in = (int8_t)inb(MOUSE_PORT);
         if (status & MOUSE_F_BIT) {
             // The mouse data comes in three packets:
             switch (mouse_device.cycle) {
