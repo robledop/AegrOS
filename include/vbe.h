@@ -2,6 +2,9 @@
 
 #include <stdint.h>
 
+#define CHAR_WIDTH 8
+#define LINE_HEIGHT 12
+
 struct vbe_mode_info {
     uint16_t window_size;
     uint16_t segment_a;
@@ -35,10 +38,11 @@ extern struct vbe_mode_info *vbe_info;
 void clear_screen(uint32_t color);
 void putpixel_rgb(int x, int y, uint8_t r, uint8_t g, uint8_t b);
 void vesa_put_char16(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b);
-void vesa_put_char8(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b);
+void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg);
 void vesa_fillrect(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
 void vesa_draw_window(int x, int y, int w, int h);
 void vesa_puticon32(int x, int y, const unsigned char *icon);
+void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, uint32_t bg);
 
 #ifdef PIXEL_RENDERING
 void putchar(char c);

@@ -138,6 +138,13 @@ inline void outl(uint16_t portid, uint32_t value)
     asm volatile("outl %%eax, %%dx" ::"d"(portid), "a"(value));
 }
 
+// Wait a very small amount of time (1 to 4 microseconds, generally). Useful for implementing a small delay for PIC
+// remapping on old hardware or generally as a simple but imprecise wait.
+inline void io_wait(void)
+{
+    outb(0x80, 0);
+}
+
 int cpu_get_model(void)
 {
     int ebx, unused;

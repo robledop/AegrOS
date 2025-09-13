@@ -12,6 +12,7 @@ uint32_t inl(uint16_t p);
 void outb(uint16_t portid, uint8_t value);
 void outw(uint16_t portid, uint16_t value);
 void outl(uint16_t portid, uint32_t value);
+void io_wait(void);
 void cpu_print_info(void);
 char *cpu_string(void);
 int cpu_get_model(void);

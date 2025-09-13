@@ -2,12 +2,11 @@
 #include <vbe.h>
 
 #include "memory.h"
+#include "string.h"
 
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
-#define CHAR_WIDTH 8
-#define LINE_HEIGHT 12
 #define MARGIN 15
 
 bool cursor_visible = true;
@@ -263,14 +262,41 @@ void clear_screen(uint32_t color)
     }
 }
 
-void vesa_put_char8(unsigned char c, int x, int y, uint8_t r, uint8_t g, uint8_t b)
+void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
 {
+    if (c > 128) {
+        return;
+    }
+
+    uint8_t bg_r = (bg >> 16) & 0xff;
+    uint8_t bg_g = (bg >> 8) & 0xff;
+    uint8_t bg_b = bg & 0xff;
+
+    uint8_t r = (color >> 16) & 0xff;
+    uint8_t g = (color >> 8) & 0xff;
+    uint8_t b = color & 0xff;
+
+    // Clear background
+    for (int i = 0; i < CHAR_WIDTH; i++) {
+        for (int j = 0; j < LINE_HEIGHT; j++) {
+            putpixel_rgb(x + i, y + j, bg_r, bg_g, bg_b);
+        }
+    }
+
     for (int l = 0; l < 8; l++) {
         for (int i = 8; i >= 0; i--) {
             if (font8x8_basic[c][l] & (1 << i)) {
                 putpixel_rgb((x) + i, (y) + l, r, g, b);
             }
         }
+    }
+}
+
+void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, uint32_t bg)
+{
+    for (int i = 0; i < len; i++) {
+        vesa_put_char8(str[i], x, y, color, bg);
+        x += CHAR_WIDTH;
     }
 }
 
@@ -337,12 +363,14 @@ void vesa_draw_window(int x, int y, int w, int h)
     int c_x = x + 10;
     int c_y = y + 5;
 
-    for (const char *p = title; *p; ++p) {
-        constexpr int char_w = 8;
+    vesa_print_string(title, strlen(title), c_x, c_y, 0xFFFFFF, 0x00CCCC);
 
-        vesa_put_char8(*p, c_x, c_y, 0xFF, 0xFF, 0xFF);
-        c_x += char_w;
-    }
+    // for (const char *p = title; *p; ++p) {
+    //     constexpr int char_w = 8;
+    //
+    //     vesa_put_char8(*p, c_x, c_y, 0xFFFFFF, 0x000000);
+    //     c_x += char_w;
+    // }
 
     vesa_puticon32(x + 2, y + 20, computer_icon);
 
@@ -598,7 +626,7 @@ void putchar(char c)
     uint8_t g = (forecolor >> 8) & 0xFF;
     uint8_t b = forecolor & 0xFF;
 
-    vesa_put_char8(c, cursor_x, cursor_y, r, g, b);
+    vesa_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
     cursor_x += CHAR_WIDTH;
     if (cursor_x + CHAR_WIDTH + MARGIN > vbe_info->width) {
         cursor_x = MARGIN;

@@ -2,10 +2,14 @@
 #include <io.h>
 #include <kernel_heap.h>
 #include <keyboard.h>
+#include <mouse.h>
 #include <pic.h>
 #include <ps2_kbd.h>
 #include <spinlock.h>
 #include <string.h>
+
+#include "printf.h"
+#include "serial.h"
 
 struct spinlock keyboard_lock         = {};
 struct spinlock keyboard_getchar_lock = {};
@@ -77,17 +81,36 @@ uint8_t keyboard_get_char()
     return c;
 }
 
+
+static void keyboard_buffer_clear()
+{
+    while (inb(0x64) & 1) {
+        inb(0x60); // Read and discard
+    }
+}
+
 int ps2_keyboard_init()
 {
     initlock(&keyboard_lock, "keyboard");
     initlock(&keyboard_getchar_lock, "getchar");
 
-    idt_register_interrupt_callback(ISR_KEYBOARD, ps2_keyboard_interrupt_handler);
 
+    outb(KBD_STATUS_PORT, 0xAD); // Disable first ps2 port
+    keyboard_buffer_clear();
     outb(KBD_STATUS_PORT, 0xAE); // keyboard enable command
-    outb(KBD_DATA_PORT, 0xFF);   // keyboard reset command
+
+    while (inb(KBD_STATUS_PORT) & 2)
+        ;
+    outb(KBD_DATA_PORT, 0xFF); // keyboard reset command
+
+    int timeout = 100000;
+    while ((inb(0x64) & 1) == 0 && --timeout)
+        ;
 
     kbd_led_handling(0x07);
+    keyboard_buffer_clear();
+
+    idt_register_interrupt_callback(ISR_KEYBOARD, ps2_keyboard_interrupt_handler);
 
     return 0;
 }
@@ -95,6 +118,14 @@ int ps2_keyboard_init()
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 {
     pic_acknowledge((int)frame->interrupt_number);
+
+    // Check if this is actually mouse data
+    uint8_t status = inb(KBD_STATUS_PORT);
+    if (status & MOUSE_F_BIT) { // Data is from mouse
+        // This is mouse data, discard it
+        inb(KBD_DATA_PORT);
+        return;
+    }
 
     const uint8_t c = keyboard_get_char();
     // Delete key

@@ -7,6 +7,7 @@
 #include <kernel_heap.h>
 #include <keyboard.h>
 #include <memory.h>
+#include <mouse.h>
 #include <net/network.h>
 #include <paging.h>
 #include <pci.h>
@@ -81,7 +82,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 #ifdef PIXEL_RENDERING
     set_vbe_info(mbd);
-    vesa_draw_window(700, 10, 300, 200);
+    vesa_draw_window(700, 50, 300, 200);
 #endif
 
     init_serial();
@@ -95,8 +96,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     init_symbols(mbd);
     display_grub_info(mbd, magic);
     paging_init();
-    idt_init();
     pic_init();
+    idt_init();
     pit_init();
     timer_init(1000);
     threads_init();
@@ -106,18 +107,15 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     disk_init();
     root_inode_init();
     register_syscalls();
+
     keyboard_init();
 
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
     set_idle_thread(idle_task);
 
-    // Initialize video and clear screen
-    // clear_screen(0xFF5555AA);
-    // simple_test_screen();
-    // text_mode_hello_world();
-
     start_shell();
 
+    mouse_init();
 
     scheduler();
 
