@@ -20,12 +20,13 @@
 #include <syscall.h>
 #include <thread.h>
 #include <timer.h>
-#include <vbe.h>
+#include <vesa.h>
 #include <vfs.h>
 #include <vga_buffer.h>
+#include <window_manager.h>
 #include <x86.h>
 
-#include "compositor.h"
+#include "desktop.h"
 
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
 
@@ -108,7 +109,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     disk_init();
     root_inode_init();
     register_syscalls();
-
     keyboard_init();
 
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
@@ -116,11 +116,12 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     start_shell();
 
+    vesa_init();
     mouse_init();
 
-    window_create("test 1", 700, 200, 300, 200);
-    window_create("test 2", 600, 500, 400, 250);
-    draw_windows();
+    desktop_window_create("test 1", 700, 200, 300, 200);
+    desktop_window_create("test 2", 600, 500, 400, 250);
+    desktop_draw_windows();
 
     scheduler();
 

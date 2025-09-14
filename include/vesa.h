@@ -1,7 +1,10 @@
 #pragma once
 
+#include <rect.h>
 #include <stdint.h>
 
+#define VESA_CHAR_WIDTH 8
+#define LINE_HEIGHT 12
 
 struct vbe_mode_info {
     uint16_t window_size;
@@ -32,21 +35,20 @@ struct vbe_mode_info {
 
 extern struct vbe_mode_info *vbe_info;
 
-
-void clear_screen(uint32_t color);
-void putpixel_rgb(int x, int y, uint32_t rbg);
+void vesa_init();
+void vesa_add_clip_rect(rect_t *added_rect);
+void vesa_clear_clip_rects();
+void vesa_clear_screen(uint32_t color);
+void vesa_putpixel(int x, int y, uint32_t rbg);
 void vesa_put_char16(unsigned char c, int x, int y, uint32_t color);
 void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg);
-void vesa_fillrect(int x, int y, int w, int h, uint32_t color);
-void vesa_draw_window(int x, int y, int w, int h);
+void vesa_fill_rect(int x, int y, int w, int h, uint32_t color);
+void vesa_draw_rect(int x, int y, unsigned int width, unsigned int height, uint32_t color);
 void vesa_puticon32(int x, int y, const unsigned char *icon);
 void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, uint32_t bg);
 void vesa_draw_mouse_cursor(int x, int y);
 void vesa_restore_mouse_cursor();
-
-#ifdef PIXEL_RENDERING
-void putchar(char c);
-#endif
-
-
-void text_mode_hello_world(void);
+void vesa_subtract_clip_rect(rect_t *subtracted_rect);
+void vesa_draw_cursor(int x, int y);
+void vesa_erase_cursor(int x, int y);
+void vesa_scroll_up();

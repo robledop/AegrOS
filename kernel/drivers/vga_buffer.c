@@ -327,7 +327,7 @@ bool handle_ansi_escape(const int c)
     return false;
 }
 
-#ifndef PIXEL_RENDERING
+#ifndef PIXEL_RENDERING // If this is defined, then we use the putchar defined in vesa_terminal.c
 void putchar(const char c)
 {
     if (handle_ansi_escape(c)) {

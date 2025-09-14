@@ -1,19 +1,20 @@
+#include <desktop.h>
 #include <idt.h>
 #include <io.h>
+#include <kernel.h>
 #include <mouse.h>
+#include <pic.h>
+#include <printf.h>
 #include <string.h>
-#include <vbe.h>
+#include <vesa.h>
+#include <window_manager.h>
 
-#include "compositor.h"
-#include "kernel.h"
-#include "pic.h"
-#include "printf.h"
 
 #define ISR_PS2_MOUSE (0x20 + 12)
 
-extern window_t *windows[MAX_WINDOWS];
+// extern window_t *windows[MAX_WINDOWS];
 
-static struct ps2_mouse mouse_device = {};
+struct ps2_mouse mouse_device = {};
 
 static void mouse_wait(unsigned char a_type)
 {
@@ -51,6 +52,31 @@ uint8_t mouse_read()
     return inb(MOUSE_PORT);
 }
 
+// void handle_mouse_button_events(void)
+// {
+//     // Check for left button state changes
+//     bool left_currently_pressed  = (mouse_device.flags & MOUSE_LEFT) != 0;
+//     bool left_previously_pressed = (mouse_device.prev_flags & MOUSE_LEFT) != 0;
+//
+//     if (left_currently_pressed && !left_previously_pressed) {
+//         // Left button down event
+//         desktop_process_mouse_down_event();
+//     } else if (!left_currently_pressed && left_previously_pressed) {
+//         // Left button up event
+//         desktop_process_mouse_up_event();
+//     }
+//
+//     // Similar logic for right and middle buttons if needed
+//     bool right_currently_pressed  = (mouse_device.flags & MOUSE_RIGHT) != 0;
+//     bool right_previously_pressed = (mouse_device.prev_flags & MOUSE_RIGHT) != 0;
+//
+//     if (right_currently_pressed && !right_previously_pressed) {
+//         // Right button down event
+//     } else if (!right_currently_pressed && right_previously_pressed) {
+//         // Right button up event
+//     }
+// }
+
 void draw_mouse_cursor(void)
 {
     char *flags = "     ";
@@ -71,30 +97,9 @@ void draw_mouse_cursor(void)
     vesa_restore_mouse_cursor();
     vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
 
-    if (mouse_device.flags & MOUSE_LEFT) {
-        vesa_print_string("L", 1, 800, 0, 0xFFFFFF, 0x000000);
+    // HANDLE CLICKS
 
-        for (int i = 0; i < MAX_WINDOWS; i++) {
-            auto clicked = window_was_clicked(windows[i], mouse_device.x, mouse_device.y);
-            if (clicked) {
-                printf("Clicked window %s\n", windows[i]->name);
-            }
-        }
-    } else {
-        vesa_print_string(" ", 1, 800, 0, 0xFFFFFF, 0x000000);
-    }
-
-    if (mouse_device.flags & MOUSE_RIGHT) {
-        vesa_print_string("R", 1, 810, 0, 0xFFFFFF, 0x000000);
-    } else {
-        vesa_print_string(" ", 1, 810, 0, 0xFFFFFF, 0x000000);
-    }
-
-    if (mouse_device.flags & MOUSE_MIDDLE) {
-        vesa_print_string("M", 1, 820, 0, 0xFFFFFF, 0x000000);
-    } else {
-        vesa_print_string(" ", 1, 820, 0, 0xFFFFFF, 0x000000);
-    }
+    desktop_process_mouse_event();
 }
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
@@ -124,9 +129,21 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
                 {
                     packet.y = mouse_in;
 
+                    mouse_device.prev_x = mouse_device.x;
+                    mouse_device.prev_y = mouse_device.y;
+
                     mouse_device.x += packet.x;
                     mouse_device.y -= packet.y;
-                    mouse_device.flags = packet.flags;
+                    mouse_device.prev_flags = mouse_device.flags;
+                    mouse_device.flags      = packet.flags;
+
+                    // if ((mouse_device.flags & MOUSE_LEFT && mouse_device.prev_flags & MOUSE_LEFT) &&
+                    //     (mouse_device.prev_x != mouse_device.x || mouse_device.prev_y != mouse_device.y)) {
+                    //     mouse_device.dragging = true;
+                    // } else {
+                    //     mouse_device.dragging = false;
+                    // }
+
 
                     // Clamp to screen bounds
                     if (mouse_device.x < 0) {

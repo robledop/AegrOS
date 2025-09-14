@@ -60,7 +60,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #else
-#include <vbe.h>
+#include <vesa.h>
 #endif
 
 

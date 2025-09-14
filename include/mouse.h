@@ -52,6 +52,10 @@ struct ps2_mouse {
     int16_t x;
     int16_t y;
     uint8_t flags;
+    uint8_t prev_flags;
+    uint8_t prev_x;
+    uint8_t prev_y;
+    bool dragging;
     uint8_t received;
     uint8_t initialized;
 };

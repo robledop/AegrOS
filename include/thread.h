@@ -1,9 +1,9 @@
 #pragma once
 
 #include <config.h>
-#include <list.h>
 #include <paging.h>
 #include <spinlock.h>
+#include <stddef.h>
 #include <stdint.h>
 
 struct context {

@@ -10,6 +10,8 @@ Written in C23, so it requires a version of GCC that supports it.
 <details>
 <summary>Screenshots</summary>
 
+![Screenshot](docs/img/screenshot6.png)
+
 ![Screenshot](docs/img/screenshot0.png)
 
 ![Screenshot](docs/img/screenshot1.png)
@@ -63,9 +65,9 @@ Written in C23, so it requires a version of GCC that supports it.
 - ✅ Undefined behavior sanitizer
 - ✅ Stack smashing protector
 - ✅ VFS
-- ☑️ Network stack
+- ☑️ Network stack (in progress)
 - ⬜ Make the syscalls more POSIX-like
-- ⬜ GUI
+- ☑️ GUI (in progress)
 
 </details>
 
@@ -105,7 +107,7 @@ Written in C23, so it requires a version of GCC that supports it.
 - ⬜ dup
 - ⬜ dup2
 - ⬜ pipe
-- ⬜ ioctl
+- ☑️ ioctl (in progress)
 - ✅ opendir
 - ✅ readdir
 - ✅ closedir
