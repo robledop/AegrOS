@@ -2,6 +2,7 @@
 #include <vesa.h>
 #include <vesa_terminal.h>
 
+#include "config.h"
 #include "kernel.h"
 
 #define MARGIN 15
@@ -16,7 +17,7 @@ int v_params[10]      = {0};
 int v_param_count     = 1;
 
 int forecolor = 0xFFFFFF;
-int backcolor = 0;
+int backcolor = DESKTOP_BACKGROUND_COLOR;
 
 int ansi_to_rgb(int ansi, bool bold)
 {
@@ -125,7 +126,7 @@ bool v_param_process(const int c)
     case 'J':
         switch (v_params[0]) {
         case 2:
-            vesa_clear_screen(0);
+            vesa_clear_screen(DESKTOP_BACKGROUND_COLOR);
             cursor_x = MARGIN;
             cursor_y = MARGIN;
             break;

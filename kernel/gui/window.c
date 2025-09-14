@@ -7,7 +7,6 @@
 
 void window_draw(window_t *window)
 {
-
     int x = window->x;
     int y = window->y;
     int w = window->width;
@@ -45,4 +44,21 @@ void window_print_message(window_t *window, char *message)
     auto center_x       = window->x + window->width / 2 - (message_length * 8) / 2;
     auto center_y       = window->y + window->height / 2;
     vesa_print_string(message, (int)strlen(message), (int)center_x, center_y, 0x000000, 0xFFCCCC);
+}
+
+window_t *window_create(char *name, int x, int y, int width, int height)
+{
+    auto w = (window_t *)kzalloc(sizeof(window_t));
+    if (w == nullptr) {
+        printf("Failed to allocate memory for window\n");
+        return nullptr;
+    }
+
+    strncpy(w->name, name, 20);
+    w->x      = x;
+    w->y      = y;
+    w->width  = width;
+    w->height = height;
+
+    return w;
 }

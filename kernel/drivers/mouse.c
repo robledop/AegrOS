@@ -3,18 +3,14 @@
 #include <io.h>
 #include <kernel.h>
 #include <mouse.h>
-#include <pic.h>
-#include <printf.h>
 #include <string.h>
 #include <vesa.h>
-#include <window_manager.h>
 
+#include "config.h"
 
 #define ISR_PS2_MOUSE (0x20 + 12)
 
-// extern window_t *windows[MAX_WINDOWS];
-
-struct ps2_mouse mouse_device = {};
+static struct ps2_mouse mouse_device = {};
 
 static void mouse_wait(unsigned char a_type)
 {
@@ -52,68 +48,41 @@ uint8_t mouse_read()
     return inb(MOUSE_PORT);
 }
 
-// void handle_mouse_button_events(void)
-// {
-//     // Check for left button state changes
-//     bool left_currently_pressed  = (mouse_device.flags & MOUSE_LEFT) != 0;
-//     bool left_previously_pressed = (mouse_device.prev_flags & MOUSE_LEFT) != 0;
-//
-//     if (left_currently_pressed && !left_previously_pressed) {
-//         // Left button down event
-//         desktop_process_mouse_down_event();
-//     } else if (!left_currently_pressed && left_previously_pressed) {
-//         // Left button up event
-//         desktop_process_mouse_up_event();
-//     }
-//
-//     // Similar logic for right and middle buttons if needed
-//     bool right_currently_pressed  = (mouse_device.flags & MOUSE_RIGHT) != 0;
-//     bool right_previously_pressed = (mouse_device.prev_flags & MOUSE_RIGHT) != 0;
-//
-//     if (right_currently_pressed && !right_previously_pressed) {
-//         // Right button down event
-//     } else if (!right_currently_pressed && right_previously_pressed) {
-//         // Right button up event
-//     }
-// }
-
-void draw_mouse_cursor(void)
+void mouse_draw_mouse_cursor()
 {
+#if 0
     char *flags = "     ";
-    vesa_print_string("     ", 5, 850, 0, 0x000000, 0x000000);
+    vesa_print_string("     ", 5, 850, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
     itohex(mouse_device.flags, flags);
-    vesa_print_string(flags, (int)strlen(flags), 850, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(flags, (int)strlen(flags), 850, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
 
     char *x = "     ";
-    vesa_print_string("     ", 5, 900, 0, 0x000000, 0x000000);
+    vesa_print_string("     ", 5, 900, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
     itoa(mouse_device.x, x);
-    vesa_print_string(x, (int)strlen(x), 900, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(x, (int)strlen(x), 900, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
 
     char *y = "     ";
-    vesa_print_string("     ", 5, 950, 0, 0x000000, 0x000000);
+    vesa_print_string("     ", 5, 950, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
     itoa(mouse_device.y, y);
-    vesa_print_string(y, (int)strlen(y), 950, 0, 0xFFFFFF, 0x000000);
+    vesa_print_string(y, (int)strlen(y), 950, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
+#endif
 
-    vesa_restore_mouse_cursor();
     vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
-
-    // HANDLE CLICKS
-
-    desktop_process_mouse_event();
 }
+
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
     uint8_t status                 = inb(MOUSE_STATUS);
     struct ps2_mouse_packet packet = {};
     while (status & MOUSE_B_BIT) {
-        int8_t mouse_in = (int8_t)inb(MOUSE_PORT);
+        int8_t mouse_data = (int8_t)inb(MOUSE_PORT);
         if (status & MOUSE_F_BIT) {
             // The mouse data comes in three packets:
             switch (mouse_device.cycle) {
             case 0: // The first one sends the flags.
                 {
-                    packet.flags = mouse_in;
-                    if (!(mouse_in & MOUSE_V_BIT)) {
+                    packet.flags = mouse_data;
+                    if (!(mouse_data & MOUSE_V_BIT)) {
                         return;
                     }
                     ++mouse_device.cycle;
@@ -121,13 +90,13 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
                 break;
             case 1: // The second one sends the x position.
                 {
-                    packet.x = mouse_in;
+                    packet.x = mouse_data;
                     ++mouse_device.cycle;
                 }
                 break;
             case 2: // The third one sends the y position.
                 {
-                    packet.y = mouse_in;
+                    packet.y = mouse_data;
 
                     mouse_device.prev_x = mouse_device.x;
                     mouse_device.prev_y = mouse_device.y;
@@ -136,14 +105,6 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
                     mouse_device.y -= packet.y;
                     mouse_device.prev_flags = mouse_device.flags;
                     mouse_device.flags      = packet.flags;
-
-                    // if ((mouse_device.flags & MOUSE_LEFT && mouse_device.prev_flags & MOUSE_LEFT) &&
-                    //     (mouse_device.prev_x != mouse_device.x || mouse_device.prev_y != mouse_device.y)) {
-                    //     mouse_device.dragging = true;
-                    // } else {
-                    //     mouse_device.dragging = false;
-                    // }
-
 
                     // Clamp to screen bounds
                     if (mouse_device.x < 0) {
@@ -172,7 +133,13 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
         status = inb(MOUSE_STATUS);
     }
 
-    draw_mouse_cursor();
+    mouse_draw_mouse_cursor();
+    desktop_process_mouse_event((mouse_t){
+        .x          = mouse_device.x,
+        .y          = mouse_device.y,
+        .flags      = mouse_device.flags,
+        .prev_flags = mouse_device.prev_flags,
+    });
 }
 
 void mouse_init()

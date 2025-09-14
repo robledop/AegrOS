@@ -4,13 +4,13 @@
 #include <mouse.h>
 #include <printf.h>
 #include <rect.h>
-#include <string.h>
 #include <vesa.h>
 #include <window.h>
 
-desktop_t desktop_ = {};
-desktop_t *desktop = &desktop_;
-extern struct ps2_mouse mouse_device;
+#include "config.h"
+
+static desktop_t desktop_ = {};
+static desktop_t *desktop = &desktop_;
 
 window_t *desktop_window_create(char *name, int x, int y, int width, int height)
 {
@@ -21,17 +21,7 @@ window_t *desktop_window_create(char *name, int x, int y, int width, int height)
         return nullptr;
     }
 
-    auto w = (window_t *)kzalloc(sizeof(window_t));
-    if (w == nullptr) {
-        printf("Failed to allocate memory for window\n");
-        return nullptr;
-    }
-
-    strncpy(w->name, name, 20);
-    w->x      = x;
-    w->y      = y;
-    w->width  = width;
-    w->height = height;
+    auto w = window_create(name, x, y, width, height);
 
     desktop_window->children[desktop_window->children_count] = w;
     desktop_window->children_count++;
@@ -129,7 +119,7 @@ void desktop_draw_windows()
     }
 
     // Fill the desktop
-    vesa_fill_rect(0, 0, vbe_info->width, vbe_info->height, 0x113399);
+    vesa_fill_rect(0, 0, vbe_info->width, vbe_info->height, DESKTOP_BACKGROUND_COLOR);
 
     // Reset the context clipping
     vesa_clear_clip_rects();
@@ -204,15 +194,15 @@ void desktop_raise_window(window_t *window)
     }
 }
 
-void desktop_process_mouse_event()
+void desktop_process_mouse_event(mouse_t mouse)
 {
     window_t *desktop_window = (window_t *)desktop;
 
-    auto mouse_x = mouse_device.x;
-    auto mouse_y = mouse_device.y;
+    auto mouse_x = mouse.x;
+    auto mouse_y = mouse.y;
 
-    bool left_button      = (mouse_device.flags & MOUSE_LEFT) != 0;
-    bool prev_left_button = (mouse_device.prev_flags & MOUSE_LEFT) != 0;
+    bool left_button      = (mouse.flags & MOUSE_LEFT) != 0;
+    bool prev_left_button = (mouse.prev_flags & MOUSE_LEFT) != 0;
 
     if (left_button) {
         if (!prev_left_button) {

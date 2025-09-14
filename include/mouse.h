@@ -60,11 +60,12 @@ struct ps2_mouse {
     uint8_t initialized;
 };
 
-struct mouse {
+typedef struct mouse {
     int x;
     int y;
     uint8_t flags;
-};
+    uint8_t prev_flags;
+} mouse_t;
 
 void mouse_init();
-void mouse_get_position(struct mouse *mouse);
+void mouse_get_position(mouse_t *mouse);

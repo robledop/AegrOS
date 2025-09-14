@@ -7,6 +7,8 @@
 #include <vesa.h>
 #include <window_manager.h>
 
+#include "config.h"
+
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
@@ -333,7 +335,7 @@ void vesa_draw_cursor(int x, int y)
 
 void vesa_erase_cursor(int x, int y)
 {
-    vesa_fill_rect(x, y, VESA_CHAR_WIDTH, VESA_CHAR_WIDTH, 0);
+    vesa_fill_rect(x, y, VESA_CHAR_WIDTH, VESA_CHAR_WIDTH, DESKTOP_BACKGROUND_COLOR);
 }
 
 void vesa_backup_mouse_cursor(int x, int y)
@@ -368,6 +370,7 @@ void vesa_restore_mouse_cursor()
 
 void vesa_draw_mouse_cursor(int x, int y)
 {
+    vesa_restore_mouse_cursor();
     vesa_backup_mouse_cursor(x, y);
 
     for (int j = 0; j < 8; j++) {

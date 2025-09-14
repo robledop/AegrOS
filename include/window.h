@@ -34,7 +34,7 @@ typedef struct window {
 } window_t;
 
 
-window_t *desktop_window_create(char *name, int x, int y, int width, int height);
+window_t *window_create(char *name, int x, int y, int width, int height);
 void window_draw(window_t *window);
 void window_print_message(window_t *window, char *message);
 bool window_was_clicked(window_t *window, int x, int y);
