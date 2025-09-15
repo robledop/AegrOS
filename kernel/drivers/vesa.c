@@ -6,8 +6,7 @@
 #include <stdint.h>
 #include <vesa.h>
 #include <window_manager.h>
-
-#include "config.h"
+#include <config.h>
 
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;

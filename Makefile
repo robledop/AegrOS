@@ -83,12 +83,6 @@ FLAGS = -ffreestanding \
 
 FLAGS += -D__KERNEL__
 
-#ifeq ($(filter grub,$(MAKECMDGOALS)),grub)
-#    FLAGS += -DGRUB
-#endif
-#ifeq ($(filter qemu_grub_debug,$(MAKECMDGOALS)),qemu_grub_debug)
-#    FLAGS += -DGRUB
-#endif
 
 grub: FLAGS += -DGRUB
 qemu_grub_debug: FLAGS += -DGRUB
@@ -145,7 +139,7 @@ all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
 grub: ./bin/kernel-grub.bin apps FORCE
 	grub-file --is-x86-multiboot ./rootfs/boot/myos.bin
 	./scripts/create-grub-image.sh
-	# VBoxManage convertdd ./disk.img ./disk.vdi
+	 VBoxManage convertdd ./disk.img ./disk.vdi
 
 # The GRUB build does not include kernel.asm. It also does not include anything in the boot directory,
 # but that is already filtered in SRC_DIRS

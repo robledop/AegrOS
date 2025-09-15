@@ -105,7 +105,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     threads_init();
     vfs_init();
     pci_scan();
-    wait_for_network();
     disk_init();
     root_inode_init();
     register_syscalls();
@@ -121,6 +120,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     desktop_window_create("test 1", 700, 200, 300, 200);
     desktop_window_create("test 2", 600, 500, 400, 250);
     desktop_draw_windows();
+
+    wait_for_network();
 
     scheduler();
 
