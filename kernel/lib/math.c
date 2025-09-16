@@ -185,8 +185,9 @@ arith64_u64 __divmoddi4(arith64_u64 a, arith64_u64 b, arith64_u64 *c)
 {
     if (b > a) // divisor > numerator?
     {
-        if (c)
+        if (c) {
             *c = a; // remainder = numerator
+        }
         return 0;   // quotient = 0
     }
     if (!arith64_hi(b)) // divisor is 32-bit
@@ -198,14 +199,17 @@ arith64_u64 __divmoddi4(arith64_u64 a, arith64_u64 b, arith64_u64 *c)
         }
         if (b == 1) // divide by 1
         {
-            if (c)
+            if (c) {
                 *c = 0; // remainder = 0
+            }
             return a;   // quotient = numerator
         }
         if (!arith64_hi(a)) // numerator is also 32-bit
         {
             if (c) // use generic 32-bit operators
+            {
                 *c = arith64_lo(a) % arith64_lo(b);
+            }
             return arith64_lo(a) / arith64_lo(b);
         }
     }
@@ -222,8 +226,9 @@ arith64_u64 __divmoddi4(arith64_u64 a, arith64_u64 b, arith64_u64 *c)
         wrap = ((arith64_s64)(b - rem - 1) >> 63); // wrap = (b > rem) ? 0 : 0xffffffffffffffff (via sign extension)
         rem -= b & wrap;                           // if (wrap) rem -= b
     }
-    if (c)
-        *c = rem;                 // maybe set remainder
+    if (c) {
+        *c = rem; // maybe set remainder
+    }
     return (a << 1) | (wrap & 1); // return the quotient
 }
 
@@ -330,8 +335,9 @@ uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t *rem_p) // NOLINT(*-r
         qbit >>= 1;
     }
 
-    if (rem_p)
+    if (rem_p) {
         *rem_p = num;
+    }
 
     return quot;
 }

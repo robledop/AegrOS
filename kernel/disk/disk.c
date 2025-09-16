@@ -1,10 +1,11 @@
 #include <assert.h>
 #include <ata.h>
+#include <attributes.h>
 #include <disk.h>
 #include <kernel.h>
 #include <memory.h>
 
-__attribute__((nonnull)) struct file_system *vfs_resolve(struct disk *disk);
+NON_NULL struct file_system *vfs_resolve(struct disk *disk);
 struct disk disk;
 
 void disk_init()

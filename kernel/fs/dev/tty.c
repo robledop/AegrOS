@@ -6,7 +6,6 @@
 #include <termios.h>
 #include <thread.h>
 #include <tty.h>
-#include <vesa.h>
 #include <vfs.h>
 
 enum tty_mode {

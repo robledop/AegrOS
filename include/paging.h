@@ -4,6 +4,7 @@
 #error "This is a kernel header, and should not be included in userspace"
 #endif
 
+#include <attributes.h>
 #include <stdint.h>
 
 // https://wiki.osdev.org/Paging
@@ -53,25 +54,23 @@ struct page_directory {
 void enable_paging(void);
 
 struct page_directory *paging_create_directory(uint8_t flags);
-__attribute__((nonnull)) void paging_free_directory(struct page_directory *page_directory);
-__attribute__((nonnull)) void paging_switch_directory(const struct page_directory *directory);
-__attribute__((nonnull)) uint32_t *paging_get_directory(const struct page_directory *directory);
+NON_NULL void paging_free_directory(struct page_directory *page_directory);
+NON_NULL void paging_switch_directory(const struct page_directory *directory);
+NON_NULL uint32_t *paging_get_directory(const struct page_directory *directory);
 
-__attribute__((nonnull)) uint32_t paging_get(const struct page_directory *directory, void *virtual_address);
-__attribute__((nonnull)) int paging_set(const struct page_directory *directory, void *virtual_address, uint32_t value);
-__attribute__((nonnull)) bool paging_is_aligned(void *address);
-__attribute__((nonnull)) int paging_map_to(const struct page_directory *directory, void *virtual_address,
-                                           void *physical_start_address, void *physical_end_address, int flags);
-__attribute__((nonnull)) int paging_map_range(const struct page_directory *directory, void *virtual_address,
-                                              void *physical_start_address, int total_pages, int flags);
-__attribute__((nonnull)) int paging_map(const struct page_directory *directory, void *virtual_address,
-                                        void *physical_address, int flags);
-__attribute__((nonnull)) void *paging_align_address(void *address);
-__attribute__((nonnull)) void *paging_align_to_lower_page(void *address);
-__attribute__((nonnull)) void *paging_get_physical_address(const struct page_directory *directory,
-                                                           void *virtual_address);
+NON_NULL uint32_t paging_get(const struct page_directory *directory, void *virtual_address);
+NON_NULL int paging_set(const struct page_directory *directory, void *virtual_address, uint32_t value);
+NON_NULL bool paging_is_aligned(void *address);
+NON_NULL int paging_map_to(const struct page_directory *directory, void *virtual_address, void *physical_start_address,
+                           void *physical_end_address, int flags);
+NON_NULL int paging_map_range(const struct page_directory *directory, void *virtual_address,
+                              void *physical_start_address, int total_pages, int flags);
+NON_NULL int paging_map(const struct page_directory *directory, void *virtual_address, void *physical_address,
+                        int flags);
+NON_NULL void *paging_align_address(void *address);
+NON_NULL void *paging_align_to_lower_page(void *address);
+NON_NULL void *paging_get_physical_address(const struct page_directory *directory, void *virtual_address);
 void paging_init(void);
 void kernel_page(void);
-__attribute__((nonnull)) int paging_kernel_map(void *virtual_address, void *physical_address, int flags);
-__attribute__((nonnull)) int paging_kernel_map_range(void *virtual_address, void *physical_start_address,
-                                                     int total_pages, int flags);
+NON_NULL int paging_kernel_map(void *virtual_address, void *physical_address, int flags);
+NON_NULL int paging_kernel_map_range(void *virtual_address, void *physical_start_address, int total_pages, int flags);

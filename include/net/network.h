@@ -1,9 +1,11 @@
 #pragma once
 
+#include <attributes.h>
+#include <stddef.h>
 #include <stdint.h>
 
-__attribute__((nonnull)) void network_receive(uint8_t *packet, uint16_t len);
-__attribute__((nonnull)) int network_send_packet(const void *data, uint16_t len);
+NON_NULL void network_receive(uint8_t *packet, uint16_t len);
+NON_NULL int network_send_packet(const void *data, uint16_t len);
 void network_set_mac(const uint8_t mac_addr[static 6]);
 uint8_t *network_get_my_ip_address(void);
 bool network_compare_ip_addresses(const uint8_t ip1[static 4], const uint8_t ip2[static 4]);

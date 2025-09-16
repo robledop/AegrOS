@@ -1,5 +1,6 @@
 #pragma once
 
+#include <attributes.h>
 #include <config.h>
 #include <thread.h>
 
@@ -59,26 +60,24 @@ struct process {
     char *current_directory;
 };
 
-__attribute__((nonnull)) int process_load_enqueue(const char file_name[static 1], struct process **process);
-__attribute__((nonnull)) int process_load(const char file_name[static 1], struct process **process);
-__attribute__((nonnull)) int process_load_for_slot(const char file_name[static 1], struct process **process,
-                                                   uint16_t pid);
-__attribute__((nonnull)) void *process_malloc(struct process *process, size_t size);
-__attribute__((nonnull)) void *process_calloc(struct process *process, size_t nmemb, size_t size);
-__attribute__((nonnull)) void *process_realloc(struct process *process, void *ptr, size_t size);
-__attribute__((nonnull)) void process_free(struct process *process, void *ptr);
-__attribute__((nonnull)) void process_get_arguments(struct process *process, int *argc, char ***argv);
-__attribute__((nonnull)) int process_inject_arguments(struct process *process,
-                                                      const struct command_argument *root_argument);
-__attribute__((nonnull)) int process_zombify(struct process *process);
-__attribute__((nonnull)) int process_set_current_directory(struct process *process, const char directory[static 1]);
-__attribute__((nonnull)) struct process *process_clone(struct process *process);
-__attribute__((nonnull)) int process_load_data(const char file_name[static 1], struct process *process);
-__attribute__((nonnull)) int process_map_memory(struct process *process);
-__attribute__((nonnull)) int process_unmap_memory(const struct process *process);
-__attribute__((nonnull)) int process_free_allocations(struct process *process);
-__attribute__((nonnull)) int process_free_program_data(const struct process *process);
-__attribute__((nonnull)) void process_command_argument_free(struct command_argument *argument);
+NON_NULL int process_load_enqueue(const char file_name[static 1], struct process **process);
+NON_NULL int process_load(const char file_name[static 1], struct process **process);
+NON_NULL int process_load_for_slot(const char file_name[static 1], struct process **process, uint16_t pid);
+NON_NULL void *process_malloc(struct process *process, size_t size);
+NON_NULL void *process_calloc(struct process *process, size_t nmemb, size_t size);
+NON_NULL void *process_realloc(struct process *process, void *ptr, size_t size);
+NON_NULL void process_free(struct process *process, void *ptr);
+NON_NULL void process_get_arguments(struct process *process, int *argc, char ***argv);
+NON_NULL int process_inject_arguments(struct process *process, const struct command_argument *root_argument);
+NON_NULL int process_zombify(struct process *process);
+NON_NULL int process_set_current_directory(struct process *process, const char directory[static 1]);
+NON_NULL struct process *process_clone(struct process *process);
+NON_NULL int process_load_data(const char file_name[static 1], struct process *process);
+NON_NULL int process_map_memory(struct process *process);
+NON_NULL int process_unmap_memory(const struct process *process);
+NON_NULL int process_free_allocations(struct process *process);
+NON_NULL int process_free_program_data(const struct process *process);
+NON_NULL void process_command_argument_free(struct command_argument *argument);
 
 struct file *process_get_file_descriptor(const struct process *process, uint32_t index);
 int process_new_file_descriptor(struct process *process, struct file **desc_out);

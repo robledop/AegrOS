@@ -110,10 +110,11 @@ void __ubsan_handle_type_mismatch_v1(void *data_raw, void *pointer_raw)
     ubsan_value_handle_t pointer             = (ubsan_value_handle_t)pointer_raw;
     uintptr_t alignment                      = (uintptr_t)1UL << data->log_alignment;
     const char *violation                    = "type mismatch";
-    if (!pointer)
+    if (!pointer) {
         violation = "null pointer access";
-    else if (alignment && (pointer & (alignment - 1)))
+    } else if (alignment && (pointer & (alignment - 1))) {
         violation = "unaligned access";
+    }
     ubsan_abort(&data->location, violation);
 }
 

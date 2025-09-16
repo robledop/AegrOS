@@ -1,5 +1,6 @@
 #pragma once
 
+#include <attributes.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -7,8 +8,8 @@ size_t strlen(const char *s);
 size_t strnlen(const char *s, size_t maxlen);
 int strnlen_terminator(const char *s, size_t maxlen, char terminator);
 int memcmp(const void *v1, const void *v2, unsigned int n);
-__attribute__((nonnull)) int strncmp(const char *p, const char *q, unsigned int n);
-__attribute__((nonnull)) char *strncpy(char *dest, const char *src, size_t n);
+NON_NULL int strncmp(const char *p, const char *q, unsigned int n);
+NON_NULL char *strncpy(char *dest, const char *src, size_t n);
 bool isdigit(char c);
 int tonumericdigit(char c);
 bool isspace(char c);

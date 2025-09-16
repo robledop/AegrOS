@@ -1,5 +1,6 @@
 #pragma once
 
+#include <attributes.h>
 #include <config.h>
 #include <paging.h>
 #include <spinlock.h>
@@ -76,8 +77,8 @@ extern struct thread *current_thread;
 void *thread_peek_stack_item(const struct thread *thread, int index);
 void set_user_mode_segments(void);
 int copy_string_from_thread(const struct thread *thread, const void *virtual, void *physical, size_t max);
-__attribute__((nonnull)) struct thread *thread_create(struct process *process);
-__attribute__((nonnull)) void *thread_virtual_to_physical_address(const struct thread *thread, void *virtual_address);
+NON_NULL struct thread *thread_create(struct process *process);
+NON_NULL void *thread_virtual_to_physical_address(const struct thread *thread, void *virtual_address);
 
 void current_thread_page();
 void switch_to_scheduler(void);

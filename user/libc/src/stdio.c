@@ -445,8 +445,9 @@ int vfscanf(FILE *stream, const char *format, va_list args)
             // Skip any whitespace in the input stream
             while (isspace(ch = fgetc(stream)) && ch != EOF)
                 ;
-            if (ch != EOF)
+            if (ch != EOF) {
                 ungetc(ch, stream);
+            }
         } else if (*fmt == '%') {
             fmt++;
             if (*fmt == 'd') {
@@ -471,11 +472,13 @@ int vfscanf(FILE *stream, const char *format, va_list args)
                 if (started) {
                     *int_ptr = sign * num;
                     matched++;
-                    if (ch != EOF)
+                    if (ch != EOF) {
                         ungetc(ch, stream);
+                    }
                 } else {
-                    if (ch != EOF)
+                    if (ch != EOF) {
                         ungetc(ch, stream);
+                    }
                     break; // No match found
                 }
             } else if (*fmt == 's') {
@@ -487,8 +490,9 @@ int vfscanf(FILE *stream, const char *format, va_list args)
                 while (isspace(ch = fgetc(stream)) && ch != EOF)
                     ;
 
-                if (ch == EOF)
+                if (ch == EOF) {
                     break;
+                }
 
                 do {
                     str_ptr[idx++] = ch;
@@ -497,8 +501,9 @@ int vfscanf(FILE *stream, const char *format, va_list args)
 
                 str_ptr[idx] = '\0';
                 matched++;
-                if (ch != EOF)
+                if (ch != EOF) {
                     ungetc(ch, stream);
+                }
             } else {
                 // Unsupported format specifier
                 return matched;
@@ -508,8 +513,9 @@ int vfscanf(FILE *stream, const char *format, va_list args)
             // Literal character match
             ch = fgetc(stream);
             if (ch != *fmt) {
-                if (ch != EOF)
+                if (ch != EOF) {
                     ungetc(ch, stream);
+                }
                 break;
             }
             fmt++;

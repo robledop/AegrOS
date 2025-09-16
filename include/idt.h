@@ -4,6 +4,7 @@
 #error "This is a kernel header, and should not be included in userspace"
 #endif
 
+#include <attributes.h>
 #include <stdint.h>
 
 // https://wiki.osdev.org/Interrupt_Descriptor_Table
@@ -64,9 +65,8 @@ void idt_init(void);
 typedef void *(*SYSCALL_HANDLER_FUNCTION)();
 typedef void (*INTERRUPT_CALLBACK_FUNCTION)(struct interrupt_frame *frame);
 
-__attribute__((nonnull)) void register_syscall(int syscall, SYSCALL_HANDLER_FUNCTION handler);
-__attribute__((nonnull)) int idt_register_interrupt_callback(int interrupt,
-                                                             INTERRUPT_CALLBACK_FUNCTION interrupt_callback);
+NON_NULL void register_syscall(int syscall, SYSCALL_HANDLER_FUNCTION handler);
+NON_NULL int idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback);
 
 /*
  * Page fault error code

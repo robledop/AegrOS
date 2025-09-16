@@ -4,6 +4,7 @@
 #error "This is a kernel header, and should not be included in userspace"
 #endif
 
+#include <attributes.h>
 #include <config.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -25,8 +26,8 @@ struct heap {
     void *start;
 };
 
-__attribute__((nonnull)) int heap_create(struct heap *heap, void *ptr, void *end, struct heap_table *table);
-__attribute__((nonnull)) void *heap_malloc(const struct heap *heap, size_t size);
-__attribute__((nonnull)) void *heap_realloc(const struct heap *heap, void *ptr, size_t size);
-__attribute__((nonnull)) void heap_free(const struct heap *heap, void *ptr);
-__attribute__((nonnull)) uint32_t heap_count_free_blocks(const struct heap *heap);
+NON_NULL int heap_create(struct heap *heap, void *ptr, void *end, struct heap_table *table);
+NON_NULL void *heap_malloc(const struct heap *heap, size_t size);
+NON_NULL void *heap_realloc(const struct heap *heap, void *ptr, size_t size);
+NON_NULL void heap_free(const struct heap *heap, void *ptr);
+NON_NULL uint32_t heap_count_free_blocks(const struct heap *heap);

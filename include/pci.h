@@ -1,5 +1,6 @@
 #pragma once
 
+#include <attributes.h>
 #include <stdint.h>
 
 // https://wiki.osdev.org/PCI
@@ -152,5 +153,5 @@ struct pci_vendor {
 };
 
 void pci_scan(void);
-__attribute__((nonnull)) void pci_enable_bus_mastering(const struct pci_device *device);
-__attribute__((nonnull)) uint32_t pci_get_bar(const struct pci_device *dev, uint8_t type);
+NON_NULL void pci_enable_bus_mastering(const struct pci_device *device);
+NON_NULL uint32_t pci_get_bar(const struct pci_device *dev, uint8_t type);
