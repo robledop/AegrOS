@@ -1,6 +1,9 @@
 #include <config.h>
 #include <debug.h>
 #include <gdt.h>
+#include <gui/button.h>
+#include <gui/calculator.h>
+#include <gui/desktop.h>
 #include <idt.h>
 #include <io.h>
 #include <kernel.h>
@@ -21,12 +24,13 @@
 #include <thread.h>
 #include <timer.h>
 #include <vesa.h>
+#include <vesa_terminal.h>
 #include <vfs.h>
 #include <vga_buffer.h>
-#include <window_manager.h>
 #include <x86.h>
 
-#include "desktop.h"
+#include "gui/vterm.h"
+
 
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
 
@@ -35,6 +39,10 @@ uint32_t wait_for_network_start;
 uint32_t wait_for_network_timeout = 15'000;
 
 uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
+
+extern struct vbe_mode_info *vbe_info;
+static desktop_t *desktop;
+static vterm_t *terminal;
 
 [[noreturn]] void panic(const char *msg)
 {
@@ -46,6 +54,11 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
     }
 
     __builtin_unreachable();
+}
+
+void main_mouse_event_handler(mouse_t mouse)
+{
+    desktop_process_mouse(desktop, mouse.x, mouse.y, mouse.flags);
 }
 
 void wait_for_network()
@@ -77,6 +90,27 @@ void set_vbe_info(const multiboot_info_t *mbd)
     vbe_info->bpp         = mbd->framebuffer_bpp;
     vbe_info->pitch       = mbd->framebuffer_pitch;
     vbe_info->framebuffer = mbd->framebuffer_addr;
+}
+
+void putchar_handler(char c)
+{
+    terminal->putchar(c);
+    window_paint((window_t *)terminal, nullptr, 1);
+}
+
+void spawn_calculator([[maybe_unused]] button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
+{
+    calculator_t *temp_calc = calculator_new();
+    window_insert_child((window_t *)desktop, (window_t *)temp_calc);
+    window_move((window_t *)temp_calc, button->window.context->width / 2, button->window.context->height / 2);
+}
+
+void spawn_terminal()
+{
+    terminal = vterm_new();
+    window_insert_child((window_t *)desktop, (window_t *)terminal);
+    window_move((window_t *)terminal, 0, 0);
+    vesa_terminal_init(putchar_handler);
 }
 
 void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
@@ -112,16 +146,25 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
     set_idle_thread(idle_task);
-    start_shell();
-
-    vesa_init();
-    mouse_init();
-
-    desktop_window_create("test 1", 700, 200, 300, 200);
-    desktop_window_create("test 2", 600, 500, 400, 250);
-    desktop_draw_windows();
-
     wait_for_network();
+
+#ifdef PIXEL_RENDERING
+    video_context_t *context = context_new(vbe_info->width, vbe_info->height);
+    desktop                  = desktop_new(context);
+    button_t *launch_button  = button_new(10, 10, 150, 30);
+    window_set_title((window_t *)launch_button, "New Calculator");
+    launch_button->onmousedown = spawn_calculator;
+    window_insert_child((window_t *)desktop, (window_t *)launch_button);
+
+    window_paint((window_t *)desktop, nullptr, 1);
+
+    spawn_terminal();
+    mouse_init(main_mouse_event_handler);
+#else
+    // start_shell();
+#endif
+    // vesa_terminal_init(putchar_handler);
+    start_shell();
 
     scheduler();
 

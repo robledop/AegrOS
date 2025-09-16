@@ -1077,11 +1077,13 @@ static void print_floating_point(output_gadget_t *output, floating_point_t value
     }
 
 #if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
-    if (prefer_exponential)
+    if (prefer_exponential) {
         print_exponential_number(output, value, precision, width, flags, buf, len);
-    else
+    } else
 #endif
+    {
         print_decimal_number(output, value, precision, width, flags, buf, len);
+    }
 }
 
 #endif // (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
@@ -1349,8 +1351,9 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
             {
                 floating_point_t value =
                     (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
-                if (*format == 'F')
+                if (*format == 'F') {
                     flags |= FLAGS_UPPERCASE;
+                }
                 print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_DECIMAL);
                 format++;
                 break;
@@ -1364,10 +1367,12 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
             {
                 floating_point_t value =
                     (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
-                if ((*format == 'g') || (*format == 'G'))
+                if ((*format == 'g') || (*format == 'G')) {
                     flags |= FLAGS_ADAPT_EXP;
-                if ((*format == 'E') || (*format == 'G'))
+                }
+                if ((*format == 'E') || (*format == 'G')) {
                     flags |= FLAGS_UPPERCASE;
+                }
                 print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_EXPONENTIAL);
                 format++;
                 break;
@@ -1449,18 +1454,21 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
 #if PRINTF_SUPPORT_WRITEBACK_SPECIFIER
         case 'n':
             {
-                if (flags & FLAGS_CHAR)
+                if (flags & FLAGS_CHAR) {
                     *(va_arg(args, char *)) = (char)output->pos;
-                else if (flags & FLAGS_SHORT)
+                } else if (flags & FLAGS_SHORT) {
                     *(va_arg(args, short *)) = (short)output->pos;
-                else if (flags & FLAGS_LONG)
+                } else if (flags & FLAGS_LONG) {
                     *(va_arg(args, long *)) = (long)output->pos;
+                }
 #if PRINTF_SUPPORT_LONG_LONG
-                else if (flags & FLAGS_LONG_LONG)
+                else if (flags & FLAGS_LONG_LONG) {
                     *(va_arg(args, long long *)) = (long long int)output->pos;
+                }
 #endif // PRINTF_SUPPORT_LONG_LONG
-                else
+                else {
                     *(va_arg(args, int *)) = (int)output->pos;
+                }
                 format++;
                 break;
             }

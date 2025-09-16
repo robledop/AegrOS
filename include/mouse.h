@@ -42,6 +42,15 @@
 #define MOUSE_RIGHT (1 << 1)
 #define MOUSE_MIDDLE (1 << 2)
 
+typedef struct mouse {
+    int x;
+    int y;
+    uint8_t flags;
+    uint8_t prev_flags;
+} mouse_t;
+
+typedef void (*mouse_callback)(mouse_t);
+
 struct ps2_mouse_packet {
     uint8_t flags;
     int8_t x, y;
@@ -58,14 +67,9 @@ struct ps2_mouse {
     bool dragging;
     uint8_t received;
     uint8_t initialized;
+    mouse_callback callback;
 };
 
-typedef struct mouse {
-    int x;
-    int y;
-    uint8_t flags;
-    uint8_t prev_flags;
-} mouse_t;
 
-void mouse_init();
+void mouse_init(mouse_callback callback);
 void mouse_get_position(mouse_t *mouse);

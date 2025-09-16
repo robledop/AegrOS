@@ -1,11 +1,11 @@
+#include <gui/rect.h>
 #include <kernel_heap.h>
-#include <rect.h>
 
-rect_t *rect_create(int top, int left, int bottom, int right)
+rect_t *rect_new(int top, int left, int bottom, int right)
 {
     auto rect = (rect_t *)kzalloc(sizeof(rect_t));
-    if (rect == nullptr) {
-        return nullptr;
+    if (!rect) {
+        return rect;
     }
 
     rect->top    = top;
@@ -16,6 +16,12 @@ rect_t *rect_create(int top, int left, int bottom, int right)
     return rect;
 }
 
+// Explode subject_rect into a list of contiguous rects which are
+// not occluded by cutting_rect
+//  ________                ____ ___
+//|s    ___|____          |o   |o__|
+//|____|___|   c|   --->  |____|
+//      |________|
 list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 {
     list_t *output_rects = list_new();
@@ -42,9 +48,8 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 
         // Try to make a new rectangle spanning from the subject rectangle's left and stopping before
         // the cutting rectangle's left
-        temp_rect = rect_create(subject_copy.top, subject_copy.left, subject_copy.bottom, cutting_rect->left - 1);
+        temp_rect = rect_new(subject_copy.top, subject_copy.left, subject_copy.bottom, cutting_rect->left - 1);
         if (!temp_rect) {
-            // If the object creation failed, we need to delete the list and exit failed
             kfree(output_rects);
 
             return nullptr;
@@ -62,16 +67,12 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 
         // Try to make a new rectangle spanning from the subject rectangle's top and stopping before
         // the cutting rectangle's top
-        temp_rect = rect_create(subject_copy.top, subject_copy.left, cutting_rect->top - 1, subject_copy.right);
+        temp_rect = rect_new(subject_copy.top, subject_copy.left, cutting_rect->top - 1, subject_copy.right);
         if (!temp_rect) {
-
             // If the object creation failed, we need to delete the list and exit failed
             // This time, also delete any previously allocated rectangles
-            while (output_rects->count) {
-
-                temp_rect = list_remove_at(output_rects, 0);
+            for (; output_rects->count; temp_rect = list_remove_at(output_rects, 0))
                 kfree(temp_rect);
-            }
 
             kfree(output_rects);
 
@@ -90,14 +91,10 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 
         // Try to make a new rectangle spanning from the subject rectangle's right and stopping before
         // the cutting rectangle's right
-        temp_rect = rect_create(subject_copy.top, cutting_rect->right + 1, subject_copy.bottom, subject_copy.right);
+        temp_rect = rect_new(subject_copy.top, cutting_rect->right + 1, subject_copy.bottom, subject_copy.right);
         if (!temp_rect) {
-            // Free on fail
-            while (output_rects->count) {
-
-                temp_rect = list_remove_at(output_rects, 0);
+            for (; output_rects->count; temp_rect = list_remove_at(output_rects, 0))
                 kfree(temp_rect);
-            }
 
             kfree(output_rects);
 
@@ -116,15 +113,10 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 
         // Try to make a new rectangle spanning from the subject rectangle's bottom and stopping before
         // the cutting rectangle's bottom
-        temp_rect = rect_create(cutting_rect->bottom + 1, subject_copy.left, subject_copy.bottom, subject_copy.right);
+        temp_rect = rect_new(cutting_rect->bottom + 1, subject_copy.left, subject_copy.bottom, subject_copy.right);
         if (!temp_rect) {
-
-            // Free on fail
-            while (output_rects->count) {
-
-                temp_rect = list_remove_at(output_rects, 0);
+            for (; output_rects->count; temp_rect = list_remove_at(output_rects, 0))
                 kfree(temp_rect);
-            }
 
             kfree(output_rects);
 
@@ -140,4 +132,35 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 
     // Finally, after all that, we can return the output rectangles
     return output_rects;
+}
+
+rect_t *rect_intersect(rect_t *rect_a, rect_t *rect_b)
+{
+    if (!(rect_a->left <= rect_b->right && rect_a->right >= rect_b->left && rect_a->top <= rect_b->bottom &&
+          rect_a->bottom >= rect_b->top)) {
+        return nullptr;
+    }
+
+    rect_t *result_rect = rect_new(rect_a->top, rect_a->left, rect_a->bottom, rect_a->right);
+    if (!result_rect) {
+        return nullptr;
+    }
+
+    if (rect_b->left > result_rect->left && rect_b->left <= result_rect->right) {
+        result_rect->left = rect_b->left;
+    }
+
+    if (rect_b->top > result_rect->top && rect_b->top <= result_rect->bottom) {
+        result_rect->top = rect_b->top;
+    }
+
+    if (rect_b->right >= result_rect->left && rect_b->right < result_rect->right) {
+        result_rect->right = rect_b->right;
+    }
+
+    if (rect_b->bottom >= result_rect->top && rect_b->bottom < result_rect->bottom) {
+        result_rect->bottom = rect_b->bottom;
+    }
+
+    return result_rect;
 }

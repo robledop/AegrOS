@@ -3,6 +3,7 @@
 #include <vesa_terminal.h>
 
 #include "config.h"
+#include "gui/video_context.h"
 #include "kernel.h"
 
 #define MARGIN 15
@@ -18,6 +19,10 @@ int v_param_count     = 1;
 
 int forecolor = 0xFFFFFF;
 int backcolor = DESKTOP_BACKGROUND_COLOR;
+
+
+extern struct vbe_mode_info *vbe_info;
+putchar_func_t putchar_func = nullptr;
 
 int ansi_to_rgb(int ansi, bool bold)
 {
@@ -55,7 +60,7 @@ void reset()
 void cursor_up()
 {
     if (cursor_y > 0) {
-        cursor_y -= LINE_HEIGHT;
+        cursor_y -= VESA_LINE_HEIGHT;
     }
 
     vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
@@ -63,8 +68,8 @@ void cursor_up()
 
 void cursor_down()
 {
-    if (cursor_y < vbe_info->height - LINE_HEIGHT) {
-        cursor_y += LINE_HEIGHT;
+    if (cursor_y < vbe_info->height - VESA_LINE_HEIGHT) {
+        cursor_y += VESA_LINE_HEIGHT;
     }
 
     vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
@@ -204,44 +209,54 @@ bool v_handle_ansi_escape(const int c)
     return false;
 }
 
+void vesa_terminal_init(putchar_func_t func)
+{
+    putchar_func = func;
+}
+
 
 #ifdef PIXEL_RENDERING // If this is not defined, then we use the putchar defined in vga_buffer.c
 void putchar(char c)
 {
-    vesa_erase_cursor(cursor_x, cursor_y);
+    // vesa_erase_cursor(cursor_x, cursor_y);
 
-    if (c == '\n') {
-        cursor_x = MARGIN;
-        cursor_y += LINE_HEIGHT;
-        if (cursor_y + LINE_HEIGHT > vbe_info->height) {
-            vesa_scroll_up();
-            cursor_y = vbe_info->height - LINE_HEIGHT;
-        }
-        return;
-    }
-
-    if (c == '\t') {
-        cursor_x += 4 * VESA_CHAR_WIDTH;
-        return;
-    }
-
-    if (c == '\b') {
-        vesa_erase_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
-        cursor_x -= VESA_CHAR_WIDTH;
-        vesa_erase_cursor(cursor_x, cursor_y);
-        vesa_draw_cursor(cursor_x, cursor_y);
-        return;
-    }
+    // if (c == '\n') {
+    //     cursor_x = MARGIN;
+    //     cursor_y += VESA_LINE_HEIGHT;
+    //     if (cursor_y + VESA_LINE_HEIGHT > vbe_info->height) {
+    //         vesa_scroll_up();
+    //         cursor_y = vbe_info->height - VESA_LINE_HEIGHT;
+    //     }
+    //     return;
+    // }
+    //
+    // if (c == '\t') {
+    //     cursor_x += 4 * VESA_CHAR_WIDTH;
+    //     return;
+    // }
+    //
+    // if (c == '\b') {
+    //     vesa_erase_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+    //     cursor_x -= VESA_CHAR_WIDTH;
+    //     vesa_erase_cursor(cursor_x, cursor_y);
+    //     vesa_draw_cursor(cursor_x, cursor_y);
+    //     return;
+    // }
 
     if (v_handle_ansi_escape(c)) {
         return;
     }
 
-    vesa_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
+    if (putchar_func) {
+        putchar_func(c);
+    } else {
+        vesa_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
+    }
+
     cursor_x += VESA_CHAR_WIDTH;
     if (cursor_x + VESA_CHAR_WIDTH + MARGIN > vbe_info->width) {
         cursor_x = MARGIN;
-        cursor_y += LINE_HEIGHT;
+        cursor_y += VESA_LINE_HEIGHT;
     }
 
     if (cursor_visible) {

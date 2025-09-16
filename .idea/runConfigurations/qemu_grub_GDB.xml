@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="qemu_grub GDB" type="CLion_Remote" version="1" remoteCommand="localhost:1234" symbolFile="$ContentRoot$/rootfs/boot/myos.bin" sysroot="$ContentRoot$">
-    <debugger toolchainName="Cross gcc" />
+    <debugger toolchainName="Default" />
     <pathMapping remote=":" local="" />
     <method v="2">
       <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_bear (qemu_grub_debug)" />

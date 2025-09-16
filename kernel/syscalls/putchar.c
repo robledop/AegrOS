@@ -1,6 +1,5 @@
 #include <printf.h>
 #include <syscall.h>
-#include <vesa.h>
 
 
 void *sys_putchar(void)

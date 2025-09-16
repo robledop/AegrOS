@@ -1,13 +1,10 @@
-#include <desktop.h>
 #include <idt.h>
 #include <io.h>
 #include <kernel.h>
 #include <mouse.h>
-#include <string.h>
 #include <vesa.h>
 
-#include "config.h"
-
+extern struct vbe_mode_info *vbe_info;
 #define ISR_PS2_MOUSE (0x20 + 12)
 
 static struct ps2_mouse mouse_device = {};
@@ -48,27 +45,27 @@ uint8_t mouse_read()
     return inb(MOUSE_PORT);
 }
 
-void mouse_draw_mouse_cursor()
-{
-#if 0
-    char *flags = "     ";
-    vesa_print_string("     ", 5, 850, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
-    itohex(mouse_device.flags, flags);
-    vesa_print_string(flags, (int)strlen(flags), 850, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
-
-    char *x = "     ";
-    vesa_print_string("     ", 5, 900, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
-    itoa(mouse_device.x, x);
-    vesa_print_string(x, (int)strlen(x), 900, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
-
-    char *y = "     ";
-    vesa_print_string("     ", 5, 950, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
-    itoa(mouse_device.y, y);
-    vesa_print_string(y, (int)strlen(y), 950, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
-#endif
-
-    vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
-}
+// void mouse_draw_mouse_cursor()
+// {
+// #if 0
+//     char *flags = "     ";
+//     vesa_print_string("     ", 5, 850, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
+//     itohex(mouse_device.flags, flags);
+//     vesa_print_string(flags, (int)strlen(flags), 850, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
+//
+//     char *x = "     ";
+//     vesa_print_string("     ", 5, 900, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
+//     itoa(mouse_device.x, x);
+//     vesa_print_string(x, (int)strlen(x), 900, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
+//
+//     char *y = "     ";
+//     vesa_print_string("     ", 5, 950, 0, 0x000000, DESKTOP_BACKGROUND_COLOR);
+//     itoa(mouse_device.y, y);
+//     vesa_print_string(y, (int)strlen(y), 950, 0, 0xFFFFFF, DESKTOP_BACKGROUND_COLOR);
+// #endif
+//
+//     // vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
+// }
 
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
@@ -133,8 +130,8 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
         status = inb(MOUSE_STATUS);
     }
 
-    mouse_draw_mouse_cursor();
-    desktop_process_mouse_event((mouse_t){
+    // mouse_draw_mouse_cursor();
+    mouse_device.callback((mouse_t){
         .x          = mouse_device.x,
         .y          = mouse_device.y,
         .flags      = mouse_device.flags,
@@ -142,7 +139,7 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
     });
 }
 
-void mouse_init()
+void mouse_init(mouse_callback callback)
 {
     mouse_wait(1);
     outb(MOUSE_STATUS, 0xA8);
@@ -165,6 +162,7 @@ void mouse_init()
     }
 
     mouse_device.initialized = 1;
+    mouse_device.callback    = callback;
 }
 
 // Function to get current mouse position and status

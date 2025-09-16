@@ -313,11 +313,13 @@ static STBSP__ASAN stbsp__uint32 stbsp__strlen_limited(char const *s, stbsp__uin
 
     // get up to 4-byte alignment
     for (;;) {
-        if (((stbsp__uintptr)sn & 3) == 0)
+        if (((stbsp__uintptr)sn & 3) == 0) {
             break;
+        }
 
-        if (!limit || *sn == 0)
+        if (!limit || *sn == 0) {
             return (stbsp__uint32)(sn - s);
+        }
 
         ++sn;
         --limit;
@@ -331,8 +333,9 @@ static STBSP__ASAN stbsp__uint32 stbsp__strlen_limited(char const *s, stbsp__uin
     while (limit >= 4) {
         stbsp__uint32 v = *(stbsp__uint32 *)sn;
         // bit hack to find if there's a 0 byte in there
-        if ((v - 0x01010101) & (~v) & 0x80808080UL)
+        if ((v - 0x01010101) & (~v) & 0x80808080UL) {
             break;
+        }
 
         sn += 4;
         limit -= 4;
@@ -394,11 +397,13 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
         for (;;) {
             while (((stbsp__uintptr)f) & 3) {
             schk1:
-                if (f[0] == '%')
+                if (f[0] == '%') {
                     goto scandd;
+                }
             schk2:
-                if (f[0] == 0)
+                if (f[0] == 0) {
                     goto endfmt;
+                }
                 stbsp__chk_cb_buf(1);
                 *bf++ = f[0];
                 ++f;
@@ -410,13 +415,17 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
                 stbsp__uint32 v, c;
                 v = *(stbsp__uint32 *)f;
                 c = (~v) & 0x80808080;
-                if (((v ^ 0x25252525) - 0x01010101) & c)
+                if (((v ^ 0x25252525) - 0x01010101) & c) {
                     goto schk1;
-                if ((v - 0x01010101) & c)
+                }
+                if ((v - 0x01010101) & c) {
                     goto schk2;
-                if (callback)
-                    if ((STB_SPRINTF_MIN - (int)(bf - buf)) < 4)
+                }
+                if (callback) {
+                    if ((STB_SPRINTF_MIN - (int)(bf - buf)) < 4) {
                         goto schk1;
+                    }
+                }
 #ifdef STB_SPRINTF_NOUNALIGNED
                 if (((stbsp__uintptr)bf) & 3) {
                     bf[0] = f[0];
@@ -530,8 +539,9 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
         case 'h':
             fl |= STBSP__HALFWIDTH;
             ++f;
-            if (f[0] == 'h')
+            if (f[0] == 'h') {
                 ++f; // QUARTERWIDTH
+            }
             break;
         // are we 64-bit (unix style)
         case 'l':
@@ -1279,8 +1289,9 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
                 stbsp__cb_buf_clamp(i, tz);
                 tz -= i;
                 while (i) {
-                    if ((((stbsp__uintptr)bf) & 3) == 0)
+                    if ((((stbsp__uintptr)bf) & 3) == 0) {
                         break;
+                    }
                     *bf++ = '0';
                     --i;
                 }
@@ -1400,8 +1411,9 @@ static char *stbsp__clamp_callback(const char *buf, void *user, int len)
     stbsp__context *c = (stbsp__context *)user;
     c->length += len;
 
-    if (len > c->count)
+    if (len > c->count) {
         len = c->count;
+    }
 
     if (len) {
         if (buf != c->buf) {
@@ -1418,8 +1430,9 @@ static char *stbsp__clamp_callback(const char *buf, void *user, int len)
         c->count -= len;
     }
 
-    if (c->count <= 0)
+    if (c->count <= 0) {
         return c->tmp;
+    }
     return (c->count >= STB_SPRINTF_MIN) ? c->buf : c->tmp; // go direct into buffer if you can
 }
 
@@ -1452,7 +1465,9 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsnprintf)(char *buf, int count, char 
         // zero-terminate
         l = (int)(c.buf - buf);
         if (l >= count) // should never be greater, only equal (or less) than count
+        {
             l = count - 1;
+        }
         buf[l] = 0;
     }
 
@@ -1645,11 +1660,13 @@ static void stbsp__raise_to_power10(double *ohi, double *olo, double d, stbsp__i
         double p2h, p2l;
 
         e = power;
-        if (power < 0)
+        if (power < 0) {
             e = -e;
+        }
         et = (e * 0x2c9) >> 14; /* %23 */
-        if (et > 13)
+        if (et > 13) {
             et = 13;
+        }
         eb = e - (et * 23);
 
         ph = d;
@@ -1671,8 +1688,9 @@ static void stbsp__raise_to_power10(double *ohi, double *olo, double d, stbsp__i
         } else {
             if (eb) {
                 e = eb;
-                if (eb > 22)
+                if (eb > 22) {
                     eb = 22;
+                }
                 e -= eb;
                 stbsp__ddmulthi(ph, pl, d, stbsp__bot[eb]);
                 if (e) {
@@ -1713,8 +1731,9 @@ static stbsp__int32 stbsp__real_to_str(char const **start, stbsp__uint32 *len, c
     STBSP__COPYFP(bits, d);
     expo = (stbsp__int32)((bits >> 52) & 2047);
     ng   = (stbsp__int32)((stbsp__uint64)bits >> 63);
-    if (ng)
+    if (ng) {
         d = -d;
+    }
 
     if (expo == 2047) // is nan or inf?
     {
@@ -1760,31 +1779,36 @@ static stbsp__int32 stbsp__real_to_str(char const **start, stbsp__uint32 *len, c
         stbsp__ddtoS64(bits, ph, pl);
 
         // check if we undershot
-        if (((stbsp__uint64)bits) >= stbsp__tento19th)
+        if (((stbsp__uint64)bits) >= stbsp__tento19th) {
             ++tens;
+        }
     }
 
     // now do the rounding in integer land
     frac_digits = (frac_digits & 0x80000000) ? ((frac_digits & 0x7ffffff) + 1) : (tens + frac_digits);
     if ((frac_digits < 24)) {
         stbsp__uint32 dg = 1;
-        if ((stbsp__uint64)bits >= stbsp__powten[9])
+        if ((stbsp__uint64)bits >= stbsp__powten[9]) {
             dg = 10;
+        }
         while ((stbsp__uint64)bits >= stbsp__powten[dg]) {
             ++dg;
-            if (dg == 20)
+            if (dg == 20) {
                 goto noround;
+            }
         }
         if (frac_digits < dg) {
             stbsp__uint64 r;
             // add 0.5 at the right position and round
             e = dg - frac_digits;
-            if ((stbsp__uint32)e >= 24)
+            if ((stbsp__uint32)e >= 24) {
                 goto noround;
+            }
             r    = stbsp__powten[e];
             bits = bits + (r / 2);
-            if ((stbsp__uint64)bits >= stbsp__powten[dg])
+            if ((stbsp__uint64)bits >= stbsp__powten[dg]) {
                 ++tens;
+            }
             bits /= r;
         }
     noround:;
@@ -1794,10 +1818,12 @@ static stbsp__int32 stbsp__real_to_str(char const **start, stbsp__uint32 *len, c
     if (bits) {
         stbsp__uint32 n;
         for (;;) {
-            if (bits <= 0xffffffff)
+            if (bits <= 0xffffffff) {
                 break;
-            if (bits % 1000)
+            }
+            if (bits % 1000) {
                 goto donez;
+            }
             bits /= 1000;
         }
         n = (stbsp__uint32)bits;

@@ -2,7 +2,6 @@
 #include <io.h>
 #include <kernel_heap.h>
 #include <keyboard.h>
-#include <mouse.h>
 #include <pic.h>
 #include <ps2_kbd.h>
 #include <spinlock.h>

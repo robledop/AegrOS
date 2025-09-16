@@ -1,6 +1,5 @@
 #include <kernel_heap.h>
 #include <list.h>
-#include <stdint.h>
 
 list_t *list_new()
 {
@@ -9,8 +8,6 @@ list_t *list_new()
         return list;
     }
 
-    // Fill in initial property values
-    //(All we know for now is that we start out with no items)
     list->count     = 0;
     list->root_node = nullptr;
 
@@ -21,7 +18,7 @@ list_t *list_new()
 // Zero is fail, one is success
 int list_add(list_t *list, void *payload)
 {
-    list_node_t *new_node = list_node_new(payload);
+    auto new_node = list_node_new(payload);
     if (!new_node) {
         return 0;
     }
@@ -55,7 +52,6 @@ int list_add(list_t *list, void *payload)
 // Indices are zero-based
 void *list_get_at(list_t *list, unsigned int index)
 {
-
     // If there's nothing in the list or we're requesting beyond the end of
     // the list, return nothing
     if (list->count == 0 || index >= list->count) {
@@ -70,7 +66,27 @@ void *list_get_at(list_t *list, unsigned int index)
         current_node = current_node->next;
 
     // Return the payload, guarding against malformed lists
-    return current_node ? current_node->payload : (void *)0;
+    return current_node ? current_node->payload : nullptr;
+}
+
+int list_find(list_t *list, void *payload)
+{
+    if (list->count == 0) {
+        return -1;
+    }
+
+    list_node_t *current_node = list->root_node;
+
+    for (unsigned int current_index = 0; current_index < list->count && current_node; current_index++) {
+
+        if (current_node->payload == payload) {
+            return (int)current_index;
+        }
+
+        current_node = current_node->next;
+    }
+
+    return -1;
 }
 
 // Remove the item at the specified index from the list and return the item that
@@ -89,7 +105,7 @@ void *list_remove_at(list_t *list, unsigned int index)
     for (unsigned int current_index = 0; (current_index < index) && current_node; current_index++)
         current_node = current_node->next;
 
-    // This is where we differ from List_get_at by stashing the payload,
+    // This is where we differ from list_get_at by stashing the payload,
     // re-pointing the current node's neighbors to each other and
     // freeing the removed node
 

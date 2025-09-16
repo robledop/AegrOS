@@ -3,7 +3,7 @@ $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
 MEMORY=128 # Be careful not to allocate too much memory as the page table may overlap with the heap
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off
-QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
+QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0  -accel kvm # accel may interfere with debugging
 CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 AS=nasm
 LD=$(HOME)/opt/cross/bin/i686-elf-ld
@@ -139,7 +139,7 @@ all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
 grub: ./bin/kernel-grub.bin apps FORCE
 	grub-file --is-x86-multiboot ./rootfs/boot/myos.bin
 	./scripts/create-grub-image.sh
-	 VBoxManage convertdd ./disk.img ./disk.vdi
+	#VBoxManage convertdd ./disk.img ./disk.vdi
 
 # The GRUB build does not include kernel.asm. It also does not include anything in the boot directory,
 # but that is already filtered in SRC_DIRS
@@ -175,8 +175,6 @@ qemu_grub_debug: grub FORCE
 
 .PHONY: qemu_grub_debug_pixel
 qemu_grub_debug_pixel: qemu_grub_debug FORCE
-	#./scripts/create_tap.sh
-	#$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) -serial file:serial.log
 
 qemu_grub_debug_no_net: grub FORCE
 	$(QEMU)  -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize -serial file:serial.log $(QEMU_DISPLAY)
