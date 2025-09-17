@@ -29,7 +29,10 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
+#include "gui/rect.h"
 #include "gui/vterm.h"
+#include "gui/window.h"
+#include "list.h"
 
 
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
@@ -94,8 +97,39 @@ void set_vbe_info(const multiboot_info_t *mbd)
 
 void putchar_handler(char c)
 {
-    terminal->putchar(c);
-    window_paint((window_t *)terminal, nullptr, 1);
+    int old_cursor_x = terminal->cursor_x;
+    int old_cursor_y = terminal->cursor_y;
+
+    terminal->putchar(terminal, c);
+
+    auto dirty_regions = list_new();
+
+    // Only mark the specific character positions as dirty
+    int buffer_width  = 600 / VESA_CHAR_WIDTH;
+    int buffer_height = 400 / VESA_LINE_HEIGHT;
+
+    // Mark old cursor position as dirty (to erase cursor)
+    // if (old_cursor_x < buffer_width && old_cursor_y < buffer_height) {
+    //     int char_x      = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH;
+    //     int char_y      = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT;
+    //     auto dirty_rect = rect_new(char_y, char_x, char_y + VESA_LINE_HEIGHT - 1, char_x + VESA_CHAR_WIDTH - 1);
+    //     list_add(dirty_regions, dirty_rect);
+    // }
+
+    // Mark new cursor position as dirty
+    if (terminal->cursor_x < buffer_width && terminal->cursor_y < buffer_height) {
+        int char_x      = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
+        int char_y      = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
+        int bottom      = char_y + VESA_CHAR_HEIGHT;
+        int right       = char_x + VESA_CHAR_WIDTH;
+        auto dirty_rect = rect_new(char_y, char_x, bottom, right);
+        list_add(dirty_regions, dirty_rect);
+        // context_draw_rect(
+        //     terminal->window.context, char_x - 1, char_y - 1, VESA_CHAR_WIDTH + 1, VESA_CHAR_HEIGHT + 1, 0xFFFF0000);
+    }
+
+
+    window_paint((window_t *)terminal, dirty_regions, 1);
 }
 
 void spawn_calculator([[maybe_unused]] button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
