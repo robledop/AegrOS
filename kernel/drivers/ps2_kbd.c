@@ -7,9 +7,6 @@
 #include <spinlock.h>
 #include <string.h>
 
-#include "printf.h"
-#include "serial.h"
-
 struct spinlock keyboard_lock         = {};
 struct spinlock keyboard_getchar_lock = {};
 

@@ -97,54 +97,12 @@ void set_vbe_info(const multiboot_info_t *mbd)
 
 void putchar_handler(char c)
 {
-    int old_cursor_x = terminal->cursor_x;
-    int old_cursor_y = terminal->cursor_y;
-
     terminal->putchar(terminal, c);
+}
 
-    auto dirty_regions = list_new();
-
-    // Only mark the specific character positions as dirty
-    int buffer_width  = 600 / VESA_CHAR_WIDTH;
-    int buffer_height = 400 / VESA_LINE_HEIGHT;
-
-    // Mark old cursor position as dirty (to erase cursor)
-    // if (old_cursor_x < buffer_width && old_cursor_y < buffer_height) {
-    //     int char_x      = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH;
-    //     int char_y      = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT;
-    //     auto dirty_rect = rect_new(char_y, char_x, char_y + VESA_LINE_HEIGHT - 1, char_x + VESA_CHAR_WIDTH - 1);
-    //     list_add(dirty_regions, dirty_rect);
-    // }
-
-    // Mark old cursor position as dirty
-    if (terminal->cursor_x < buffer_width && terminal->cursor_y < buffer_height) {
-        int char_x = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
-        int char_y = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
-        int bottom = char_y + VESA_CHAR_HEIGHT;
-        int right  = char_x + VESA_CHAR_WIDTH;
-
-        auto dirty_rect = rect_new(char_y, char_x, bottom, right);
-        list_add(dirty_regions, dirty_rect);
-        // context_draw_rect(
-        //     terminal->window.context, char_x - 1, char_y - 1, VESA_CHAR_WIDTH + 1, VESA_CHAR_HEIGHT + 1, 0xFFFF0000);
-    }
-
-
-    // Mark new cursor position as dirty
-    if (terminal->cursor_x < buffer_width && terminal->cursor_y < buffer_height) {
-        int char_x = WIN_BORDERWIDTH + terminal->cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
-        int char_y = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + terminal->cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
-        int bottom = char_y + VESA_CHAR_HEIGHT;
-        int right  = char_x + VESA_CHAR_WIDTH;
-
-        auto dirty_rect = rect_new(char_y, char_x, bottom, right);
-        list_add(dirty_regions, dirty_rect);
-        // context_draw_rect(
-        //     terminal->window.context, char_x - 1, char_y - 1, VESA_CHAR_WIDTH + 1, VESA_CHAR_HEIGHT + 1, 0xFFFF0000);
-    }
-
-
-    window_paint((window_t *)terminal, dirty_regions, 1);
+void clear_screen_handler()
+{
+    terminal->clear_screen(terminal);
 }
 
 void spawn_calculator([[maybe_unused]] button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
@@ -159,7 +117,7 @@ void spawn_terminal()
     terminal = vterm_new();
     window_insert_child((window_t *)desktop, (window_t *)terminal);
     window_move((window_t *)terminal, 0, 0);
-    vesa_terminal_init(putchar_handler);
+    vesa_terminal_init(putchar_handler, clear_screen_handler);
 }
 
 void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
@@ -168,6 +126,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 #ifdef PIXEL_RENDERING
     set_vbe_info(mbd);
+    vesa_clear_screen(DESKTOP_BACKGROUND_COLOR);
 #endif
 
     init_serial();
@@ -200,15 +159,14 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 #ifdef PIXEL_RENDERING
     video_context_t *context = context_new(vbe_info->width, vbe_info->height);
     desktop                  = desktop_new(context);
-    button_t *launch_button  = button_new(10, 10, 150, 30);
+    mouse_init(main_mouse_event_handler);
+    button_t *launch_button = button_new(10, 10, 150, 30);
     window_set_title((window_t *)launch_button, "New Calculator");
     launch_button->onmousedown = spawn_calculator;
     window_insert_child((window_t *)desktop, (window_t *)launch_button);
-
     window_paint((window_t *)desktop, nullptr, 1);
 
     spawn_terminal();
-    mouse_init(main_mouse_event_handler);
 #endif
 
     start_shell();
@@ -265,7 +223,7 @@ void display_grub_info(const multiboot_info_t *mbd, const unsigned int magic)
             if (mmmt->len > 0x100000) {
                 printf("[ " KBGRN "OK" KWHT " ] ");
                 printf("Available memory: %u MiB\n", (uint16_t)(mmmt->len / 1024 / 1024));
-                kernel_heap_init(mmmt->len);
+                kernel_heap_init((int)mmmt->len);
             }
         }
     }
