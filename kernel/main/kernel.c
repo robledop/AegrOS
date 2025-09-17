@@ -116,12 +116,27 @@ void putchar_handler(char c)
     //     list_add(dirty_regions, dirty_rect);
     // }
 
+    // Mark old cursor position as dirty
+    if (terminal->cursor_x < buffer_width && terminal->cursor_y < buffer_height) {
+        int char_x = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
+        int char_y = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
+        int bottom = char_y + VESA_CHAR_HEIGHT;
+        int right  = char_x + VESA_CHAR_WIDTH;
+
+        auto dirty_rect = rect_new(char_y, char_x, bottom, right);
+        list_add(dirty_regions, dirty_rect);
+        // context_draw_rect(
+        //     terminal->window.context, char_x - 1, char_y - 1, VESA_CHAR_WIDTH + 1, VESA_CHAR_HEIGHT + 1, 0xFFFF0000);
+    }
+
+
     // Mark new cursor position as dirty
     if (terminal->cursor_x < buffer_width && terminal->cursor_y < buffer_height) {
-        int char_x      = WIN_BORDERWIDTH + old_cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
-        int char_y      = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + old_cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
-        int bottom      = char_y + VESA_CHAR_HEIGHT;
-        int right       = char_x + VESA_CHAR_WIDTH;
+        int char_x = WIN_BORDERWIDTH + terminal->cursor_x * VESA_CHAR_WIDTH + terminal->window.x;
+        int char_y = WIN_TITLEHEIGHT + WIN_BORDERWIDTH + terminal->cursor_y * VESA_LINE_HEIGHT + terminal->window.y - 2;
+        int bottom = char_y + VESA_CHAR_HEIGHT;
+        int right  = char_x + VESA_CHAR_WIDTH;
+
         auto dirty_rect = rect_new(char_y, char_x, bottom, right);
         list_add(dirty_regions, dirty_rect);
         // context_draw_rect(
@@ -194,10 +209,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     spawn_terminal();
     mouse_init(main_mouse_event_handler);
-#else
-    // start_shell();
 #endif
-    // vesa_terminal_init(putchar_handler);
+
     start_shell();
 
     scheduler();
