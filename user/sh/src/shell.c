@@ -231,7 +231,7 @@ void rand_test()
 
 int main(int argc, char **argv)
 {
-    printf(KWHT "\nUser mode shell started\n");
+    printf(KWHT "User mode shell started\n");
     pass = 0;
 
     for (int i = 0; i < 256; i++) {

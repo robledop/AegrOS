@@ -225,14 +225,12 @@ void vesa_terminal_init(putchar_func_t func, clear_screen_func_t clear_func)
 #ifdef PIXEL_RENDERING // If this is not defined, then we use the putchar defined in vga_buffer.c
 void putchar(char c)
 {
-
-    if (v_handle_ansi_escape(c)) {
-        return;
-    }
-
     if (putchar_func) {
         putchar_func(c);
     } else {
+        if (v_handle_ansi_escape(c)) {
+            return;
+        }
 
         vesa_erase_cursor(cursor_x, cursor_y);
 

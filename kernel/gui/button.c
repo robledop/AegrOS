@@ -36,7 +36,7 @@ void button_paint(window_t *button_window)
 
     uint32_t border_color;
     if (button->color_toggle) {
-        border_color = WIN_TITLECOLOR;
+        border_color = WIN_TITLE_COLOR;
     } else {
         border_color = WIN_BGCOLOR - 0x101010;
     }
@@ -57,7 +57,7 @@ void button_paint(window_t *button_window)
                           button_window->title,
                           (button_window->width / 2) - (title_len / 2),
                           (button_window->height / 2) - 6,
-                          WIN_BORDERCOLOR);
+                          WIN_TEXT_COLOR);
     }
 }
 
@@ -66,7 +66,7 @@ void button_mousedown_handler(window_t *button_window, int16_t x, int16_t y)
 {
     auto button = (button_t *)button_window;
 
-    button->color_toggle = !button->color_toggle;
+    // button->color_toggle = !button->color_toggle;
 
     // Since the button has visibly changed state, we need to invalidate the
     // area that needs updating

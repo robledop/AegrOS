@@ -75,32 +75,40 @@ void window_draw_border(window_t *window)
     int screen_x = window_screen_x(window);
     int screen_y = window_screen_y(window);
 
-    // Draw a 3px border around the window
-    context_draw_rect(window->context, screen_x, screen_y, window->width, window->height, WIN_BORDERCOLOR);
-    context_draw_rect(
-        window->context, screen_x + 1, screen_y + 1, window->width - 2, window->height - 2, WIN_BORDERCOLOR);
-    context_draw_rect(
-        window->context, screen_x + 2, screen_y + 2, window->width - 4, window->height - 4, WIN_BORDERCOLOR);
+    // Draw a border around the window. Concentric rectangles until the border width is achieved
+    for (int i = 0; i < WIN_BORDER_WIDTH; i++) {
+        context_draw_rect(window->context,
+                          screen_x + i,
+                          screen_y + i,
+                          window->width - (2 * i),
+                          window->height - (2 * i),
+                          WIN_BORDER_COLOR);
+    }
 
-    // Draw a 3px border line under the titlebar
-    context_horizontal_line(window->context, screen_x + 3, screen_y + 28, window->width - 6, WIN_BORDERCOLOR);
-    context_horizontal_line(window->context, screen_x + 3, screen_y + 29, window->width - 6, WIN_BORDERCOLOR);
-    context_horizontal_line(window->context, screen_x + 3, screen_y + 30, window->width - 6, WIN_BORDERCOLOR);
+    // Draw a border line under the titlebar
+    for (int i = 1; i <= WIN_BORDER_WIDTH; i++) {
+        context_horizontal_line(window->context,
+                                screen_x + WIN_BORDER_WIDTH,
+                                screen_y + (WIN_TITLE_HEIGHT - i),
+                                window->width - (2 * WIN_BORDER_WIDTH),
+                                WIN_BORDER_COLOR);
+    }
 
     // Fill in the titlebar background
     context_fill_rect(window->context,
-                      screen_x + 3,
-                      screen_y + 3,
-                      window->width - 6,
-                      25,
-                      window->parent->active_child == window ? WIN_TITLECOLOR : WIN_TITLECOLOR_INACTIVE);
+                      screen_x + WIN_BORDER_WIDTH,
+                      screen_y + WIN_BORDER_WIDTH,
+                      window->width - (2 * WIN_BORDER_WIDTH),
+                      (WIN_TITLE_HEIGHT - (2 * WIN_BORDER_WIDTH)),
+                      window->parent->active_child == window ? WIN_TITLE_COLOR : WIN_TITLE_COLOR_INACTIVE);
+
 
     // Draw the window title
     context_draw_text(window->context,
                       window->title,
-                      screen_x + 10,
-                      screen_y + 10,
-                      window->parent->active_child == window ? WIN_TEXTCOLOR : WIN_TEXTCOLOR_INACTIVE);
+                      screen_x + WIN_TITLE_MARGIN,
+                      screen_y + WIN_TITLE_MARGIN,
+                      window->parent->active_child == window ? WIN_TITLE_TEXT_COLOR : WIN_TITLE_TEXT_COLOR_INACTIVE);
 }
 
 // Apply clipping for window bounds without subtracting child window rects
@@ -122,12 +130,12 @@ void window_apply_bound_clipping(window_t *window, int in_recursion, list_t *dir
     rect_t *temp_rect;
     if ((!(window->flags & WIN_NODECORATION)) && in_recursion) {
         // Limit client drawable area
-        screen_x += WIN_BORDERWIDTH;
-        screen_y += WIN_TITLEHEIGHT;
+        screen_x += WIN_BORDER_WIDTH;
+        screen_y += WIN_TITLE_HEIGHT;
         temp_rect = rect_new(screen_y,
                              screen_x,
-                             screen_y + window->height - WIN_TITLEHEIGHT - WIN_BORDERWIDTH - 1,
-                             screen_x + window->width - (2 * WIN_BORDERWIDTH) - 1);
+                             screen_y + window->height - WIN_TITLE_HEIGHT - WIN_BORDER_WIDTH - 1,
+                             screen_x + window->width - (2 * WIN_BORDER_WIDTH) - 1);
     } else {
         temp_rect = rect_new(screen_y, screen_x, screen_y + window->height - 1, screen_x + window->width - 1);
     }
@@ -272,12 +280,12 @@ void window_paint(window_t *window, list_t *dirty_regions, uint8_t paint_childre
         window_draw_border(window);
 
         // Limit client drawable area
-        screen_x += WIN_BORDERWIDTH;
-        screen_y += WIN_TITLEHEIGHT;
+        screen_x += WIN_BORDER_WIDTH;
+        screen_y += WIN_TITLE_HEIGHT;
         temp_rect = rect_new(screen_y,
                              screen_x,
-                             screen_y + window->height - WIN_TITLEHEIGHT - WIN_BORDERWIDTH - 1,
-                             screen_x + window->width - (2 * WIN_BORDERWIDTH) - 1);
+                             screen_y + window->height - WIN_TITLE_HEIGHT - WIN_BORDER_WIDTH - 1,
+                             screen_x + window->width - (2 * WIN_BORDER_WIDTH) - 1);
         context_intersect_clip_rect(window->context, temp_rect);
     }
 

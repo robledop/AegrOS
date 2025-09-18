@@ -42,7 +42,6 @@ STAGE2_FLAGS = -ffreestanding \
 	-Wno-unused-parameter \
 	-nostartfiles \
 	-nodefaultlibs \
-	-save-temps \
 	-Wextra \
 	-std=gnu23 \
 	-pedantic \
@@ -68,7 +67,6 @@ FLAGS = -ffreestanding \
 	-Wno-unused-parameter \
 	-nostartfiles \
 	-nodefaultlibs \
-	-save-temps \
 	-std=gnu23 \
 	-fstack-protector \
 	-fsanitize=undefined \

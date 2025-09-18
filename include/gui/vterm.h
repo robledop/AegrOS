@@ -13,6 +13,7 @@ typedef struct vterm {
     int cursor_x;
     int cursor_y;
     char *buffer;
+    uint32_t *color_buffer;
     int buffer_width;
     int buffer_height;
 } vterm_t;

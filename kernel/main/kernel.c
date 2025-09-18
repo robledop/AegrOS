@@ -29,9 +29,11 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
+#include "gui/icon.h"
 #include "gui/rect.h"
 #include "gui/vterm.h"
 #include "gui/window.h"
+#include "icons.h"
 #include "list.h"
 
 
@@ -46,6 +48,7 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
 extern struct vbe_mode_info *vbe_info;
 static desktop_t *desktop;
 static vterm_t *terminal;
+static calculator_t *calculator;
 
 [[noreturn]] void panic(const char *msg)
 {
@@ -105,19 +108,29 @@ void clear_screen_handler()
     terminal->clear_screen(terminal);
 }
 
-void spawn_calculator([[maybe_unused]] button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
+void spawn_calculator([[maybe_unused]] icon_t *icon, [[maybe_unused]] int x, [[maybe_unused]] int y)
 {
-    calculator_t *temp_calc = calculator_new();
-    window_insert_child((window_t *)desktop, (window_t *)temp_calc);
-    window_move((window_t *)temp_calc, button->window.context->width / 2, button->window.context->height / 2);
+    if (calculator) {
+        return;
+    }
+
+    calculator = calculator_new();
+    window_insert_child((window_t *)desktop, (window_t *)calculator);
+    window_move((window_t *)calculator, icon->window.context->width / 2, icon->window.context->height / 2);
 }
 
-void spawn_terminal()
+void spawn_terminal(icon_t *icon, int x, int y)
 {
+    if (terminal) {
+        return;
+    }
+
     terminal = vterm_new();
     window_insert_child((window_t *)desktop, (window_t *)terminal);
     window_move((window_t *)terminal, 0, 0);
     vesa_terminal_init(putchar_handler, clear_screen_handler);
+
+    start_shell();
 }
 
 void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
@@ -136,7 +149,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 #endif
 
     gdt_init();
-
     init_symbols(mbd);
     display_grub_info(mbd, magic);
     paging_init();
@@ -160,16 +172,28 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     video_context_t *context = context_new(vbe_info->width, vbe_info->height);
     desktop                  = desktop_new(context);
     mouse_init(main_mouse_event_handler);
-    button_t *launch_button = button_new(10, 10, 150, 30);
-    window_set_title((window_t *)launch_button, "New Calculator");
-    launch_button->onmousedown = spawn_calculator;
-    window_insert_child((window_t *)desktop, (window_t *)launch_button);
+    // button_t *launch_button = button_new(10, 10, 100, 30);
+    // window_set_title((window_t *)launch_button, "Calculator");
+    // launch_button->onmousedown = spawn_calculator;
+    // window_insert_child((window_t *)desktop, (window_t *)launch_button);
+
+
+    icon_t *term = icon_new(terminal_1, 900, 10);
+    window_set_title((window_t *)term, "Term");
+    window_insert_child((window_t *)desktop, (window_t *)term);
+    term->onmousedown = spawn_terminal;
+
+    icon_t *calc = icon_new(computer_icon_1, 950, 10);
+    window_set_title((window_t *)calc, "Calc");
+    window_insert_child((window_t *)desktop, (window_t *)calc);
+    calc->onmousedown = spawn_calculator;
+
     window_paint((window_t *)desktop, nullptr, 1);
 
-    spawn_terminal();
+    // spawn_terminal();
 #endif
 
-    start_shell();
+    // start_shell();
 
     scheduler();
 
@@ -202,7 +226,7 @@ void display_grub_info(const multiboot_info_t *mbd, const unsigned int magic)
     }
 
     if (mbd->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
-        printf("[ " KBGRN "INFO" KWHT " ] Framebuffer info available\n");
+        printf(KWHT "[ " KBGRN "INFO" KWHT " ] Framebuffer info available\n");
         printf("[ " KBGRN "INFO" KWHT " ] Type: %d (0=indexed, 1=RGB, 2=EGA text)\n", mbd->framebuffer_type);
     } else {
         printf("[ " KBYEL "WARN" KWHT " ] No framebuffer info from GRUB\n");

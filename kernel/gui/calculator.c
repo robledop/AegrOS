@@ -1,7 +1,7 @@
 #include <gui/calculator.h>
 #include <kernel_heap.h>
 
-void Calculator_button_handler(button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
+void calculator_button_handler(button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
 {
     auto calculator = (calculator_t *)button->window.parent;
 
@@ -108,8 +108,8 @@ calculator_t *calculator_new(void)
     if (!window_init((window_t *)calculator,
                      0,
                      0,
-                     (2 * WIN_BORDERWIDTH) + 145,
-                     WIN_TITLEHEIGHT + WIN_BORDERWIDTH + 170,
+                     (2 * WIN_BORDER_WIDTH) + 145,
+                     WIN_TITLE_HEIGHT + WIN_BORDER_WIDTH + 170,
                      0,
                      nullptr)) {
 
@@ -121,67 +121,67 @@ calculator_t *calculator_new(void)
     window_set_title((window_t *)calculator, "Calculator");
 
     // Create the buttons
-    calculator->button_7 = button_new(WIN_BORDERWIDTH + 5, WIN_TITLEHEIGHT + 30, 30, 30);
+    calculator->button_7 = button_new(WIN_BORDER_WIDTH + 5, WIN_TITLE_HEIGHT + 30, 30, 30);
     window_set_title((window_t *)calculator->button_7, "7");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_7);
 
-    calculator->button_8 = button_new(WIN_BORDERWIDTH + 40, WIN_TITLEHEIGHT + 30, 30, 30);
+    calculator->button_8 = button_new(WIN_BORDER_WIDTH + 40, WIN_TITLE_HEIGHT + 30, 30, 30);
     window_set_title((window_t *)calculator->button_8, "8");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_8);
 
-    calculator->button_9 = button_new(WIN_BORDERWIDTH + 75, WIN_TITLEHEIGHT + 30, 30, 30);
+    calculator->button_9 = button_new(WIN_BORDER_WIDTH + 75, WIN_TITLE_HEIGHT + 30, 30, 30);
     window_set_title((window_t *)calculator->button_9, "9");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_9);
 
-    calculator->button_add = button_new(WIN_BORDERWIDTH + 110, WIN_TITLEHEIGHT + 30, 30, 30);
+    calculator->button_add = button_new(WIN_BORDER_WIDTH + 110, WIN_TITLE_HEIGHT + 30, 30, 30);
     window_set_title((window_t *)calculator->button_add, "+");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_add);
 
-    calculator->button_4 = button_new(WIN_BORDERWIDTH + 5, WIN_TITLEHEIGHT + 65, 30, 30);
+    calculator->button_4 = button_new(WIN_BORDER_WIDTH + 5, WIN_TITLE_HEIGHT + 65, 30, 30);
     window_set_title((window_t *)calculator->button_4, "4");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_4);
 
-    calculator->button_5 = button_new(WIN_BORDERWIDTH + 40, WIN_TITLEHEIGHT + 65, 30, 30);
+    calculator->button_5 = button_new(WIN_BORDER_WIDTH + 40, WIN_TITLE_HEIGHT + 65, 30, 30);
     window_set_title((window_t *)calculator->button_5, "5");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_5);
 
-    calculator->button_6 = button_new(WIN_BORDERWIDTH + 75, WIN_TITLEHEIGHT + 65, 30, 30);
+    calculator->button_6 = button_new(WIN_BORDER_WIDTH + 75, WIN_TITLE_HEIGHT + 65, 30, 30);
     window_set_title((window_t *)calculator->button_6, "6");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_6);
 
-    calculator->button_sub = button_new(WIN_BORDERWIDTH + 110, WIN_TITLEHEIGHT + 65, 30, 30);
+    calculator->button_sub = button_new(WIN_BORDER_WIDTH + 110, WIN_TITLE_HEIGHT + 65, 30, 30);
     window_set_title((window_t *)calculator->button_sub, "-");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_sub);
 
-    calculator->button_1 = button_new(WIN_BORDERWIDTH + 5, WIN_TITLEHEIGHT + 100, 30, 30);
+    calculator->button_1 = button_new(WIN_BORDER_WIDTH + 5, WIN_TITLE_HEIGHT + 100, 30, 30);
     window_set_title((window_t *)calculator->button_1, "1");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_1);
 
-    calculator->button_2 = button_new(WIN_BORDERWIDTH + 40, WIN_TITLEHEIGHT + 100, 30, 30);
+    calculator->button_2 = button_new(WIN_BORDER_WIDTH + 40, WIN_TITLE_HEIGHT + 100, 30, 30);
     window_set_title((window_t *)calculator->button_2, "2");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_2);
 
-    calculator->button_3 = button_new(WIN_BORDERWIDTH + 75, WIN_TITLEHEIGHT + 100, 30, 30);
+    calculator->button_3 = button_new(WIN_BORDER_WIDTH + 75, WIN_TITLE_HEIGHT + 100, 30, 30);
     window_set_title((window_t *)calculator->button_3, "3");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_3);
 
-    calculator->button_mul = button_new(WIN_BORDERWIDTH + 110, WIN_TITLEHEIGHT + 100, 30, 30);
+    calculator->button_mul = button_new(WIN_BORDER_WIDTH + 110, WIN_TITLE_HEIGHT + 100, 30, 30);
     window_set_title((window_t *)calculator->button_mul, "*");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_mul);
 
-    calculator->button_c = button_new(WIN_BORDERWIDTH + 5, WIN_TITLEHEIGHT + 135, 30, 30);
+    calculator->button_c = button_new(WIN_BORDER_WIDTH + 5, WIN_TITLE_HEIGHT + 135, 30, 30);
     window_set_title((window_t *)calculator->button_c, "C");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_c);
 
-    calculator->button_0 = button_new(WIN_BORDERWIDTH + 40, WIN_TITLEHEIGHT + 135, 30, 30);
+    calculator->button_0 = button_new(WIN_BORDER_WIDTH + 40, WIN_TITLE_HEIGHT + 135, 30, 30);
     window_set_title((window_t *)calculator->button_0, "0");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_0);
 
-    calculator->button_ent = button_new(WIN_BORDERWIDTH + 75, WIN_TITLEHEIGHT + 135, 30, 30);
+    calculator->button_ent = button_new(WIN_BORDER_WIDTH + 75, WIN_TITLE_HEIGHT + 135, 30, 30);
     window_set_title((window_t *)calculator->button_ent, "=");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_ent);
 
-    calculator->button_div = button_new(WIN_BORDERWIDTH + 110, WIN_TITLEHEIGHT + 135, 30, 30);
+    calculator->button_div = button_new(WIN_BORDER_WIDTH + 110, WIN_TITLE_HEIGHT + 135, 30, 30);
     window_set_title((window_t *)calculator->button_div, "/");
     window_insert_child((window_t *)calculator, (window_t *)calculator->button_div);
 
@@ -192,10 +192,10 @@ calculator_t *calculator_new(void)
                 calculator->button_0->onmousedown             = calculator->button_add->onmousedown =
                     calculator->button_sub->onmousedown       = calculator->button_mul->onmousedown =
                         calculator->button_div->onmousedown   = calculator->button_ent->onmousedown =
-                            calculator->button_c->onmousedown = Calculator_button_handler;
+                            calculator->button_c->onmousedown = calculator_button_handler;
 
     // Create the textbox
-    calculator->text_box = textbox_new(WIN_BORDERWIDTH + 5, WIN_TITLEHEIGHT + 5, 135, 20);
+    calculator->text_box = textbox_new(WIN_BORDER_WIDTH + 5, WIN_TITLE_HEIGHT + 5, 135, 20);
     window_set_title((window_t *)calculator->text_box, "0");
     window_insert_child((window_t *)calculator, (window_t *)calculator->text_box);
 

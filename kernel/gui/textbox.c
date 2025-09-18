@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "gui/window.h"
 
 textbox_t *textbox_new(int16_t x, int16_t y, int width, int height)
 {
@@ -42,6 +43,6 @@ void textbox_paint(window_t *text_box_window)
                           text_box_window->title,
                           text_box_window->width - title_len - 6,
                           (text_box_window->height / 2) - 6,
-                          0xFF000000);
+                          WIN_TEXT_COLOR);
     }
 }
