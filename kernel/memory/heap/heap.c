@@ -143,6 +143,8 @@ static int heap_get_start_block(const struct heap *heap, const uint32_t blocks_n
     // The number of free blocks found so far
     uint32_t free_blocks = 0;
 
+    bool enough_blocks_found = false;
+
     // Search for the first block that can hold the requested number of blocks
     for (size_t i = 0; i < table->total; i++) {
         // If the block is not free, reset the free block counter
@@ -160,13 +162,14 @@ static int heap_get_start_block(const struct heap *heap, const uint32_t blocks_n
         free_blocks++;
         // If the number of free blocks found so far is equal to the number of blocks needed
         if (free_blocks == blocks_needed) {
+            enough_blocks_found = true;
             break;
         }
     }
 
     // If no free blocks were found, return an error
-    if (start_block == -1) {
-        warningf("No free blocks found\n");
+    if (start_block == -1 || !enough_blocks_found) {
+        panic("No free blocks found\n");
         return -ENOMEM;
     }
 
