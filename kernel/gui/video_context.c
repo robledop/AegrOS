@@ -26,6 +26,44 @@ video_context_t *context_new(uint16_t width, uint16_t height)
     return context;
 }
 
+
+void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
+                                 rect_t *clip_area, uint32_t *pixels)
+{
+    int max_x = x + (int)width;
+    int max_y = y + (int)height;
+
+    // Translate the rectangle coordinates by the context translation values
+    x += context->translate_x;
+    y += context->translate_y;
+    max_x += context->translate_x;
+    max_y += context->translate_y;
+
+    // Make sure we don't go outside of the clip region:
+    if (x < clip_area->left) {
+        x = clip_area->left;
+    }
+
+    if (y < clip_area->top) {
+        y = clip_area->top;
+    }
+
+    if (max_x > clip_area->right + 1) {
+        max_x = clip_area->right + 1;
+    }
+
+    if (max_y > clip_area->bottom + 1) {
+        max_y = clip_area->bottom + 1;
+    }
+
+    // Draw the rectangle into the framebuffer line-by line
+    //(bonus points if you write an assembly routine to do it faster)
+    for (; y < max_y; y++)
+        for (int cur_x = x; cur_x < max_x; cur_x++) {
+            vesa_putpixel(cur_x, y, pixels[y * width + cur_x]);
+        }
+}
+
 void context_clipped_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
                           rect_t *clip_area, uint32_t color)
 {
@@ -60,6 +98,54 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
     for (; y < max_y; y++)
         for (int cur_x = x; cur_x < max_x; cur_x++)
             vesa_putpixel(cur_x, y, color);
+}
+
+
+void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
+                         uint32_t *pixels)
+{
+    int max_x = x + (int)width;
+    int max_y = y + (int)height;
+    rect_t screen_area;
+
+    // Make sure we don't try to draw offscreen
+    if (max_x > context->width) {
+        max_x = context->width;
+    }
+
+    if (max_y > context->height) {
+        max_y = context->height;
+    }
+
+    if (x < 0) {
+        x = 0;
+    }
+
+    if (y < 0) {
+        y = 0;
+    }
+
+    width  = max_x - x;
+    height = max_y - y;
+
+    // If there are clipping rects, draw the rect clipped to
+    // each of them. Otherwise, draw unclipped (clipped to the screen)
+    if (context->clip_rects->count) {
+        for (unsigned int i = 0; i < context->clip_rects->count; i++) {
+            auto clip_area = (rect_t *)list_get_at(context->clip_rects, i);
+            context_clipped_rect_bitmap(context, x, y, width, height, clip_area, pixels);
+        }
+    } else {
+
+        if (!context->clipping_on) {
+
+            screen_area.top    = 0;
+            screen_area.left   = 0;
+            screen_area.bottom = context->height - 1;
+            screen_area.right  = context->width - 1;
+            context_clipped_rect_bitmap(context, x, y, width, height, &screen_area, pixels);
+        }
+    }
 }
 
 // Simple for-loop rectangle into a context

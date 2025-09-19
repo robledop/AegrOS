@@ -6,7 +6,7 @@
 #include "gui/window.h"
 #include "vesa.h"
 
-icon_t *icon_new(unsigned char *image, int16_t x, int16_t y)
+icon_t *icon_new(unsigned int *image, int16_t x, int16_t y)
 {
     auto icon = (icon_t *)kzalloc(sizeof(icon_t));
     if (!icon) {
@@ -42,7 +42,8 @@ void icon_paint(window_t *button_window)
         button_window->context, 0, 0, button_window->width, button_window->height, DESKTOP_BACKGROUND_COLOR);
 
     // TODO: Needs to be handled by the context
-    vesa_puticon32(button_window->x, button_window->y, icon->image);
+    // vesa_puticon32(button_window->x, button_window->y, icon->image);
+    vesa_put_bitmap_32(button_window->x, button_window->y, icon->image);
 
     // Draw the title below the image
     if (button_window->title) {

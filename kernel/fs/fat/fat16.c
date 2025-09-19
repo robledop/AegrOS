@@ -2,6 +2,7 @@
 #include <config.h>
 #include <disk.h>
 #include <fat16.h>
+#include <hash_table.h>
 #include <kernel.h>
 #include <kernel_heap.h>
 #include <memfs.h>
@@ -543,7 +544,8 @@ out:
     return res;
 }
 
-static int fat16_get_cluster_for_offset(const struct disk *disk, const int start_cluster, const uint32_t offset)
+static int fat16_get_cluster_for_offset(const struct disk *disk, const int start_cluster, const uint32_t offset,
+                                        ht *cache)
 {
     int res = ALL_OK;
 
@@ -554,8 +556,16 @@ static int fat16_get_cluster_for_offset(const struct disk *disk, const int start
     const uint32_t clusters_ahead = offset / size_of_cluster;
 
     for (uint32_t i = 0; i < clusters_ahead; i++) {
-        // DEBUG: cluster_to_use could be wrong, and it ends up making this function return 0
-        const int entry = fat16_get_fat_entry(disk, cluster_to_use);
+        // char key[10];
+        // itoa(cluster_to_use, key);
+        int entry;
+        auto cached_entry = (int)ht_get(cache, cluster_to_use);
+        if (cached_entry) {
+            entry = cached_entry;
+        } else {
+            entry = fat16_get_fat_entry(disk, cluster_to_use);
+            ht_set(cache, cluster_to_use, (void *)entry);
+        }
 
         // - 0xFFF8 to 0xFFFF: These values are reserved to mark the end of a cluster chain.
         // When you encounter any value in this range in the FAT (File Allocation Table), it
@@ -591,14 +601,14 @@ out:
 }
 
 static int fat16_read_internal(const struct disk *disk, const int cluster, const uint32_t offset, uint32_t total,
-                               void *out)
+                               void *out, ht *cache)
 {
     int res = 0;
 
     const struct fat_private *private    = disk->fs_private;
     struct disk_stream *stream           = private->cluster_read_stream;
     const uint32_t size_of_cluster_bytes = private->header.primary_header.sectors_per_cluster * disk->sector_size;
-    const int cluster_to_use             = fat16_get_cluster_for_offset(disk, cluster, offset);
+    const int cluster_to_use             = fat16_get_cluster_for_offset(disk, cluster, offset, cache);
     if (cluster_to_use < 0) {
         res = cluster_to_use;
         goto out;
@@ -623,7 +633,7 @@ static int fat16_read_internal(const struct disk *disk, const int cluster, const
     total -= total_to_read;
     if (total > 0) {
         // We still have more to read
-        res = fat16_read_internal(disk, cluster, offset + total_to_read, total, (char *)out + total_to_read);
+        res = fat16_read_internal(disk, cluster, offset + total_to_read, total, (char *)out + total_to_read, cache);
     }
 
 out:
@@ -688,11 +698,15 @@ struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const st
         goto out;
     }
 
-    res = fat16_read_internal(disk, cluster, 0x00, directory_size, directory->entries);
+    ht *cache = ht_create();
+
+    res = fat16_read_internal(disk, cluster, 0x00, directory_size, directory->entries, cache);
     if (res != ALL_OK) {
         warningf("Failed to read directory entries\n");
         goto out;
     }
+
+    ht_destroy(cache);
 
 out:
     if (res != ALL_OK) {
@@ -1161,8 +1175,10 @@ int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, cha
     const struct disk *disk                    = fat_desc->disk;
     uint32_t offset                            = fat_desc->position;
 
+    ht *cache = ht_create();
+
     for (off_t i = 0; i < nmemb; i++) {
-        res = fat16_read_internal(disk, entry->first_cluster, offset, size, out);
+        res = fat16_read_internal(disk, entry->first_cluster, offset, size, out, cache);
         if (ISERR(res)) {
             warningf("Failed to read from file\n");
             return res;
@@ -1171,6 +1187,8 @@ int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, cha
         out += size;
         offset += size;
     }
+
+    ht_destroy(cache);
 
     res = (int)nmemb * (int)size;
 

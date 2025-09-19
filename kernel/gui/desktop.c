@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <vesa.h>
+#include "gui/video_context.h"
 
 // Mouse image data
 #define CA 0xFF000000 // Black
@@ -20,7 +21,7 @@ unsigned int mouse_img[MOUSE_BUFSZ] = {
     CD, CD, CA, CB, CB, CA, CD, CD, CD, CD, CD, CD, CD, CD, CA, CB, CB, CA, CD, CD, CD, CD, CD, CD, CD, CA, CB, CB, CA,
     CD, CD, CD, CD, CD, CD, CD, CD, CA, CB, CA, CD, CD, CD, CD, CD, CD, CD, CD, CD, CA, CA, CD, CD};
 
-desktop_t *desktop_new(video_context_t *context)
+desktop_t *desktop_new(video_context_t *context, uint32_t *wallpaper)
 {
     auto desktop = (desktop_t *)kzalloc(sizeof(desktop_t));
     if (!desktop) {
@@ -40,8 +41,9 @@ desktop_t *desktop_new(video_context_t *context)
     desktop->window.last_button_state = 0;
 
     // Init mouse to the center of the screen
-    desktop->mouse_x = desktop->window.context->width / 2;
-    desktop->mouse_y = desktop->window.context->height / 2;
+    desktop->mouse_x   = desktop->window.context->width / 2;
+    desktop->mouse_y   = desktop->window.context->height / 2;
+    desktop->wallpaper = wallpaper;
 
     return desktop;
 }
@@ -49,12 +51,21 @@ desktop_t *desktop_new(video_context_t *context)
 // Paint the desktop
 void desktop_paint_handler(window_t *desktop_window)
 {
-    context_fill_rect(desktop_window->context,
-                      0,
-                      0,
-                      desktop_window->context->width,
-                      desktop_window->context->height,
-                      DESKTOP_BACKGROUND_COLOR);
+    if (((desktop_t *)desktop_window)->wallpaper) {
+        context_draw_bitmap(desktop_window->context,
+                            0,
+                            0,
+                            desktop_window->context->width,
+                            desktop_window->context->height,
+                            ((desktop_t *)desktop_window)->wallpaper);
+    } else {
+        context_fill_rect(desktop_window->context,
+                          0,
+                          0,
+                          desktop_window->context->width,
+                          desktop_window->context->height,
+                          DESKTOP_BACKGROUND_COLOR);
+    }
 
     context_draw_text(desktop_window->context,
                       "AegrOS",

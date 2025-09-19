@@ -42,6 +42,7 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg);
 // void vesa_fill_rect(int x, int y, int w, int h, uint32_t color);
 // void vesa_draw_rect(int x, int y, unsigned int width, unsigned int height, uint32_t color);
 void vesa_puticon32(int x, int y, const unsigned char *icon);
+void vesa_put_bitmap_32(int x, int y, const unsigned int *icon);
 void vesa_put_black_and_white_icon16(int x, int y, const unsigned char *icon);
 void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, uint32_t bg);
 // void vesa_draw_mouse_cursor(int x, int y);

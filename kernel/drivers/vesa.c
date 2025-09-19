@@ -48,6 +48,16 @@ void vesa_puticon32(int x, int y, const unsigned char *icon)
     }
 }
 
+void vesa_put_bitmap_32(int x, int y, const unsigned int *icon)
+{
+    for (int j = 0; j < 32; j++) {
+        for (int i = 0; i < 32; i++) {
+            uint32_t color = icon[j * 32 + i];
+            vesa_putpixel(x + i, y + j, color);
+        }
+    }
+}
+
 void vesa_put_black_and_white_icon16(int x, int y, const unsigned char *icon)
 {
     for (int j = 0; j < 16; j++) {

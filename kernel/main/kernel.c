@@ -29,6 +29,8 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
+#include "assert.h"
+#include "gui/bmp.h"
 #include "gui/icon.h"
 #include "gui/rect.h"
 #include "gui/vterm.h"
@@ -151,6 +153,9 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     gdt_init();
     init_symbols(mbd);
     display_grub_info(mbd, magic);
+#ifdef PIXEL_RENDERING
+    vesa_put_bitmap_32(1024 - 40, 10, (unsigned int *)xterm);
+#endif
     paging_init();
     pic_init();
     idt_init();
@@ -169,31 +174,42 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     wait_for_network();
 
 #ifdef PIXEL_RENDERING
+
+    uint32_t *pixels = nullptr;
+    bitmap_load_argb("wpaper.bmp", &pixels);
+
+    // ASSERT(pixels);
+
+
     video_context_t *context = context_new(vbe_info->width, vbe_info->height);
-    desktop                  = desktop_new(context);
+    desktop                  = desktop_new(context, pixels);
     mouse_init(main_mouse_event_handler);
     // button_t *launch_button = button_new(10, 10, 100, 30);
     // window_set_title((window_t *)launch_button, "Calculator");
     // launch_button->onmousedown = spawn_calculator;
     // window_insert_child((window_t *)desktop, (window_t *)launch_button);
 
+    vesa_put_bitmap_32(900, 100, (unsigned int *)xterm);
 
-    icon_t *term = icon_new(terminal_1, 900, 10);
+    icon_t *term = icon_new((unsigned int *)xterm, 900, 10);
     window_set_title((window_t *)term, "Term");
     window_insert_child((window_t *)desktop, (window_t *)term);
     term->onmousedown = spawn_terminal;
 
-    icon_t *calc = icon_new(computer_icon_1, 950, 10);
+    icon_t *calc = icon_new((unsigned int *)xterm, 950, 10);
     window_set_title((window_t *)calc, "Calc");
     window_insert_child((window_t *)desktop, (window_t *)calc);
     calc->onmousedown = spawn_calculator;
 
+
     window_paint((window_t *)desktop, nullptr, 1);
+    // context_draw_bitmap(context, 0, 0, 1024, 768, pixels);
 
     // spawn_terminal();
+#else
+    start_shell();
 #endif
 
-    // start_shell();
 
     scheduler();
 

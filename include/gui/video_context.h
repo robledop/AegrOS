@@ -16,6 +16,8 @@ typedef struct video_context {
 
 video_context_t *context_new(uint16_t width, uint16_t height);
 void context_fill_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height, uint32_t color);
+void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
+                         uint32_t *pixels);
 void context_horizontal_line(video_context_t *context, int x, int y, unsigned int length, uint32_t color);
 void context_vertical_line(video_context_t *context, int x, int y, unsigned int length, uint32_t color);
 void context_draw_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height, uint32_t color);

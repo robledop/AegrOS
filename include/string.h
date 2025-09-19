@@ -8,6 +8,7 @@ size_t strlen(const char *s);
 size_t strnlen(const char *s, size_t maxlen);
 int strnlen_terminator(const char *s, size_t maxlen, char terminator);
 int memcmp(const void *v1, const void *v2, unsigned int n);
+int strcmp(const char *s1, const char *s2);
 NON_NULL int strncmp(const char *p, const char *q, unsigned int n);
 NON_NULL char *strncpy(char *dest, const char *src, size_t n);
 bool isdigit(char c);
