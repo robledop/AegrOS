@@ -262,10 +262,16 @@ void *heap_realloc(const struct heap *heap, void *ptr, const size_t size)
     const size_t aligned_size    = heap_align_value_to_upper(size);
     const uint32_t blocks_needed = aligned_size / HEAP_BLOCK_SIZE;
     void *new_ptr                = heap_malloc_blocks(heap, blocks_needed);
+    if (new_ptr == nullptr) {
+        return nullptr;
+    }
 
     const uint32_t old_blocks = heap_number_of_blocks(heap, ptr);
+    const size_t old_size     = old_blocks * HEAP_BLOCK_SIZE;
+    const size_t copy_size    = aligned_size < old_size ? aligned_size : old_size;
 
-    memcpy(new_ptr, ptr, old_blocks * HEAP_BLOCK_SIZE);
+    // memcpy(new_ptr, ptr, old_blocks * HEAP_BLOCK_SIZE);
+    memcpy(new_ptr, ptr, copy_size);
 
     heap_mark_blocks_free(heap, heap_address_to_block(heap, ptr));
 

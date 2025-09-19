@@ -691,7 +691,10 @@ struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const st
     const int total_items             = fat16_get_total_items_for_directory(disk, cluster_sector);
     directory->entry_count            = total_items;
     const unsigned int directory_size = directory->entry_count * sizeof(struct fat_directory_entry);
-    directory->entries                = kzalloc(directory_size);
+    if (directory_size == 0) {
+        goto out;
+    }
+    directory->entries = kzalloc(directory_size);
     if (!directory->entries) {
         warningf("Failed to allocate memory for directory entries\n");
         res = -ENOMEM;

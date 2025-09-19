@@ -12,6 +12,7 @@ config.asm
 .cache/
 .ccls-cache/
 compile_commands.json
+tests/test_sys_write
 
 .idea/**/workspace.xml
 .idea/**/tasks.xml

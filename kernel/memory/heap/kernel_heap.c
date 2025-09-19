@@ -5,6 +5,8 @@
 #include <memory.h>
 #include <printf.h>
 
+#include "assert.h"
+
 struct heap kernel_heap;
 struct heap_table kernel_heap_table;
 uint32_t allocations = 0;
@@ -27,6 +29,7 @@ void kernel_heap_init(int heap_size)
 
 void *kmalloc(const size_t size)
 {
+    ASSERT(size);
     allocations++;
     void *result = heap_malloc(&kernel_heap, size);
     return result;
@@ -34,6 +37,7 @@ void *kmalloc(const size_t size)
 
 void *kzalloc(const size_t size)
 {
+    ASSERT(size);
     void *ptr = kmalloc(size);
     if (!ptr) {
         panic("Failed to allocate memory\n");
@@ -45,6 +49,7 @@ void *kzalloc(const size_t size)
 
 void *krealloc(void *ptr, const size_t size)
 {
+    ASSERT(size);
     return heap_realloc(&kernel_heap, ptr, size);
 }
 
