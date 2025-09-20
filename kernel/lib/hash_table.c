@@ -21,10 +21,10 @@ struct ht {
 
 #define INITIAL_CAPACITY 16 // must not be zero
 
-ht *ht_create(void)
+hash_table_t *ht_create(void)
 {
     // Allocate space for hash table struct.
-    ht *table = kmalloc(sizeof(ht));
+    hash_table_t *table = kmalloc(sizeof(hash_table_t));
     if (table == nullptr) {
         return nullptr;
     }
@@ -40,7 +40,7 @@ ht *ht_create(void)
     return table;
 }
 
-void ht_destroy(ht *table)
+void ht_destroy(hash_table_t *table)
 {
     // First kfree allocated keys.
     for (size_t i = 0; i < table->capacity; i++) {
@@ -69,7 +69,7 @@ static uint64_t hash_key(const char *key)
     return hash;
 }
 
-void *ht_get(ht *table, int key)
+void *ht_get(hash_table_t *table, int key)
 {
     // AND hash with capacity-1 to ensure it's within entries array.
     // uint64_t hash = hash_key(key);
@@ -131,7 +131,7 @@ static int ht_set_entry(ht_entry *entries, size_t capacity, int key, void *value
 
 // Expand hash table to twice its current size. Return true on success,
 // false if out of memory.
-static bool ht_expand(ht *table)
+static bool ht_expand(hash_table_t *table)
 {
     // Allocate new entries array.
     size_t new_capacity = table->capacity * 2;
@@ -158,7 +158,7 @@ static bool ht_expand(ht *table)
     return true;
 }
 
-int ht_set(ht *table, int key, void *value)
+int ht_set(hash_table_t *table, int key, void *value)
 {
     ASSERT(value != nullptr);
     if (value == nullptr) {
@@ -176,12 +176,12 @@ int ht_set(ht *table, int key, void *value)
     return ht_set_entry(table->entries, table->capacity, key, value, &table->length);
 }
 
-size_t ht_length(ht *table)
+size_t ht_length(hash_table_t *table)
 {
     return table->length;
 }
 
-hti ht_iterator(ht *table)
+hti ht_iterator(hash_table_t *table)
 {
     hti it;
     it._table = table;
@@ -192,7 +192,7 @@ hti ht_iterator(ht *table)
 bool ht_next(hti *it)
 {
     // Loop till we've hit end of entries array.
-    ht *table = it->_table;
+    hash_table_t *table = it->_table;
     while (it->_index < table->capacity) {
         size_t i = it->_index;
         it->_index++;

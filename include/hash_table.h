@@ -5,26 +5,26 @@
 #include <stddef.h>
 
 // Hash table structure: create with ht_create, free with ht_destroy.
-typedef struct ht ht;
+typedef struct ht hash_table_t;
 
 // Create hash table and return pointer to it, or NULL if out of memory.
-ht *ht_create(void);
+hash_table_t *ht_create(void);
 
 // Free memory allocated for hash table, including allocated keys.
-void ht_destroy(ht *table);
+void ht_destroy(hash_table_t *table);
 
 // Get item with given key (NUL-terminated) from hash table. Return
 // value (which was set with ht_set), or NULL if key not found.
-void *ht_get(ht *table, int);
+void *ht_get(hash_table_t *table, int);
 
 // Set item with given key (NUL-terminated) to value (which must not
 // be NULL). If not already present in table, key is copied to newly
 // allocated memory (keys are freed automatically when ht_destroy is
 // called). Return address of copied key, or NULL if out of memory.
-int ht_set(ht *table, int, void *value);
+int ht_set(hash_table_t *table, int, void *value);
 
 // Return number of items in hash table.
-size_t ht_length(ht *table);
+size_t ht_length(hash_table_t *table);
 
 // Hash table iterator: create with ht_iterator, iterate with ht_next.
 typedef struct {
@@ -32,12 +32,12 @@ typedef struct {
     void *value; // current value
 
     // Don't use these fields directly.
-    ht *_table;    // reference to hash table being iterated
-    size_t _index; // current index into ht._entries
+    hash_table_t *_table; // reference to hash table being iterated
+    size_t _index;        // current index into hash_table_t._entries
 } hti;
 
 // Return new hash table iterator (for use with ht_next).
-hti ht_iterator(ht *table);
+hti ht_iterator(hash_table_t *table);
 
 // Move iterator to next item in hash table, update iterator's key
 // and value to current item, and return true. If there are no more

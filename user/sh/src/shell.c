@@ -22,7 +22,7 @@ void test();
 void mod();
 void rand_test();
 
-char *command_history[256];
+char *command_history[10];
 uint8_t history_index = 0;
 
 void exit_shell()
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
     printf(KWHT "User mode shell started\n");
     pass = 0;
 
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 10; i++) {
         command_history[i] = calloc(1, 256);
     }
 

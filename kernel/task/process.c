@@ -112,19 +112,22 @@ int process_zombify(struct process *process)
 
     if (process->user_stack) {
         kfree(process->user_stack);
+        process->user_stack = nullptr;
     }
-    process->user_stack = nullptr;
+
     if (process->thread) {
         if (process->thread->kernel_stack) {
             kfree(process->thread->kernel_stack);
         }
         kfree(process->thread);
+        process->thread = nullptr;
     }
-    process->thread = nullptr;
+
     if (process->page_directory) {
         paging_free_directory(process->page_directory);
+        process->page_directory = nullptr;
     }
-    process->page_directory = nullptr;
+
     kfree(process);
 
     return res;
@@ -546,7 +549,9 @@ int process_load(const char file_name[static 1], struct process **process)
     res = process_load_for_slot(file_name, process, pid);
 
     acquire(&process_list.lock);
-    process_set(pid, *process);
+    if (*process) {
+        process_set(pid, *process);
+    }
     release(&process_list.lock);
 out:
     return res;
@@ -612,7 +617,6 @@ out:
     if (ISERR(res)) {
         if (proc) {
             process_zombify(proc);
-            kfree(proc);
         }
     }
     return res;
