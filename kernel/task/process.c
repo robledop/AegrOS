@@ -779,11 +779,19 @@ struct process *process_clone(struct process *process)
 
 void process_command_argument_free(struct process *process, struct command_argument *argument)
 {
-    struct command_argument *current = argument;
-    while (current) {
-        struct command_argument *next = current->next;
-        process_free(process, current);
-        current = next;
+    struct command_argument *current_virtual = argument;
+    while (current_virtual) {
+        struct command_argument *current_physical =
+            paging_get_physical_address(process->page_directory, current_virtual);
+        ASSERT(current_physical, "Failed to translate command argument to physical address");
+
+        struct command_argument *next_virtual = nullptr;
+        if (current_physical) {
+            next_virtual = current_physical->next;
+        }
+
+        process_free(process, current_virtual);
+        current_virtual = next_virtual;
     }
 }
 
