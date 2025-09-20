@@ -9,8 +9,6 @@ Written in C23, so it requires a version of GCC that supports it.
 
 ![Screenshot](docs/img/screenshot7.png)
 
-![Screenshot](docs/img/screenshot7.png)
-
 ![Screenshot](docs/img/screenshot6.png)
 
 ![Screenshot](docs/img/screenshot0.png)
