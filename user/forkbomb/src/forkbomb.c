@@ -69,7 +69,7 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
         if (r < 0) {
             printf("Fork failed\n");
         } else if (r == 0) {
-            printf("Child of %d" KWHT " ", r);
+            printf(KGRN "\tForked child %d (pid:%d)" KWHT, i, getpid());
             exit(0);
         } else {
             // waitpid(r, nullptr);

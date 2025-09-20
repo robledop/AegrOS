@@ -3,6 +3,7 @@
 #include <gui/vterm.h>
 #include <gui/window.h>
 #include <kernel_heap.h>
+#include <list.h>
 #include <memory.h>
 #include <stdint.h>
 #include "vesa.h"
@@ -202,41 +203,44 @@ static void vterm_scroll_up(vterm_t *vterm)
     vterm->cursor_y = buffer_height - 2;
 }
 
-static rect_t *vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y)
+static void vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y, rect_t *out_rect)
 {
-    int top    = vterm->window.y + WIN_TITLE_HEIGHT + cursor_y * VESA_LINE_HEIGHT;
-    int left   = vterm->window.x + WIN_BORDER_WIDTH + cursor_x * VESA_CHAR_WIDTH;
-    int bottom = top + VESA_LINE_HEIGHT;
-    int right  = left + VESA_CHAR_WIDTH;
+    out_rect->top    = vterm->window.y + WIN_TITLE_HEIGHT + cursor_y * VESA_LINE_HEIGHT;
+    out_rect->left   = vterm->window.x + WIN_BORDER_WIDTH + cursor_x * VESA_CHAR_WIDTH;
+    out_rect->bottom = out_rect->top + VESA_LINE_HEIGHT;
+    out_rect->right  = out_rect->left + VESA_CHAR_WIDTH;
 
     // For debugging
     // context_draw_rect(vterm->window.context, left - 1, top - 1, right - left + 2, bottom - top + 2, 0xFF00FF00);
-    return rect_new(top, left, bottom, right);
 }
 
 static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int old_cursor_y)
 {
-    list_t *dirty_regions = list_new();
-    if (!dirty_regions) {
-        return;
+    rect_t rect_storage[2];
+    list_node_t node_storage[2];
+    list_t dirty_regions = {0};
+    list_node_t *tail    = nullptr;
+
+    // Always repaint the previous cursor position
+    vterm_get_char_cell(vterm, old_cursor_x, old_cursor_y, &rect_storage[0]);
+    node_storage[0].payload = &rect_storage[0];
+    node_storage[0].prev    = nullptr;
+    node_storage[0].next    = nullptr;
+    dirty_regions.root_node = &node_storage[0];
+    dirty_regions.count     = 1;
+    tail                    = &node_storage[0];
+
+    // Repaint the new cursor position if it differs
+    if (old_cursor_x != vterm->cursor_x || old_cursor_y != vterm->cursor_y) {
+        vterm_get_char_cell(vterm, vterm->cursor_x, vterm->cursor_y, &rect_storage[1]);
+        node_storage[1].payload = &rect_storage[1];
+        node_storage[1].prev    = tail;
+        node_storage[1].next    = nullptr;
+        tail->next              = &node_storage[1];
+        dirty_regions.count++;
     }
 
-    rect_t *old_rect = vterm_get_char_cell(vterm, old_cursor_x, old_cursor_y);
-    if (old_rect) {
-        if (!list_add(dirty_regions, old_rect)) {
-            kfree(old_rect);
-        }
-    }
-
-    rect_t *new_rect = vterm_get_char_cell(vterm, vterm->cursor_x, vterm->cursor_y);
-    if (new_rect) {
-        if (!list_add(dirty_regions, new_rect)) {
-            kfree(new_rect);
-        }
-    }
-
-    window_paint((window_t *)vterm, dirty_regions, 1);
-    list_free(dirty_regions);
+    window_paint((window_t *)vterm, &dirty_regions, 1);
 }
 
 void vterm_paint(window_t *window)
