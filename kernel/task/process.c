@@ -34,7 +34,7 @@ struct process *current_process(void)
 static int process_find_free_allocation_slot(const struct process *process)
 {
     for (int i = 0; i < MAX_PROGRAM_ALLOCATIONS; i++) {
-        if (process->allocations[i].ptr == NULL) {
+        if (process->allocations[i].ptr == nullptr) {
             return i;
         }
     }
@@ -206,7 +206,7 @@ void process_free(struct process *process, void *ptr)
 
     for (size_t i = 0; i < MAX_PROGRAM_ALLOCATIONS; i++) {
         if (process->allocations[i].ptr == ptr) {
-            process->allocations[i].ptr  = NULL;
+            process->allocations[i].ptr  = nullptr;
             process->allocations[i].size = 0;
 
             break;
@@ -220,7 +220,7 @@ void *process_calloc(struct process *process, const size_t nmemb, const size_t s
 {
     void *ptr = process_malloc(process, nmemb * size);
     if (!ptr) {
-        return NULL;
+        return nullptr;
     }
 
     memset(ptr, 0x00, nmemb * size);
@@ -262,7 +262,7 @@ out_error:
     if (ptr) {
         kfree(ptr);
     }
-    return NULL;
+    return nullptr;
 }
 
 void *process_realloc(struct process *process, void *ptr, const size_t size)
@@ -270,13 +270,13 @@ void *process_realloc(struct process *process, void *ptr, const size_t size)
     struct process_allocation *allocation = process_get_allocation_by_address(process, ptr);
     if (!allocation) {
         ASSERT(false, "Failed to find allocation for address");
-        return NULL;
+        return nullptr;
     }
 
     void *new_ptr = process_malloc(process, size);
     if (!new_ptr) {
         ASSERT(false, "Failed to allocate memory for reallocation");
-        return NULL;
+        return nullptr;
     }
 
     memcpy(new_ptr, ptr, allocation->size);
@@ -403,7 +403,7 @@ static int process_map_elf(struct process *process)
 
         // Allocate new physical memory for the segment
         void *phys_addr = process_malloc(process, phdr->p_memsz);
-        if (phys_addr == NULL) {
+        if (phys_addr == nullptr) {
             return -ENOMEM;
         }
 
@@ -627,7 +627,7 @@ int process_set_current_directory(struct process *process, const char directory[
         return -EINVARG;
     }
 
-    if (process->current_directory == NULL) {
+    if (process->current_directory == nullptr) {
         process->current_directory = process_malloc(process, MAX_PATH_LENGTH);
     }
 
@@ -648,7 +648,19 @@ int process_copy_allocations(struct process *dest, const struct process *src)
             }
 
             memcpy(ptr, src->allocations[i].ptr, src->allocations[i].size);
-            dest->allocations[i].ptr = ptr;
+            struct process_allocation *allocation = process_get_allocation_by_address(dest, ptr);
+            if (!allocation) {
+                ASSERT(false, "Failed to get allocation for pointer");
+                return -EFAULT;
+            }
+
+            dest->allocations[i].ptr  = allocation->ptr;
+            dest->allocations[i].size = allocation->size;
+
+            if (&dest->allocations[i] != allocation) {
+                allocation->ptr  = nullptr;
+                allocation->size = 0;
+            }
         }
     }
 
