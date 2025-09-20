@@ -89,6 +89,14 @@ int list_find(list_t *list, void *payload)
     return -1;
 }
 
+void list_free(list_t *list)
+{
+    while (list->count) {
+        kfree(list_remove_at(list, 0));
+    }
+    kfree(list);
+}
+
 // Remove the item at the specified index from the list and return the item that
 // was removed
 // Indices are zero-based

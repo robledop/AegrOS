@@ -11,3 +11,4 @@ int list_add(list_t *list, void *payload);
 void *list_get_at(list_t *list, unsigned int index);
 void *list_remove_at(list_t *list, unsigned int index);
 int list_find(list_t *list, void *payload);
+void list_free(list_t *list);

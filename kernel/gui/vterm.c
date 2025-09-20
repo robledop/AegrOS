@@ -216,15 +216,27 @@ static rect_t *vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y)
 
 static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int old_cursor_y)
 {
-    auto dirty_regions = list_new();
+    list_t *dirty_regions = list_new();
+    if (!dirty_regions) {
+        return;
+    }
 
-    auto old_rect = vterm_get_char_cell(vterm, old_cursor_x, old_cursor_y);
-    list_add(dirty_regions, old_rect);
+    rect_t *old_rect = vterm_get_char_cell(vterm, old_cursor_x, old_cursor_y);
+    if (old_rect) {
+        if (!list_add(dirty_regions, old_rect)) {
+            kfree(old_rect);
+        }
+    }
 
-    auto new_rect = vterm_get_char_cell(vterm, vterm->cursor_x, vterm->cursor_y);
-    list_add(dirty_regions, new_rect);
+    rect_t *new_rect = vterm_get_char_cell(vterm, vterm->cursor_x, vterm->cursor_y);
+    if (new_rect) {
+        if (!list_add(dirty_regions, new_rect)) {
+            kfree(new_rect);
+        }
+    }
 
     window_paint((window_t *)vterm, dirty_regions, 1);
+    list_free(dirty_regions);
 }
 
 void vterm_paint(window_t *window)
