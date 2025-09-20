@@ -1384,7 +1384,12 @@ time_t fat_date_time_to_unix_time(const uint16_t fat_date, const uint16_t fat_ti
 int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, struct dir_entry *entry)
 {
     memset(entry, 0, sizeof(struct dir_entry));
-    entry->inode               = memfs_create_inode(INODE_FILE, &fat16_file_inode_ops);
+    entry->inode = memfs_create_inode(INODE_FILE, &fat16_file_inode_ops);
+    if (entry->inode == nullptr) {
+        return -ENOMEM;
+    }
+    entry->inode_owned         = true;
+    entry->inode->fs_type      = FS_TYPE_FAT16;
     entry->inode->data         = (void *)fat_entry;
     entry->inode->size         = fat_entry->size;
     entry->inode->atime        = fat_date_time_to_unix_time(fat_entry->access_date, 0);

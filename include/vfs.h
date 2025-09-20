@@ -94,6 +94,7 @@ struct inode {
 // In-memory representation of a directory entry
 struct dir_entry {
     struct inode *inode;
+    bool inode_owned;      // Indicates whether the inode should be freed after use
     uint8_t file_type;       // File type
     uint8_t name_length;     // Length of the name
     char name[NAME_MAX + 1]; // Null-terminated filename
