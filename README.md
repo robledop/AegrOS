@@ -7,8 +7,7 @@ Written in C23, so it requires a version of GCC that supports it.
 
 [Things I learned](docs/THINGS_I_LEARNED.md)
 
-<details>
-<summary>Screenshots</summary>
+![Screenshot](docs/img/screenshot7.png)
 
 ![Screenshot](docs/img/screenshot7.png)
 
@@ -26,11 +25,7 @@ Written in C23, so it requires a version of GCC that supports it.
 
 ![Screenshot](docs/img/screenshot5.png)
 
-</details>
-
-
-<details>
-<summary>Roadmap</summary>
+Roadmap
 
 <details>
 <summary>General features</summary>
