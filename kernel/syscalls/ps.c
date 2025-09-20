@@ -1,8 +1,10 @@
 #include <printf.h>
 #include <string.h>
 #include <syscall.h>
-#include <thread.h>
 #include <termcolors.h>
+#include <thread.h>
+
+#include "kernel_heap.h"
 
 // TODO: Re-implement this in userland using a device file
 void *sys_ps(void)
@@ -40,6 +42,8 @@ void *sys_ps(void)
 
         printf(" %-5u%-15s%-12u%-12s\n", info->pid, info->file_name, info->priority, state);
     }
+
+    kfree(proc_info);
 
     return nullptr;
 }

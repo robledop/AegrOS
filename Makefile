@@ -198,7 +198,7 @@ apps_clean:
 .PHONY: clean
 clean: apps_clean
 	echo "Cleaning..."
-	rm -rf ./bin ./build ./mnt ./disk.img ./disk1.vdi ./rootfs/testdir ./rootfs/boot/myos.bin ./myos.iso ./serial.log ./qemu.log ./bochslog.txt ./include/config.asm
+	rm -rf ./bin ./build ./mnt ./disk.img ./disk1.vdi ./rootfs/testdir ./rootfs/boot/myos.bin ./myos.iso ./serial.log ./qemu.log ./bochslog.txt ./include/config.asm ./rootfs/bin/*
 
 .PHONY: test
 test: grub
