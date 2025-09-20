@@ -220,7 +220,8 @@ void exit(void)
 {
     acquire(&process_list.lock);
 
-    struct process *curproc = current_process();
+    struct process *curproc  = current_process();
+    struct thread *curthread = current_thread;
 
     // TODO: Close all open files.
 
@@ -237,9 +238,13 @@ void exit(void)
 
     curproc->thread->state = TASK_STOPPED;
     int pid                = curproc->pid;
+    if (curthread) {
+        curthread->process = nullptr;
+    }
     process_zombify(curproc);
     process_set(pid, nullptr);
 
+    kfree(curproc);
     switch_to_scheduler();
 
     panic("zombie exit");

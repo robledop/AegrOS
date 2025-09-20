@@ -133,7 +133,7 @@ int fat16_create_file(const char *path, void *data, int size);
 int fat16_create_directory(const char *path);
 int fat16_get_directory(const struct path_root *path_root, struct fat_directory *fat_directory);
 int fat16_read_entry(struct file *descriptor, struct dir_entry *entry);
-uint16_t fat16_allocate_new_entry(const struct disk *disk, const uint16_t clusters_needed);
+uint16_t fat16_allocate_new_entry(const struct disk *disk, uint16_t clusters_needed);
 
 struct inode_operations fat16_file_inode_ops = {
     .open  = fat16_open,
@@ -803,10 +803,10 @@ out:
 
 void *fat16_open(const struct path_root *path, const FILE_MODE mode, enum INODE_TYPE *type_out, uint32_t *size_out)
 {
-    struct fat_file_descriptor *descriptor = nullptr;
-    int error_code                         = 0;
+    int error_code = 0;
 
-    descriptor = kzalloc(sizeof(struct fat_file_descriptor));
+    struct fat_file_descriptor *descriptor = kzalloc(sizeof(struct fat_file_descriptor));
+    ASSERT(descriptor != (void *)path);
     if (!descriptor) {
         panic("Failed to allocate memory for file descriptor\n");
         error_code = -ENOMEM;
@@ -1062,7 +1062,7 @@ void fat16_initialize_directory(const struct disk *disk, const uint16_t cluster,
 
 int fat16_create_directory(const char *path)
 {
-    const struct path_root *root = path_parser_parse(path, nullptr);
+    const struct path_root *root = path_parser_parse(path);
     const struct disk *disk      = disk_get(root->drive_number);
     const uint16_t first_cluster = fat16_allocate_new_entry(disk, 1);
 
@@ -1086,7 +1086,7 @@ int fat16_create_directory(const char *path)
 
 int fat16_create_file(const char *path, void *data, const int size)
 {
-    const struct path_root *path_root = path_parser_parse(path, nullptr);
+    const struct path_root *path_root = path_parser_parse(path);
 
     const struct disk *disk               = disk_get(path_root->drive_number);
     const struct fat_private *fat_private = disk->fs_private;
@@ -1154,7 +1154,7 @@ int fat16_write(const void *descriptor, const char *data, const size_t size)
     fat_desc->position = write_position;
     memcpy(existing_data + fat_desc->position, data, size);
 
-    const struct path_root *path_root = path_parser_parse(desc->path, nullptr);
+    const struct path_root *path_root = path_parser_parse(desc->path);
     struct fat_directory directory    = {};
     fat16_get_directory(path_root, &directory);
 

@@ -140,7 +140,7 @@ static struct mount_point *determine_mount_point(const char *path)
     return mount_point;
 }
 
-struct path_root *path_parser_parse(const char path[static 1], const char *current_directory_path)
+struct path_root *path_parser_parse(const char path[static 1])
 {
     dbgprintf("Parsing path %s\n", path);
     struct path_root *root = nullptr;

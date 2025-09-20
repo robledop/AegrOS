@@ -186,7 +186,7 @@ int vfs_open(struct process *current_process, const char path[static 1], const F
     int res = -EIO;
 
     struct disk *disk           = nullptr;
-    struct path_root *root_path = path_parser_parse(path, nullptr);
+    struct path_root *root_path = path_parser_parse(path);
     if (!root_path) {
         warningf("Failed to parse path\n");
         res = -EBADPATH;
@@ -222,7 +222,8 @@ int vfs_open(struct process *current_process, const char path[static 1], const F
 
     enum INODE_TYPE type;
     uint32_t size;
-    void *descriptor_private_data;
+    void *descriptor_private_data = nullptr;
+    ASSERT(root_path != descriptor_private_data);
 
     // If the inode is still null, then the file is probably on a disk
     if (inode == nullptr) {
@@ -232,6 +233,8 @@ int vfs_open(struct process *current_process, const char path[static 1], const F
         ASSERT(inode->ops);
         descriptor_private_data = inode->ops->open(root_path, mode, &type, &size);
     }
+
+    ASSERT(root_path != descriptor_private_data);
 
     if (ISERR(descriptor_private_data)) {
         warningf("Failed to open file\n");
@@ -264,11 +267,14 @@ int vfs_open(struct process *current_process, const char path[static 1], const F
         desc->fs_type = disk->fs->type;
 
         // HACK: Don't forget to do this properly. The VFS must not know about the file system's internal data.
-        if (descriptor_private_data) {
-            const struct fat_file_descriptor *fat_desc = descriptor_private_data;
-            desc->fs_data                              = kzalloc(sizeof(struct fat_file_descriptor));
-            memcpy(desc->fs_data, fat_desc, sizeof(struct fat_file_descriptor));
-        }
+        // if (descriptor_private_data) {
+        //     const struct fat_file_descriptor *fat_desc = descriptor_private_data;
+        //     desc->fs_data                              = kzalloc(sizeof(struct fat_file_descriptor));
+        //     memcpy(desc->fs_data, fat_desc, sizeof(struct fat_file_descriptor));
+        // }
+
+        // The filesystem already returned a descriptor object; take ownership of it.
+        desc->fs_data = (struct fat_file_descriptor *)descriptor_private_data;
     }
 
     desc->type = type;
@@ -483,7 +489,7 @@ int vfs_getdents(const uint32_t fd, void *buffer, const int count)
 
 int vfs_mkdir(const char *path)
 {
-    const struct path_root *root_path = path_parser_parse(path, nullptr);
+    const struct path_root *root_path = path_parser_parse(path);
     if (root_path == nullptr) {
         warningf("Failed to parse path\n");
         return -EBADPATH;

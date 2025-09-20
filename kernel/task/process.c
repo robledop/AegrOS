@@ -125,6 +125,7 @@ int process_zombify(struct process *process)
         paging_free_directory(process->page_directory);
     }
     process->page_directory = nullptr;
+    kfree(process);
 
     return res;
 }
