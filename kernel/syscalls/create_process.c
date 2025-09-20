@@ -31,8 +31,7 @@ void *sys_create_process(void)
     int res                 = process_load_enqueue(path, &process);
     if (res < 0) {
         warningf("Failed to load process %s\n", program_name);
-        process_free(get_current_thread()->process, virtual_address);
-        process_command_argument_free(root_command_argument);
+        process_command_argument_free(get_current_thread()->process, root_command_argument);
         popcli();
         return ERROR(res);
     }
@@ -40,8 +39,7 @@ void *sys_create_process(void)
     res = process_inject_arguments(process, root_command_argument);
     if (res < 0) {
         warningf("Failed to inject arguments for process %s\n", program_name);
-        process_free(get_current_thread()->process, virtual_address);
-        process_command_argument_free(root_command_argument);
+        process_command_argument_free(get_current_thread()->process, root_command_argument);
         popcli();
         return ERROR(res);
     }
@@ -50,8 +48,7 @@ void *sys_create_process(void)
     process->parent                 = current_process;
     process->priority               = 1;
 
-    process_free(get_current_thread()->process, virtual_address);
-    process_command_argument_free(root_command_argument);
+    process_command_argument_free(get_current_thread()->process, root_command_argument);
 
     popcli();
     return (void *)(int)process->pid;

@@ -1,14 +1,22 @@
+#include <assert.h>
 #include <config.h>
 #include <debug.h>
 #include <gdt.h>
+#include <gui/bmp.h>
 #include <gui/button.h>
 #include <gui/calculator.h>
 #include <gui/desktop.h>
+#include <gui/icon.h>
+#include <gui/rect.h>
+#include <gui/vterm.h>
+#include <gui/window.h>
+#include <icons.h>
 #include <idt.h>
 #include <io.h>
 #include <kernel.h>
 #include <kernel_heap.h>
 #include <keyboard.h>
+#include <list.h>
 #include <memory.h>
 #include <mouse.h>
 #include <net/network.h>
@@ -28,15 +36,6 @@
 #include <vfs.h>
 #include <vga_buffer.h>
 #include <x86.h>
-
-#include "assert.h"
-#include "gui/bmp.h"
-#include "gui/icon.h"
-#include "gui/rect.h"
-#include "gui/vterm.h"
-#include "gui/window.h"
-#include "icons.h"
-#include "list.h"
 
 
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);

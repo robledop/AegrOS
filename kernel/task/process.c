@@ -777,12 +777,14 @@ struct process *process_clone(struct process *process)
     return clone;
 }
 
-void process_command_argument_free(struct command_argument *argument)
+void process_command_argument_free(struct process *process, struct command_argument *argument)
 {
-    if (argument->next) {
-        process_command_argument_free(argument->next);
+    struct command_argument *current = argument;
+    while (current) {
+        struct command_argument *next = current->next;
+        process_free(process, current);
+        current = next;
     }
-    kfree(argument);
 }
 
 void process_free_file_descriptor(struct process *process, struct file *desc)

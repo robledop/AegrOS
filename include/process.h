@@ -77,7 +77,7 @@ NON_NULL int process_map_memory(struct process *process);
 NON_NULL int process_unmap_memory(const struct process *process);
 NON_NULL int process_free_allocations(struct process *process);
 NON_NULL int process_free_program_data(const struct process *process);
-NON_NULL void process_command_argument_free(struct command_argument *argument);
+NON_NULL void process_command_argument_free(struct process *process, struct command_argument *argument);
 
 struct file *process_get_file_descriptor(const struct process *process, uint32_t index);
 int process_new_file_descriptor(struct process *process, struct file **desc_out);
