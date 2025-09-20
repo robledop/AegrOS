@@ -44,3 +44,6 @@ crashlytics-build.properties
 fabric.properties
 .idea/httpRequests
 .idea/caches/build_file_checksums.ser
+/tools/bmp/bmp
+/tools/image_to_c/image_to_c
+/tools/bmp/main
