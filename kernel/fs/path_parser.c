@@ -1,4 +1,5 @@
 #include <config.h>
+#include <kernel.h>
 #include <kernel_heap.h>
 #include <memory.h>
 #include <path_parser.h>
@@ -8,6 +9,8 @@
 #include <vfs.h>
 #ifndef __KERNEL__
 #include <stdlib.h>
+#else
+#include <assert.h>
 #endif
 
 static struct path_root *create_root(const int drive_number, const uint32_t inode_number)
@@ -60,10 +63,17 @@ static const char *get_path_part(const char **path)
     return path_part;
 }
 
-struct path_part *parse_path_part(struct path_part *last_part, const char **path)
+struct path_part *parse_path_part(struct path_part *last_part, const char **path, bool *out_of_path)
 {
+    if (out_of_path) {
+        *out_of_path = false;
+    }
+
     const char *path_part_str = get_path_part(path);
     if (path_part_str == nullptr) {
+        if (out_of_path) {
+            *out_of_path = true;
+        }
         return nullptr;
     }
 
@@ -76,7 +86,7 @@ struct path_part *parse_path_part(struct path_part *last_part, const char **path
 #ifdef __KERNEL__
         kfree((void *)path_part_str);
 #else
-        free((void *), path_part_str);
+        free((void *)path_part_str);
 #endif
 
         warningf("Failed to allocate path part\n");
@@ -143,20 +153,13 @@ static struct mount_point *determine_mount_point(const char *path)
 struct path_root *path_parser_parse(const char path[static 1])
 {
     dbgprintf("Parsing path %s\n", path);
-    struct path_root *root = nullptr;
+    struct path_root *root  = nullptr;
+    const char *path_cursor = path;
 
     if (strlen(path) > MAX_PATH_LENGTH) {
         warningf("Path too long\n");
         goto out;
     }
-
-    // struct mount_point *mount_point = determine_mount_point(path);
-
-    // if (mount_point->inode == nullptr) {
-    //     root = create_root((int)mount_point->disk, -1);
-    // } else {
-    //     root = create_root(-1, mount_point->inode->inode_number);
-    // }
 
     root = create_root(0, 0);
 
@@ -165,23 +168,27 @@ struct path_root *path_parser_parse(const char path[static 1])
         goto out;
     }
 
-    struct path_part *first_part = parse_path_part(nullptr, &path);
+    struct path_part *last_part = nullptr;
 
-    if (!first_part) {
-        warningf("Failed to parse first part\n");
-        kfree(root);
-        goto out;
-    }
+    while (true) {
+        bool reached_end       = false;
+        struct path_part *part = parse_path_part(last_part, &path_cursor, &reached_end);
+        if (!part) {
+            if (reached_end) {
+                break;
+            }
+            panic("Failed to parse path part\n");
+        }
 
-    root->first = first_part;
+        if (!root->first) {
+            root->first = part;
+        }
 
-    struct path_part *part = parse_path_part(first_part, &path);
-
-    while (part) {
-        part = parse_path_part(part, &path);
+        last_part = part;
     }
 
 out:
+    ASSERT(root);
     return root;
 }
 
