@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         entry = readdir(dir);
     }
 
-    free(dir);
+    closedir(dir);
 
     return ALL_OK;
 }

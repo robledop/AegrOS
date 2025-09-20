@@ -77,7 +77,7 @@ struct dirent *readdir(DIR *dirp)
 
     if ((uint32_t)dirp->offset >= dirp->size) {
         dirp->offset = 0;
-        free(dirp->buffer);
+        // free(dirp->buffer);
         return nullptr;
     }
 

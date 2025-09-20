@@ -4,7 +4,7 @@
 // TODO: Implement mmap/munmap and use it instead of this
 void *sys_calloc(void)
 {
-    const int size  = get_integer_argument(0);
-    const int nmemb = get_integer_argument(1);
+    const int size  = get_integer_argument(1);
+    const int nmemb = get_integer_argument(0);
     return process_calloc(get_current_thread()->process, nmemb, size);
 }
