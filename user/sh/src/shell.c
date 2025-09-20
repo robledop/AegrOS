@@ -9,6 +9,8 @@
 #include <unistd.h>
 
 #define MAX_COMMAND_LENGTH 256
+#define COMMAND_HISTORY_SIZE 10
+#define COMMAND_HISTORY_ENTRY_SIZE 256
 
 // @brief Generate a stack overflow to test the stack guard page
 void stack_overflow();
@@ -22,8 +24,8 @@ void test();
 void mod();
 void rand_test();
 
-char *command_history[10];
-uint8_t history_index = 0;
+static char command_history[COMMAND_HISTORY_SIZE][COMMAND_HISTORY_ENTRY_SIZE];
+static int history_count = 0;
 
 void exit_shell()
 {
@@ -234,10 +236,6 @@ int main(int argc, char **argv)
     printf(KWHT "User mode shell started\n");
     pass = 0;
 
-    for (int i = 0; i < 10; i++) {
-        command_history[i] = calloc(1, 256);
-    }
-
     // ReSharper disable once CppDFAEndlessLoop
     while (1) {
         char *current_directory = getcwd();
@@ -247,8 +245,18 @@ int main(int argc, char **argv)
         shell_terminal_readline(buffer, sizeof(buffer), true);
 
         if (strlen((char *)buffer) != 0) {
-            strncpy(command_history[history_index], (char *)buffer, sizeof(buffer));
-            history_index++;
+            const size_t copy_len = sizeof(command_history[0]);
+
+            if (history_count == COMMAND_HISTORY_SIZE) {
+                memmove(command_history[0],
+                        command_history[1],
+                        (COMMAND_HISTORY_SIZE - 1) * sizeof(command_history[0]));
+                history_count = COMMAND_HISTORY_SIZE - 1;
+            }
+
+            strncpy(command_history[history_count], (char *)buffer, copy_len);
+            command_history[history_count][copy_len - 1] = '\0';
+            history_count++;
         }
 
         const int command_index = cmd_lookup((char *)buffer);
@@ -320,7 +328,7 @@ int main(int argc, char **argv)
 
 void shell_terminal_readline(uint8_t *out, const int max, const bool output_while_typing)
 {
-    uint8_t current_history_index = history_index;
+    int current_history_index = history_count;
     int i                         = 0;
     for (; i < max - 1; i++) {
         const unsigned char key = getkey_blocking();
@@ -338,7 +346,7 @@ void shell_terminal_readline(uint8_t *out, const int max, const bool output_whil
                 printf("\b");
             }
             current_history_index--;
-            strncpy((char *)out, command_history[current_history_index], max);
+            strncpy((char *)out, command_history[current_history_index], (size_t)max);
             i = (int)strnlen((char *)out, max);
             printf((char *)out);
             continue;
@@ -347,7 +355,7 @@ void shell_terminal_readline(uint8_t *out, const int max, const bool output_whil
         // TODO: This is still a little buggy
         // Down arrow
         if (key == 227) {
-            if (current_history_index == history_index - 1) {
+            if (current_history_index >= history_count - 1) {
                 continue;
             }
 
@@ -355,7 +363,7 @@ void shell_terminal_readline(uint8_t *out, const int max, const bool output_whil
                 printf("\b");
             }
             current_history_index++;
-            strncpy((char *)out, command_history[current_history_index], max);
+            strncpy((char *)out, command_history[current_history_index], (size_t)max);
             i = (int)strlen((char *)out);
             printf((char *)out);
             continue;

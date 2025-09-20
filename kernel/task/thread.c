@@ -237,14 +237,11 @@ void exit(void)
     // Jump into the scheduler, never to return.
 
     curproc->thread->state = TASK_STOPPED;
-    int pid                = curproc->pid;
     if (curthread) {
         curthread->process = nullptr;
     }
-    process_zombify(curproc);
-    process_set(pid, nullptr);
 
-    kfree(curproc);
+    dbgprintf("Exiting process %d\n", curproc->pid);
     switch_to_scheduler();
 
     panic("zombie exit");
@@ -298,6 +295,12 @@ int wait(void)
 
     acquire(&process_list.lock);
     for (;;) {
+        if (curproc->wait_pid) {
+            const int pid     = curproc->wait_pid;
+            curproc->wait_pid = 0;
+            release(&process_list.lock);
+            return pid;
+        }
         // Scan through table looking for exited children.
         int havekids = 0;
         for (int i = 0; i < MAX_PROCESSES - 1; i++) {
@@ -311,6 +314,7 @@ int wait(void)
                 int pid = p->pid;
                 process_zombify(p);
                 process_set(pid, nullptr);
+                kfree(p);
                 curproc->thread->wait_channel = nullptr;
                 release(&process_list.lock);
                 return pid;
@@ -404,6 +408,18 @@ void scheduler(void)
             switch_context(&(current_cpu->scheduler), p->thread->context);
 
             kernel_page();
+
+            if (p->thread && p->thread->state == TASK_STOPPED) {
+                const int pid = p->pid;
+                if (p->parent) {
+                    p->parent->wait_pid = pid;
+                }
+                current_thread = nullptr;
+                process_zombify(p);
+                process_set(pid, nullptr);
+                kfree(p);
+                continue;
+            }
 
             // Process is done running for now.
             // It should have changed its p->state before coming back.

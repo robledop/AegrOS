@@ -98,8 +98,8 @@ void process_free_file_descriptors(struct process *process)
     }
 }
 
-/// @brief Turn the process into a zombie and deallocates its resources
-/// The process remains in the process list until the parent process reads the exit code
+/// @brief Tear down a process and release its resources.
+/// Caller remains responsible for freeing the process struct itself when safe.
 int process_zombify(struct process *process)
 {
     int res = process_free_allocations(process);
@@ -127,8 +127,6 @@ int process_zombify(struct process *process)
         paging_free_directory(process->page_directory);
         process->page_directory = nullptr;
     }
-
-    kfree(process);
 
     return res;
 }
@@ -190,14 +188,16 @@ out:
 
 void process_free(struct process *process, void *ptr)
 {
-    struct process_allocation *allocation = process_get_allocation_by_address(process, ptr);
-    if (!allocation) {
+    struct process_allocation *primary = process_get_allocation_by_address(process, ptr);
+    if (!primary) {
         ASSERT(false, "Failed to find allocation for address");
         return;
     }
 
+    const size_t allocation_size = primary->size;
+
     const int res = paging_map_to(
-        process->page_directory, ptr, ptr, paging_align_address((char *)ptr + allocation->size), PDE_UNMAPPED);
+        process->page_directory, ptr, ptr, paging_align_address((char *)ptr + allocation_size), PDE_UNMAPPED);
 
     if (res < 0) {
         ASSERT(false, "Failed to unmap memory");
@@ -208,8 +208,6 @@ void process_free(struct process *process, void *ptr)
         if (process->allocations[i].ptr == ptr) {
             process->allocations[i].ptr  = nullptr;
             process->allocations[i].size = 0;
-
-            break;
         }
     }
 
@@ -616,6 +614,7 @@ out:
     if (ISERR(res)) {
         if (proc) {
             process_zombify(proc);
+            kfree(proc);
         }
     }
     return res;
