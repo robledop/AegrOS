@@ -641,26 +641,30 @@ int process_copy_allocations(struct process *dest, const struct process *src)
     memset(dest->allocations, 0, sizeof(dest->allocations));
 
     for (size_t i = 0; i < MAX_PROGRAM_ALLOCATIONS; i++) {
-        if (src->allocations[i].ptr) {
-            void *ptr = process_malloc(dest, src->allocations[i].size);
-            if (!ptr) {
-                return -ENOMEM;
-            }
+        if (!src->allocations[i].ptr || src->allocations[i].size == 0) {
+            continue;
+        }
 
-            memcpy(ptr, src->allocations[i].ptr, src->allocations[i].size);
-            struct process_allocation *allocation = process_get_allocation_by_address(dest, ptr);
-            if (!allocation) {
-                ASSERT(false, "Failed to get allocation for pointer");
-                return -EFAULT;
-            }
+        void *ptr = process_malloc(dest, src->allocations[i].size);
+        if (!ptr) {
+            ASSERT(false, "Failed to allocate memory for allocation");
+            return -ENOMEM;
+        }
 
-            dest->allocations[i].ptr  = allocation->ptr;
-            dest->allocations[i].size = allocation->size;
+        memcpy(ptr, src->allocations[i].ptr, src->allocations[i].size);
+        struct process_allocation *allocation = process_get_allocation_by_address(dest, ptr);
+        if (!allocation) {
+            ASSERT(false, "Failed to get allocation for pointer");
+            return -EFAULT;
+        }
 
-            if (&dest->allocations[i] != allocation) {
-                allocation->ptr  = nullptr;
-                allocation->size = 0;
-            }
+        dest->allocations[i].ptr  = allocation->ptr;
+        dest->allocations[i].size = allocation->size;
+
+        if (&dest->allocations[i] != allocation) {
+            ASSERT(false, "Failed to copy allocation");
+            allocation->ptr  = nullptr;
+            allocation->size = 0;
         }
     }
 
