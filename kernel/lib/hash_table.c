@@ -43,11 +43,11 @@ hash_table_t *ht_create(void)
 void ht_destroy(hash_table_t *table)
 {
     // First kfree allocated keys.
-    for (size_t i = 0; i < table->capacity; i++) {
-        if (table->entries[i].key) {
-            kfree((void *)table->entries[i].key);
-        }
-    }
+    // for (size_t i = 0; i < table->capacity; i++) {
+    //     if (table->entries[i].key) {
+    //         kfree((void *)table->entries[i].key);
+    //     }
+    // }
 
     // Then kfree entries array and table itself.
     kfree(table->entries);

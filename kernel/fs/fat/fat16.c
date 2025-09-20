@@ -661,7 +661,12 @@ void fat16_fat_item_free(struct fat_item *item)
     if (item->type == FAT_ITEM_TYPE_DIRECTORY) {
         fat16_free_directory(item->directory);
     } else if (item->type == FAT_ITEM_TYPE_FILE) {
+        item->directory = nullptr;
+    }
+
+    if (item->item) {
         kfree(item->item);
+        item->item = nullptr;
     }
 
     kfree(item);
@@ -712,6 +717,7 @@ struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const st
 out:
     if (res != ALL_OK) {
         fat16_free_directory(directory);
+        return nullptr;
     }
     return directory;
 }
@@ -725,7 +731,12 @@ struct fat_item *fat16_new_fat_item_for_directory(const struct fat_directory *di
     }
 
     f_item->directory = fat16_clone_fat_directory(dir);
-    f_item->type      = FAT_ITEM_TYPE_DIRECTORY;
+    if (!f_item->directory) {
+        warningf("Failed to clone directory\n");
+        kfree(f_item);
+        return nullptr;
+    }
+    f_item->type = FAT_ITEM_TYPE_DIRECTORY;
 
     return f_item;
 }
@@ -742,8 +753,13 @@ struct fat_item *fat16_new_fat_item_for_directory_entry(const struct disk *disk,
     f_item->item = fat16_clone_fat_directory_entry(entry, sizeof(struct fat_directory_entry));
 
     if (entry->attributes & FAT_FILE_SUBDIRECTORY) {
-        f_item->directory                  = fat16_load_fat_directory(disk, entry);
-        f_item->type                       = FAT_ITEM_TYPE_DIRECTORY;
+        f_item->type      = FAT_ITEM_TYPE_DIRECTORY;
+        f_item->directory = fat16_load_fat_directory(disk, entry);
+        if (!f_item->directory) {
+            kfree(f_item->item);
+            kfree(f_item);
+            return nullptr;
+        }
         f_item->directory->sector_position = (int)fat16_cluster_to_sector(disk->fs_private, entry->first_cluster);
         f_item->directory->ending_sector_position =
             f_item->directory->sector_position + (f_item->directory->entry_count * sizeof(struct fat_directory_entry));
@@ -784,7 +800,8 @@ struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct
     const struct path_part *next_part = path->next;
     current_item                      = root_item;
     while (next_part != nullptr) {
-        if (current_item->type != FAT_ITEM_TYPE_DIRECTORY) {
+        if (!current_item || current_item->type != FAT_ITEM_TYPE_DIRECTORY) {
+            fat16_fat_item_free(current_item);
             current_item = nullptr;
             break;
         }
@@ -792,7 +809,10 @@ struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct
         struct fat_item *tmp_item = fat16_find_item_in_directory(disk, current_item->directory, next_part->name);
         fat16_fat_item_free(current_item);
         current_item = tmp_item;
-        next_part    = next_part->next;
+        if (!current_item) {
+            break;
+        }
+        next_part = next_part->next;
     }
 
 out:
@@ -844,9 +864,17 @@ void *fat16_open(const struct path_root *path, const FILE_MODE mode, enum INODE_
         const struct fat_private *fat_private      = disk->fs_private;
         const struct fat_directory *root_directory = &fat_private->root_directory;
         descriptor->item                           = fat16_new_fat_item_for_directory(root_directory);
+        if (!descriptor->item) {
+            error_code = -ENOMEM;
+            goto error_out;
+        }
     }
 
 success_out:
+    if (!descriptor->item) {
+        error_code = -EIO;
+        goto error_out;
+    }
     if (descriptor->item->type == FAT_ITEM_TYPE_FILE) {
         *type_out = INODE_FILE;
     } else if (descriptor->item->type == FAT_ITEM_TYPE_DIRECTORY) {
