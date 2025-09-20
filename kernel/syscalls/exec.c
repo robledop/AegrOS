@@ -11,6 +11,15 @@
 
 struct spinlock exec_lock = {};
 
+static void free_command_arguments(struct command_argument *argument)
+{
+    while (argument) {
+        struct command_argument *next = argument->next;
+        kfree(argument);
+        argument = next;
+    }
+}
+
 
 // TODO: Simplify this
 // TODO: Fix memory leaks
@@ -85,6 +94,10 @@ void *sys_exec(void)
     const int res = process_load_data(full_path, process);
     if (res < 0) {
         printf("Result: %d\n", res);
+        free_command_arguments(root_argument);
+        if (old_page_directory) {
+            paging_free_directory(old_page_directory);
+        }
         release(&exec_lock);
         return (void *)res;
     }
@@ -101,8 +114,17 @@ void *sys_exec(void)
     }
     process->thread = thread;
 
+    if (old_page_directory) {
+        paging_free_directory(old_page_directory);
+    }
+
     process_map_memory(process);
-    process_inject_arguments(process, root_argument);
+    const int inject_res = process_inject_arguments(process, root_argument);
+    free_command_arguments(root_argument);
+    if (inject_res < 0) {
+        release(&exec_lock);
+        return (void *)inject_res;
+    }
 
     process_set(process->pid, process);
     process->thread->state = TASK_READY;
