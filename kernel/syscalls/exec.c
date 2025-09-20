@@ -72,6 +72,9 @@ void *sys_exec(void)
 
     struct process *process = current_process();
     process_free_allocations(process);
+    process->current_directory = nullptr;
+    process->arguments.argv    = nullptr;
+    process->arguments.argc    = 0;
     process_free_program_data(process);
     process_unmap_memory(process);
     kfree(process->user_stack);
