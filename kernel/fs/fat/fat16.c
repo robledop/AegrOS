@@ -1381,40 +1381,51 @@ time_t fat_date_time_to_unix_time(const uint16_t fat_date, const uint16_t fat_ti
     return unix_time;
 }
 
-int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, struct dir_entry *entry)
+int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, const size_t index, struct dir_entry *entry)
 {
+    char *full_name = nullptr;
+    char *name_buf  = nullptr;
+    char *ext_buf   = nullptr;
+
     memset(entry, 0, sizeof(struct dir_entry));
-    entry->inode = memfs_create_inode(INODE_FILE, &fat16_file_inode_ops);
-    if (entry->inode == nullptr) {
-        return -ENOMEM;
-    }
-    entry->inode_owned         = true;
-    entry->inode->fs_type      = FS_TYPE_FAT16;
-    entry->inode->data         = (void *)fat_entry;
-    entry->inode->size         = fat_entry->size;
-    entry->inode->atime        = fat_date_time_to_unix_time(fat_entry->access_date, 0);
-    entry->inode->mtime        = fat_date_time_to_unix_time(fat_entry->modification_date, fat_entry->modification_time);
-    entry->inode->ctime        = fat_date_time_to_unix_time(fat_entry->creation_date, fat_entry->creation_time);
-    entry->inode->is_read_only = fat_entry->attributes & FAT_FILE_READ_ONLY;
-    entry->inode->is_hidden    = fat_entry->attributes & FAT_FILE_HIDDEN;
-    entry->inode->is_system    = fat_entry->attributes & FAT_FILE_SYSTEM;
-    entry->inode->is_archive   = fat_entry->attributes & FAT_FILE_ARCHIVE;
+    // entry->inode = memfs_create_inode(INODE_FILE, &fat16_file_inode_ops);
+    // if (entry->inode == nullptr) {
+    //     return -ENOMEM;
+    // }
+    // entry->inode_owned         = true;
+    // entry->inode->fs_type      = FS_TYPE_FAT16;
+    // entry->inode->data         = (void *)fat_entry;
+    // entry->inode->size         = fat_entry->size;
+    // entry->inode->atime        = fat_date_time_to_unix_time(fat_entry->access_date, 0);
+    // entry->inode->mtime        = fat_date_time_to_unix_time(fat_entry->modification_date,
+    // fat_entry->modification_time); entry->inode->ctime        = fat_date_time_to_unix_time(fat_entry->creation_date,
+    // fat_entry->creation_time); entry->inode->is_read_only = fat_entry->attributes & FAT_FILE_READ_ONLY;
+    // entry->inode->is_hidden    = fat_entry->attributes & FAT_FILE_HIDDEN;
+    // entry->inode->is_system    = fat_entry->attributes & FAT_FILE_SYSTEM;
+    // entry->inode->is_archive   = fat_entry->attributes & FAT_FILE_ARCHIVE;
 
-    char *full_name = kzalloc(13);
+    const uint32_t cluster = ((uint32_t)fat_entry->cluster_high << 16) | fat_entry->first_cluster;
+    entry->inode_number    = (unsigned long)(((uint64_t)cluster << 16) | (index & 0xFFFFu));
 
-    char *name = kzalloc(9);
-    if (name == nullptr) {
-        return -ENOMEM;
+    full_name = kzalloc(13);
+    if (full_name == nullptr) {
+        goto error_cleanup;
     }
-    char *ext = kzalloc(4);
-    if (ext == nullptr) {
-        kfree(name);
-        return -ENOMEM;
+
+    name_buf = kzalloc(9);
+    if (name_buf == nullptr) {
+        goto error_cleanup;
     }
-    memcpy(name, fat_entry->name, 8);
-    memcpy(ext, fat_entry->ext, 3);
-    name = trim(name, 9);
-    ext  = trim(ext, 4);
+
+    ext_buf = kzalloc(4);
+    if (ext_buf == nullptr) {
+        goto error_cleanup;
+    }
+
+    memcpy(name_buf, fat_entry->name, 8);
+    memcpy(ext_buf, fat_entry->ext, 3);
+    char *name = trim(name_buf, 9);
+    char *ext  = trim(ext_buf, 4);
 
     for (size_t i = 0; i < strlen(name); i++) {
         name[i] = tolower(name[i]);
@@ -1432,14 +1443,33 @@ int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, struc
         strcat(full_name, name);
     }
 
-    memcpy(entry->name, full_name, strlen(full_name));
-    entry->name_length = strlen(full_name);
+    const size_t full_name_length = strlen(full_name);
+    memcpy(entry->name, full_name, full_name_length);
+    entry->name_length = full_name_length;
 
     kfree(full_name);
-    kfree(name);
-    kfree(ext);
+    kfree(name_buf);
+    kfree(ext_buf);
 
     return ALL_OK;
+
+error_cleanup:
+    // keep inode allocation/free accounting balanced if we abort mid-way.
+    if (full_name) {
+        kfree(full_name);
+    }
+    if (name_buf) {
+        kfree(name_buf);
+    }
+    if (ext_buf) {
+        kfree(ext_buf);
+    }
+
+    if (entry->inode) {
+        kfree(entry->inode);
+    }
+    memset(entry, 0, sizeof(struct dir_entry));
+    return -ENOMEM;
 }
 
 // ! This is supposed to read the NEXT directory entry
@@ -1452,10 +1482,13 @@ int fat16_read_entry(struct file *descriptor, struct dir_entry *entry)
         return -ENOENT;
     }
 
+    // const struct fat_directory *fat_directory      = fat_desc->item->directory;
+    // const struct fat_directory_entry *current_item = &fat_directory->entries[descriptor->offset++];
     const struct fat_directory *fat_directory      = fat_desc->item->directory;
-    const struct fat_directory_entry *current_item = &fat_directory->entries[descriptor->offset++];
+    const size_t index                             = descriptor->offset++;
+    const struct fat_directory_entry *current_item = &fat_directory->entries[index];
 
-    return fat16_read_file_dir_entry(current_item, entry);
+    return fat16_read_file_dir_entry(current_item, index, entry);
 }
 
 #if 0

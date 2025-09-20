@@ -100,8 +100,9 @@ int memfs_add_entry_to_directory(struct inode *dir_inode, struct inode *entry, c
     }
 
     strncpy(new_entry->name, name, MAX_NAME_LEN);
-    new_entry->inode       = entry;
-    new_entry->name_length = strlen(name);
+    new_entry->inode        = entry;
+    new_entry->inode_number = entry ? entry->inode_number : 0;
+    new_entry->name_length  = strlen(name);
 
     auto const entries = (struct dir_entries *)dir_inode->data;
     if (entries->count >= entries->capacity) {

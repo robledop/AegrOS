@@ -165,7 +165,6 @@ void window_apply_bound_clipping(window_t *window, int in_recursion, list_t *dir
             context_intersect_clip_rect(window->context, temp_rect);
 
         } else {
-
             context_add_clip_rect(window->context, temp_rect);
         }
 

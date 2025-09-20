@@ -455,12 +455,12 @@ int vfs_getdents(const uint32_t fd, void *buffer, const int count)
             break; // End of directory
         }
 
-        auto dirent = (struct dirent *)(kbuf + bytes_read);
-        if (dentry->inode) {
-            dirent->inode_number = dentry->inode->inode_number;
-        } else {
-            dirent->inode_number = 0;
+        auto dirent             = (struct dirent *)(kbuf + bytes_read);
+        unsigned long inode_num = dentry->inode_number;
+        if (inode_num == 0 && dentry->inode) {
+            inode_num = dentry->inode->inode_number;
         }
+        dirent->inode_number = inode_num;
 
         dirent->offset        = file->offset;
         dirent->record_length = dirent_record_length(dentry->name_length);
@@ -469,12 +469,6 @@ int vfs_getdents(const uint32_t fd, void *buffer, const int count)
         dirent->name[dentry->name_length] = '\0';
 
         bytes_read += dirent->record_length;
-
-        if (dentry->inode && dentry->inode_owned) {
-            kfree(dentry->inode);
-            dentry->inode       = nullptr;
-            dentry->inode_owned = false;
-        }
     }
 
     // Copy the kernel buffer to user space
