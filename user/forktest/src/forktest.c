@@ -10,6 +10,7 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
         printf("Fork failed\n");
     } else if (r == 0) {
         printf("\nChild\n" KWHT " ");
+        exec("/bin/blank.elf", nullptr);
     } else {
         printf(KYEL "Parent\n" KWHT);
     }

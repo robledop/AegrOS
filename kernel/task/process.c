@@ -491,7 +491,6 @@ int process_map_memory(struct process *process)
                         PDE_IS_PRESENT | PDE_IS_WRITABLE | PDE_SUPERVISOR);
 
 
-out:
     return res;
 }
 
@@ -768,9 +767,9 @@ struct process *process_clone(struct process *process)
     process_copy_file_info(clone, process);
     process_copy_thread(clone, process);
     process_copy_stack(clone, process);
+    process_copy_allocations(clone, process); // Must come before copy_arguments
     process_copy_arguments(clone, process);
     process_map_memory(clone);
-    process_copy_allocations(clone, process);
 
     acquire(&process_list.lock);
     process_set(clone->pid, clone);

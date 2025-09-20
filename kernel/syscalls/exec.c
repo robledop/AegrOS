@@ -14,7 +14,6 @@ struct spinlock exec_lock = {};
 
 // TODO: Simplify this
 // TODO: Fix memory leaks
-// int exec(const char *path, const char *argv[])
 void *sys_exec(void)
 {
     pushcli();
@@ -93,9 +92,9 @@ void *sys_exec(void)
     strncpy(process->file_name, full_path, sizeof(process->file_name));
     process->user_stack = program_stack_pointer; // Physical address of the stack for the process
 
-    struct thread *thread  = kzalloc(sizeof(struct thread));
-    thread->kernel_stack = old_kernel_stack;
-    thread->trap_frame   = old_trap_frame;
+    struct thread *thread = kzalloc(sizeof(struct thread));
+    thread->kernel_stack  = old_kernel_stack;
+    thread->trap_frame    = old_trap_frame;
     thread_init(thread, process);
     if (ISERR(thread)) {
         panic("Failed to create thread");
