@@ -2,6 +2,7 @@
 #include <disk.h>
 #include <kernel.h>
 #include <kernel_heap.h>
+#include <memory.h>
 #include <serial.h>
 #include <stream.h>
 
@@ -30,75 +31,79 @@ int disk_stream_seek(struct disk_stream *stream, const uint32_t position)
 }
 
 int disk_stream_read(struct disk_stream *stream, void *out, const uint32_t size)
-{ // NOLINT(*-no-recursion)
+{
     ASSERT(stream->disk->sector_size > 0, "Invalid sector size");
-    const uint32_t sector = stream->position / stream->disk->sector_size;
-    const uint32_t offset = stream->position % stream->disk->sector_size;
-    uint32_t to_read      = size;
-    const bool overflow   = (offset + to_read) >= stream->disk->sector_size;
-    uint8_t buffer[stream->disk->sector_size];
-
-    if (overflow) {
-        to_read -= (offset + to_read) - stream->disk->sector_size;
+    if (size == 0) {
+        return 0;
     }
 
-    int res = disk_read_sector(sector, buffer);
-    if (res < 0) {
-        panic("Failed to read block\n");
-        return res;
+    uint32_t remaining = size;
+    uint8_t *out_bytes = (uint8_t *)out;
+
+    while (remaining > 0) {
+        const uint32_t sector = stream->position / stream->disk->sector_size;
+        const uint32_t offset = stream->position % stream->disk->sector_size;
+        uint32_t chunk        = stream->disk->sector_size - offset;
+        if (chunk > remaining) {
+            chunk = remaining;
+        }
+
+        uint8_t buffer[stream->disk->sector_size];
+        const int res = disk_read_sector(sector, buffer);
+        if (res < 0) {
+            panic("Failed to read block\n");
+            return res;
+        }
+
+        memcpy(out_bytes, buffer + offset, chunk);
+
+        out_bytes += chunk;
+        stream->position += chunk;
+        remaining -= chunk;
     }
 
-    for (uint32_t i = 0; i < to_read; i++) {
-        *(uint8_t *)out = buffer[offset + i];
-        out             = (uint8_t *)out + 1;
-    }
-
-    stream->position += to_read;
-    if (overflow) {
-        res = disk_stream_read(stream, out, size - to_read);
-    }
-
-    ASSERT((uint16_t *)out != nullptr, "Invalid out pointer");
-
-    return res;
+    return 0;
 }
 
 int disk_stream_write(struct disk_stream *stream, const void *in, const uint32_t size)
 {
     ASSERT(stream->disk->sector_size > 0, "Invalid sector size");
-    const uint32_t sector = stream->position / stream->disk->sector_size;
-    const uint32_t offset = stream->position % stream->disk->sector_size;
-    uint32_t to_write     = size;
-    const bool overflow   = (offset + to_write) >= stream->disk->sector_size;
-    uint8_t buffer[stream->disk->sector_size];
-
-    if (overflow) {
-        to_write -= (offset + to_write) - stream->disk->sector_size;
+    if (size == 0) {
+        return 0;
     }
 
-    int res = disk_read_sector(sector, buffer);
-    if (res < 0) {
-        warningf("Failed to read block\n");
-        return res;
+    uint32_t remaining   = size;
+    const uint8_t *input = (const uint8_t *)in;
+
+    while (remaining > 0) {
+        const uint32_t sector = stream->position / stream->disk->sector_size;
+        const uint32_t offset = stream->position % stream->disk->sector_size;
+        uint32_t chunk        = stream->disk->sector_size - offset;
+        if (chunk > remaining) {
+            chunk = remaining;
+        }
+
+        uint8_t buffer[stream->disk->sector_size];
+        int res = disk_read_sector(sector, buffer);
+        if (res < 0) {
+            warningf("Failed to read block\n");
+            return res;
+        }
+
+        memcpy(buffer + offset, input, chunk);
+
+        res = disk_write_sector(sector, buffer);
+        if (res < 0) {
+            warningf("Failed to write block\n");
+            return res;
+        }
+
+        input += chunk;
+        stream->position += chunk;
+        remaining -= chunk;
     }
 
-    for (uint32_t i = 0; i < to_write; i++) {
-        buffer[offset + i] = *(uint8_t *)in;
-        in                 = (uint8_t *)in + 1;
-    }
-
-    res = disk_write_sector(sector, buffer);
-    if (res < 0) {
-        warningf("Failed to write block\n");
-        return res;
-    }
-
-    stream->position += to_write;
-    if (overflow) {
-        res = disk_stream_write(stream, in, size - to_write);
-    }
-
-    return res;
+    return 0;
 }
 
 void disk_stream_close(struct disk_stream *stream)
