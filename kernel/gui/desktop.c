@@ -1,11 +1,12 @@
 #include <config.h>
 #include <gui/desktop.h>
 #include <gui/rect.h>
+#include <gui/video_context.h>
 #include <kernel_heap.h>
+#include <mouse.h>
 #include <stdint.h>
 #include <string.h>
 #include <vesa.h>
-#include "gui/video_context.h"
 
 // Mouse image data
 #define CA 0xFF000000 // Black
@@ -41,9 +42,11 @@ desktop_t *desktop_new(video_context_t *context, uint32_t *wallpaper)
     desktop->window.last_button_state = 0;
 
     // Init mouse to the center of the screen
-    desktop->mouse_x   = desktop->window.context->width / 2;
-    desktop->mouse_y   = desktop->window.context->height / 2;
+    desktop->mouse_x   = (int16_t)(desktop->window.context->width / 2);
+    desktop->mouse_y   = (int16_t)(desktop->window.context->height / 2);
     desktop->wallpaper = wallpaper;
+
+    mouse_set_position(desktop->mouse_x, desktop->mouse_y);
 
     return desktop;
 }

@@ -27,11 +27,13 @@ video_context_t *context_new(uint16_t width, uint16_t height)
 }
 
 
-void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
-                                 rect_t *clip_area, uint32_t *pixels)
+void context_clipped_rect_bitmap(video_context_t *context,
+                                 int x, int y, unsigned int draw_width, unsigned int draw_height,
+                                 rect_t *clip_area, uint32_t *pixels, unsigned int stride,
+                                 int src_origin_x, int src_origin_y)
 {
-    int max_x = x + (int)width;
-    int max_y = y + (int)height;
+    int max_x = x + (int)draw_width;
+    int max_y = y + (int)draw_height;
 
     // Translate the rectangle coordinates by the context translation values
     const int draw_origin_x = x + context->translate_x;
@@ -59,14 +61,19 @@ void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigne
         max_y = clip_area->bottom + 1;
     }
 
+    if (x >= max_x || y >= max_y) {
+        return;
+    }
+
     // Draw the rectangle into the framebuffer line-by line
     //(bonus points if you write an assembly routine to do it faster)
-    for (; y < max_y; y++)
-        for (int cur_x = x; cur_x < max_x; cur_x++) {
-            const int src_x = cur_x - draw_origin_x;
-            const int src_y = y - draw_origin_y;
-            vesa_putpixel(cur_x, y, pixels[src_y * width + src_x]);
+    for (int draw_y = y; draw_y < max_y; draw_y++) {
+        const int src_y = (draw_y - draw_origin_y) + src_origin_y;
+        for (int draw_x = x; draw_x < max_x; draw_x++) {
+            const int src_x = (draw_x - draw_origin_x) + src_origin_x;
+            vesa_putpixel(draw_x, draw_y, pixels[src_y * stride + src_x]);
         }
+    }
 }
 
 void context_clipped_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
@@ -106,39 +113,77 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
 }
 
 
+
 void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
                          uint32_t *pixels)
 {
-    int max_x = x + (int)width;
-    int max_y = y + (int)height;
+    if (!pixels || width == 0 || height == 0) {
+        return;
+    }
+
+    const unsigned int stride = width;
+    int draw_x                = x;
+    int draw_y                = y;
+    unsigned int draw_width   = width;
+    unsigned int draw_height  = height;
+    int src_origin_x          = 0;
+    int src_origin_y          = 0;
+
+    if (draw_x < 0) {
+        src_origin_x = -draw_x;
+        if (src_origin_x >= (int)draw_width) {
+            return;
+        }
+        draw_width -= (unsigned int)src_origin_x;
+        draw_x      = 0;
+    }
+
+    if (draw_y < 0) {
+        src_origin_y = -draw_y;
+        if (src_origin_y >= (int)draw_height) {
+            return;
+        }
+        draw_height -= (unsigned int)src_origin_y;
+        draw_y       = 0;
+    }
+
+    if (draw_x + (int)draw_width > context->width) {
+        const int overflow = draw_x + (int)draw_width - context->width;
+        if (overflow >= (int)draw_width) {
+            return;
+        }
+        draw_width -= (unsigned int)overflow;
+    }
+
+    if (draw_y + (int)draw_height > context->height) {
+        const int overflow = draw_y + (int)draw_height - context->height;
+        if (overflow >= (int)draw_height) {
+            return;
+        }
+        draw_height -= (unsigned int)overflow;
+    }
+
+    if (draw_width == 0 || draw_height == 0) {
+        return;
+    }
+
     rect_t screen_area;
-
-    // Make sure we don't try to draw offscreen
-    if (max_x > context->width) {
-        max_x = context->width;
-    }
-
-    if (max_y > context->height) {
-        max_y = context->height;
-    }
-
-    if (x < 0) {
-        x = 0;
-    }
-
-    if (y < 0) {
-        y = 0;
-    }
-
-    width  = max_x - x;
-    height = max_y - y;
 
     // If there are clipping rects, draw the rect clipped to
     // each of them. Otherwise, draw unclipped (clipped to the screen)
     if (context->clip_rects->count) {
         for (unsigned int i = 0; i < context->clip_rects->count; i++) {
             auto clip_area = (rect_t *)list_get_at(context->clip_rects, i);
-            context_clipped_rect_bitmap(context, x, y, width, height, clip_area, pixels);
+            context_clipped_rect_bitmap(context,
+                                       draw_x,
+                                       draw_y,
+                                       draw_width,
+                                       draw_height,
+                                       clip_area,
+                                       pixels,
+                                       stride,
+                                       src_origin_x,
+                                       src_origin_y);
         }
     } else {
 
@@ -148,7 +193,16 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
             screen_area.left   = 0;
             screen_area.bottom = context->height - 1;
             screen_area.right  = context->width - 1;
-            context_clipped_rect_bitmap(context, x, y, width, height, &screen_area, pixels);
+            context_clipped_rect_bitmap(context,
+                                       draw_x,
+                                       draw_y,
+                                       draw_width,
+                                       draw_height,
+                                       &screen_area,
+                                       pixels,
+                                       stride,
+                                       src_origin_x,
+                                       src_origin_y);
         }
     }
 }

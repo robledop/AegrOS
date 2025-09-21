@@ -73,3 +73,4 @@ struct ps2_mouse {
 
 void mouse_init(mouse_callback callback);
 void mouse_get_position(mouse_t *mouse);
+void mouse_set_position(int16_t x, int16_t y);

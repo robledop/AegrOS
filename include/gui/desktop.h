@@ -9,8 +9,8 @@
 
 typedef struct desktop {
     window_t window; // "Inherits" window class
-    uint16_t mouse_x;
-    uint16_t mouse_y;
+    int16_t mouse_x;
+    int16_t mouse_y;
     uint32_t *wallpaper;
 } desktop_t;
 

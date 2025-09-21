@@ -27,6 +27,12 @@ static void mouse_wait(unsigned char a_type)
     }
 }
 
+void mouse_set_position(int16_t x, int16_t y)
+{
+    mouse_device.x = x;
+    mouse_device.y = y;
+}
+
 static void mouse_write(uint8_t command)
 {
     // Wait to be able to send a command
