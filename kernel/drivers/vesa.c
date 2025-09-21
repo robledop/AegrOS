@@ -7,6 +7,28 @@
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
+#ifdef __SSE2__
+typedef unsigned long long vec128 __attribute__((vector_size(16)));
+
+union vec128_cast {
+    vec128 v;
+    unsigned long long q[2];
+};
+
+static inline vec128 vesa_load128(const void *ptr)
+{
+    vec128 value;
+    __asm__ volatile("movdqa %1, %0" : "=x"(value) : "m"(*(const unsigned char (*)[16])ptr));
+    return value;
+}
+
+static inline void vesa_store128(void *ptr, vec128 value)
+{
+    __asm__ volatile("movdqa %1, %0" : "=m"(*(unsigned char (*)[16])ptr) : "x"(value) : "memory");
+}
+
+#endif
+
 void vesa_putpixel(int x, int y, uint32_t rgb)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
@@ -16,6 +38,33 @@ void vesa_putpixel(int x, int y, uint32_t rgb)
     auto framebuffer         = (uint8_t *)vbe_info->framebuffer;
     uint32_t bytes_per_pixel = vbe_info->bpp / 8;
     uint8_t *pixel           = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
+
+#ifdef __SSE2__
+    if (bytes_per_pixel == 4) {
+        const uintptr_t framebuffer_addr = (uintptr_t)framebuffer;
+        const uintptr_t framebuffer_end  = framebuffer_addr + (uintptr_t)vbe_info->pitch * vbe_info->height;
+        const uintptr_t pixel_addr       = (uintptr_t)pixel;
+
+        if ((framebuffer_addr & 15U) == 0) {
+            const uintptr_t chunk_addr = pixel_addr & ~0xFULL;
+
+            if (chunk_addr >= framebuffer_addr && chunk_addr + 16 <= framebuffer_end) {
+                vec128 block               = vesa_load128((const void *)chunk_addr);
+                union vec128_cast cast     = {.v = block};
+                const uint32_t byte_offset = (uint32_t)(pixel_addr - chunk_addr);
+                const size_t qword_index   = byte_offset / 8U;
+                const uint32_t shift       = (byte_offset % 8U) * 8U;
+
+                const unsigned long long mask64  = 0xFFFFFFFFULL << shift;
+                const unsigned long long color64 = ((unsigned long long)rgb) << shift;
+
+                cast.q[qword_index] = (cast.q[qword_index] & ~mask64) | color64;
+                vesa_store128((void *)chunk_addr, cast.v);
+                return;
+            }
+        }
+    }
+#endif
 
     *((uint32_t *)pixel) = rgb;
 }

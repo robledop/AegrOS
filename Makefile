@@ -84,7 +84,7 @@ FLAGS = -ffreestanding \
 	# -fstack-protector \
 	# -fsanitize=undefined \
 
-FLAGS += -D__KERNEL__
+FLAGS += -D__KERNEL__ -D__SSE2__
 
 
 grub: FLAGS += -DGRUB
