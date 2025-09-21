@@ -6,3 +6,4 @@
 
 void pit_init(void);
 void pit_set_interval(uint32_t interval);
+void pit_disable(void);

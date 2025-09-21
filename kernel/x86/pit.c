@@ -1,4 +1,5 @@
 #include <io.h>
+#include <pic.h>
 #include <pit.h>
 
 // https://wiki.osdev.org/Programmable_Interval_Timer
@@ -32,4 +33,19 @@ void pit_set_interval(const uint32_t interval)
 
     outb(PIT_CHANNEL_0_DATA, (uint8_t)divider);
     outb(PIT_CHANNEL_0_DATA, (uint8_t)(divider >> 8));
+}
+
+/**
+ * @brief Stop the PIT by masking IRQ0 and halting channel 0 countdown.
+ */
+void pit_disable(void)
+{
+    // Mask further PIC interrupts from the PIT (IRQ0).
+    pic_disable_irq(0);
+
+    // Program channel 0 to one-shot mode; with IRQ masked this prevents further ticks.
+    constexpr uint8_t command = (0 << 6) | (3 << 4) | (0 << 1) | 0;
+    outb(PIT_COMMAND, command);
+    outb(PIT_CHANNEL_0_DATA, 0);
+    outb(PIT_CHANNEL_0_DATA, 0);
 }

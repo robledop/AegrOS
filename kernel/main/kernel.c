@@ -21,6 +21,7 @@
 #include <mouse.h>
 #include <net/network.h>
 #include <paging.h>
+#include <pat.h>
 #include <pci.h>
 #include <pic.h>
 #include <pit.h>
@@ -28,7 +29,6 @@
 #include <process.h>
 #include <root_inode.h>
 #include <serial.h>
-#include <pat.h>
 #include <syscall.h>
 #include <thread.h>
 #include <timer.h>

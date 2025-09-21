@@ -29,7 +29,7 @@ void timer_init(const uint32_t freq)
         lapic_init();
         lapic_timer_calibrate(freq);
         lapic_timer_set_periodic(freq);
-        pic_disable_irq(0);
+        pit_disable();
     }
 }
 
