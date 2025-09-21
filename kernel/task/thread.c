@@ -267,6 +267,7 @@ void exit(void)
 // Reacquires lock when awakened.
 void sleep(void *chan, struct spinlock *lk)
 {
+    warningf("Sleeping on chan %d\n", chan);
     struct process *p = current_process();
 
     if (p == nullptr) {
@@ -311,6 +312,7 @@ int wait(void)
 
     acquire(&process_list.lock);
     for (;;) {
+        warningf("Waiting for child process %d\n", curproc->pid);
         if (curproc->wait_pid) {
             const int pid     = curproc->wait_pid;
             curproc->wait_pid = 0;
@@ -343,8 +345,10 @@ int wait(void)
             return -1;
         }
 
+        warningf("Have kids\n");
+
         // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-        sleep(curproc, &process_list.lock); // DOC: wait-sleep
+        sleep(curproc, &process_list.lock);
     }
 }
 
@@ -434,6 +438,7 @@ void scheduler(void)
                 const int pid = p->pid;
                 if (p->parent) {
                     p->parent->wait_pid = pid;
+                    wakeup1(p->parent);
                 }
                 current_thread = nullptr;
                 process_zombify(p);
