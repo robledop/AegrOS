@@ -250,14 +250,13 @@ void exit(void)
 
     // TODO: Pass abandoned children to init.
 
-    // Jump into the scheduler, never to return.
-
     curproc->thread->state = TASK_STOPPED;
     if (curthread) {
         curthread->process = nullptr;
     }
 
     dbgprintf("Exiting process %d\n", curproc->pid);
+    // Jump into the scheduler, never to return.
     switch_to_scheduler();
 
     panic("zombie exit");

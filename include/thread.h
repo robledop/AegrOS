@@ -18,8 +18,7 @@ struct context {
 struct cpu {
     struct context *scheduler; // switch_context() here to enter scheduler
     int ncli;                  // Depth of pushcli nesting.
-
-    bool interrupts_enabled; // Were interrupts enabled before pushcli?
+    bool interrupts_enabled;   // Were interrupts enabled before pushcli?
     _Alignas(16) uint8_t fpu_state[512];
     // struct process *proc;    // The process running on this cpu or null
 };
