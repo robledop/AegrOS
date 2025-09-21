@@ -65,12 +65,15 @@ void context_clipped_rect_bitmap(video_context_t *context,
         return;
     }
 
+    const int src_base_x = src_origin_x + (x - draw_origin_x);
+    const int src_base_y = src_origin_y + (y - draw_origin_y);
+
     // Draw the rectangle into the framebuffer line-by line
     //(bonus points if you write an assembly routine to do it faster)
     for (int draw_y = y; draw_y < max_y; draw_y++) {
-        const int src_y = (draw_y - draw_origin_y) + src_origin_y;
+        const int src_y = src_base_y + (draw_y - y);
         for (int draw_x = x; draw_x < max_x; draw_x++) {
-            const int src_x = (draw_x - draw_origin_x) + src_origin_x;
+            const int src_x = src_base_x + (draw_x - x);
             vesa_putpixel(draw_x, draw_y, pixels[src_y * stride + src_x]);
         }
     }

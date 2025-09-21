@@ -162,21 +162,28 @@ int paging_map_range(const struct page_directory *directory, void *virtual_addre
                      const int total_pages, const int flags)
 {
     ASSERT(!paging_is_video_memory((uint32_t)physical_start_address), "Trying to map video memory");
-    int res = 0;
 
-    for (int i = 0; i < total_pages; i++) {
-        res = paging_map(directory, virtual_address, physical_start_address, flags);
+    void *current_virtual  = virtual_address;
+    void *current_physical = physical_start_address;
+
+    for (int mapped_pages = 0; mapped_pages < total_pages; mapped_pages++) {
+        const int res = paging_map(directory, current_virtual, current_physical, flags);
         if (res < 0) {
-            warningf("Failed to map page %d\n", i);
+            warningf("Failed to map page %d\n", mapped_pages);
+            for (int rollback = mapped_pages - 1; rollback >= 0; rollback--) {
+                void *rollback_virtual = (char *)virtual_address + (rollback * PAGING_PAGE_SIZE);
+                void *rollback_physical = (char *)physical_start_address + (rollback * PAGING_PAGE_SIZE);
+                paging_map(directory, rollback_virtual, rollback_physical, PDE_UNMAPPED);
+            }
             ASSERT(false, "Failed to map page");
-            break;
+            return res;
         }
 
-        virtual_address        = (char *)virtual_address + PAGING_PAGE_SIZE;
-        physical_start_address = (char *)physical_start_address + PAGING_PAGE_SIZE;
+        current_virtual  = (char *)current_virtual + PAGING_PAGE_SIZE;
+        current_physical = (char *)current_physical + PAGING_PAGE_SIZE;
     }
 
-    return res;
+    return 0;
 }
 
 int paging_map_to(const struct page_directory *directory, void *virtual_address, void *physical_start_address,
