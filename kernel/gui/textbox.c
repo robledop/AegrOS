@@ -5,6 +5,15 @@
 #include "config.h"
 #include "gui/window.h"
 
+/**
+ * @brief Create a textbox widget at the specified location.
+ *
+ * @param x Left position in pixels.
+ * @param y Top position in pixels.
+ * @param width Textbox width in pixels.
+ * @param height Textbox height in pixels.
+ * @return Pointer to the new textbox or nullptr on failure.
+ */
 textbox_t *textbox_new(int16_t x, int16_t y, int width, int height)
 {
     auto text_box = (textbox_t *)kzalloc(sizeof(textbox_t));
@@ -24,6 +33,11 @@ textbox_t *textbox_new(int16_t x, int16_t y, int width, int height)
     return text_box;
 }
 
+/**
+ * @brief Paint callback used to render the textbox background and text.
+ *
+ * @param text_box_window Window representing the textbox.
+ */
 void textbox_paint(window_t *text_box_window)
 {
     // White background

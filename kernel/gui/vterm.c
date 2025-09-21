@@ -18,6 +18,9 @@ int vterm_param_count     = 1;
 int vterm_forecolor = 0xFFFFFF;
 int vterm_backcolor = DESKTOP_BACKGROUND_COLOR;
 
+/**
+ * @brief Reset ANSI escape parsing state for the virtual terminal.
+ */
 void vterm_reset()
 {
     vterm_param_escaping = false;
@@ -29,6 +32,13 @@ void vterm_reset()
 }
 
 
+/**
+ * @brief Convert an ANSI colour code to an RGB value.
+ *
+ * @param ansi ANSI colour code (30-37 or 40-47).
+ * @param bold Whether to return the bright/bold variant.
+ * @return RGB colour mapped from the ANSI code.
+ */
 int vterm_ansi_to_rgb(int ansi, bool bold)
 {
     switch (ansi) {
@@ -53,6 +63,11 @@ int vterm_ansi_to_rgb(int ansi, bool bold)
     }
 }
 
+/**
+ * @brief Clear the terminal buffer and repaint the window.
+ *
+ * @param vterm Virtual terminal instance.
+ */
 void vterm_clear_screen(struct vterm *vterm)
 {
     uint16_t width  = vterm->window.width - (2 * WIN_BORDER_WIDTH);
@@ -69,6 +84,13 @@ void vterm_clear_screen(struct vterm *vterm)
     window_paint((window_t *)vterm, nullptr, 1);
 }
 
+/**
+ * @brief Process an ANSI escape parameter byte.
+ *
+ * @param vterm Virtual terminal instance.
+ * @param c Parameter character.
+ * @return true when the escape sequence is complete, false otherwise.
+ */
 bool vterm_param_process(vterm_t *vterm, const int c)
 {
     if (c >= '0' && c <= '9') {
@@ -157,6 +179,13 @@ bool vterm_param_process(vterm_t *vterm, const int c)
     return true;
 }
 
+/**
+ * @brief Handle ANSI escape state transitions and parameter parsing.
+ *
+ * @param vterm Virtual terminal instance.
+ * @param c Character to handle.
+ * @return true if the character was consumed as part of an escape sequence.
+ */
 bool vterm_handle_ansi_escape(vterm_t *vterm, const int c)
 {
     if (c == 0x1B) {
@@ -182,6 +211,9 @@ bool vterm_handle_ansi_escape(vterm_t *vterm, const int c)
     return false;
 }
 
+/**
+ * @brief Scroll the terminal buffer up by one line when the cursor reaches the bottom.
+ */
 static void vterm_scroll_up(vterm_t *vterm)
 {
     uint16_t width  = vterm->window.width - (2 * WIN_BORDER_WIDTH);
@@ -202,6 +234,9 @@ static void vterm_scroll_up(vterm_t *vterm)
     vterm->cursor_y = buffer_height - 2;
 }
 
+/**
+ * @brief Compute the screen rectangle occupied by a character cell.
+ */
 static void vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y, rect_t *out_rect)
 {
     out_rect->top    = vterm->window.y + WIN_TITLE_HEIGHT + cursor_y * VESA_LINE_HEIGHT;
@@ -220,6 +255,9 @@ static void vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y, rect
 #endif
 }
 
+/**
+ * @brief Repaint the previous and current cursor characters after movement.
+ */
 static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int old_cursor_y)
 {
     rect_t rect_storage[2];
@@ -249,6 +287,9 @@ static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int 
     window_paint((window_t *)vterm, &dirty_regions, 1);
 }
 
+/**
+ * @brief Paint callback that renders the terminal buffer to the window.
+ */
 void vterm_paint(window_t *window)
 {
     auto vterm             = (vterm_t *)window;
@@ -276,6 +317,12 @@ void vterm_paint(window_t *window)
     }
 }
 
+/**
+ * @brief Write a character to the terminal, handling control sequences.
+ *
+ * @param vterm Target virtual terminal.
+ * @param c Character to display.
+ */
 void vterm_putchar(struct vterm *vterm, char c)
 {
     if (vterm_handle_ansi_escape(vterm, c)) {
@@ -321,6 +368,11 @@ void vterm_putchar(struct vterm *vterm, char c)
     }
 }
 
+/**
+ * @brief Create a new terminal window with backing buffers.
+ *
+ * @return Pointer to the newly allocated terminal or nullptr on failure.
+ */
 vterm_t *vterm_new()
 {
     auto vterm = (vterm_t *)kzalloc(sizeof(vterm_t));

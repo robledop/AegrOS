@@ -6,6 +6,17 @@
 #include <stdint.h>
 #include <string.h>
 
+/**
+ * @brief Allocate and initialise a window.
+ *
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param width Window width in pixels.
+ * @param height Window height in pixels.
+ * @param flags Window flags (e.g. decorations).
+ * @param context Drawing context backing the window.
+ * @return Pointer to the new window or nullptr on failure.
+ */
 window_t *window_new(int16_t x, int16_t y, uint16_t width, uint16_t height, uint16_t flags, video_context_t *context)
 {
     window_t *window = kzalloc(sizeof(window_t));
@@ -21,8 +32,18 @@ window_t *window_new(int16_t x, int16_t y, uint16_t width, uint16_t height, uint
     return window;
 }
 
-// Separate object allocation from initialization so we can implement
-// our inheritance scheme
+/**
+ * @brief Initialise an already allocated window structure.
+ *
+ * @param window Window instance to initialise.
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param width Window width in pixels.
+ * @param height Window height in pixels.
+ * @param flags Window flags (e.g. decorations).
+ * @param context Drawing context backing the window.
+ * @return Non-zero on success, zero on failure.
+ */
 int window_init(window_t *window, int16_t x, int16_t y, uint16_t width, uint16_t height, uint16_t flags,
                 video_context_t *context)
 {
@@ -50,7 +71,9 @@ int window_init(window_t *window, int16_t x, int16_t y, uint16_t width, uint16_t
     return 1;
 }
 
-// Recursively get the absolute on-screen x-coordinate of this window
+/**
+ * @brief Recursively compute the window's absolute screen X coordinate.
+ */
 int window_screen_x(window_t *window)
 {
     if (window->parent) {
@@ -60,7 +83,9 @@ int window_screen_x(window_t *window)
     return window->x;
 }
 
-// Recursively get the absolute on-screen y-coordinate of this window
+/**
+ * @brief Recursively compute the window's absolute screen Y coordinate.
+ */
 int window_screen_y(window_t *window)
 {
     if (window->parent) {
@@ -70,6 +95,9 @@ int window_screen_y(window_t *window)
     return window->y;
 }
 
+/**
+ * @brief Draw the decorative frame and title bar for a window.
+ */
 void window_draw_border(window_t *window)
 {
     int screen_x = window_screen_x(window);
@@ -111,7 +139,13 @@ void window_draw_border(window_t *window)
                       window->parent->active_child == window ? WIN_TITLE_TEXT_COLOR : WIN_TITLE_TEXT_COLOR_INACTIVE);
 }
 
-// Apply clipping for window bounds without subtracting child window rects
+/**
+ * @brief Apply clipping for the window bounds, optionally inheriting parent clips.
+ *
+ * @param window Window whose visible area is being computed.
+ * @param in_recursion Non-zero when invoked from a recursive parent traversal.
+ * @param dirty_regions Optional dirty region list used to limit repainting.
+ */
 void window_apply_bound_clipping(window_t *window, int in_recursion, list_t *dirty_regions)
 {
     if (!window->context) {
@@ -199,6 +233,9 @@ void window_apply_bound_clipping(window_t *window, int in_recursion, list_t *dir
     kfree(clip_windows);
 }
 
+/**
+ * @brief Redraw the window title bar to reflect changes in activation or text.
+ */
 void window_update_title(window_t *window)
 {
     if (!window->context) {
@@ -218,7 +255,12 @@ void window_update_title(window_t *window)
     context_clear_clip_rects(window->context);
 }
 
-// Request a repaint of a certain region of a window
+/**
+ * @brief Request a repaint of a window sub-region.
+ *
+ * Coordinates are provided in window-local space and converted to screen space before generating
+ * a dirty rectangle.
+ */
 void window_invalidate(window_t *window, int top, int left, int bottom, int right)
 {
     // This function takes coordinates in terms of window coordinates
@@ -255,7 +297,13 @@ void window_invalidate(window_t *window, int top, int left, int bottom, int righ
     kfree(dirty_rect);
 }
 
-// Another override-redirect function
+/**
+ * @brief Paint a window and, optionally, its descendants.
+ *
+ * @param window Window to paint.
+ * @param dirty_regions Optional dirty rectangle list limiting repaint areas.
+ * @param paint_children Whether to recurse into child windows.
+ */
 void window_paint(window_t *window, list_t *dirty_regions, uint8_t paint_children)
 {
     window_t *current_child;
@@ -357,13 +405,21 @@ void window_paint(window_t *window, list_t *dirty_regions, uint8_t paint_childre
     }
 }
 
-// This is the default paint method for a new window
+/**
+ * @brief Default paint routine filling the window with the background colour.
+ */
 void window_paint_handler(window_t *window)
 {
     context_fill_rect(window->context, 0, 0, window->width, window->height, WIN_BGCOLOR);
 }
 
-// Used to get a list of windows overlapping the passed window
+/**
+ * @brief Collect child windows stacked above the specified window and overlapping it.
+ *
+ * @param parent Parent window owning the children.
+ * @param child Reference child window.
+ * @return List of overlapping windows higher in Z-order (caller frees).
+ */
 list_t *window_get_windows_above(window_t *parent, window_t *child)
 {
     list_t *return_list = list_new();
@@ -398,9 +454,13 @@ list_t *window_get_windows_above(window_t *parent, window_t *child)
     return return_list;
 }
 
-// Used to get a list of windows which the passed window overlaps
-// Same exact thing as get_windows_above, but goes backwards through
-// the list. Could probably be made a little less redundant if you really wanted
+/**
+ * @brief Collect child windows stacked below the specified window and overlapping it.
+ *
+ * @param parent Parent window owning the children.
+ * @param child Reference child window.
+ * @return List of overlapping windows lower in Z-order (caller frees).
+ */
 list_t *window_get_windows_below(window_t *parent, window_t *child)
 {
     list_t *return_list = list_new();
@@ -435,6 +495,12 @@ list_t *window_get_windows_below(window_t *parent, window_t *child)
     return return_list;
 }
 
+/**
+ * @brief Bring a window to the front of its siblings optionally repainting it.
+ *
+ * @param window Window to raise.
+ * @param do_draw Non-zero to repaint the window after raising.
+ */
 void window_raise(window_t *window, uint8_t do_draw)
 {
     if (!window->parent) {
@@ -471,7 +537,13 @@ void window_raise(window_t *window, uint8_t do_draw)
     window_update_title(last_active);
 }
 
-// We're wrapping this guy so that we can handle any needed redraw
+/**
+ * @brief Move a window to a new position and repaint affected regions.
+ *
+ * @param window Window to move.
+ * @param new_x New left coordinate.
+ * @param new_y New top coordinate.
+ */
 void window_move(window_t *window, int new_x, int new_y)
 {
     int old_x = window->x;
@@ -545,6 +617,14 @@ void window_move(window_t *window, int new_x, int new_y)
 }
 
 // Interface between windowing system and mouse device
+/**
+ * @brief Dispatch mouse events to windows, handling dragging and focus changes.
+ *
+ * @param window Window receiving the event.
+ * @param mouse_x Mouse X coordinate.
+ * @param mouse_y Mouse Y coordinate.
+ * @param mouse_buttons Mouse button state bitmask.
+ */
 void window_process_mouse(window_t *window, uint16_t mouse_x, uint16_t mouse_y, uint8_t mouse_buttons)
 {
     auto left_click     = mouse_buttons & MOUSE_LEFT;
@@ -613,11 +693,19 @@ void window_process_mouse(window_t *window, uint16_t mouse_x, uint16_t mouse_y, 
     window->last_button_state = mouse_buttons;
 }
 
-// The default handler for window mouse events doesn't do anything
+/**
+ * @brief Default no-op mouse down handler for windows.
+ */
 void window_mousedown_handler([[maybe_unused]] window_t *window, [[maybe_unused]] int16_t x, [[maybe_unused]] int16_t y)
 {
 }
 
+/**
+ * @brief Propagate a new drawing context to a window and its children.
+ *
+ * @param window Root of the subtree to update.
+ * @param context New video context.
+ */
 void window_update_context(window_t *window, video_context_t *context)
 {
     window->context = context;
@@ -626,7 +714,12 @@ void window_update_context(window_t *window, video_context_t *context)
         window_update_context(list_get_at(window->children, i), context);
 }
 
-// Quick wrapper for shoving a new entry into the child list
+/**
+ * @brief Attach a child window to a parent and update its context.
+ *
+ * @param window Parent window.
+ * @param child Child window to insert.
+ */
 void window_insert_child(window_t *window, window_t *child)
 {
 
@@ -637,7 +730,17 @@ void window_insert_child(window_t *window, window_t *child)
     window_update_context(child, window->context);
 }
 
-// A method to automatically create a new window in the provided parent window
+/**
+ * @brief Convenience helper to create and attach a child window.
+ *
+ * @param window Parent window owning the child.
+ * @param x Child left coordinate.
+ * @param y Child top coordinate.
+ * @param width Child width.
+ * @param height Child height.
+ * @param flags Child window flags.
+ * @return Newly created child window or nullptr on failure.
+ */
 window_t *window_create_window(window_t *window, int16_t x, int16_t y, uint16_t width, int16_t height, uint16_t flags)
 {
     window_t *new_window = window_new(x, y, width, height, flags, window->context);
@@ -660,7 +763,12 @@ window_t *window_create_window(window_t *window, int16_t x, int16_t y, uint16_t 
     return new_window;
 }
 
-// Assign a string to the title of the window
+/**
+ * @brief Assign a new title string to a window, redrawing as necessary.
+ *
+ * @param window Window to update.
+ * @param new_title Null-terminated string to set as the title.
+ */
 void window_set_title(window_t *window, char *new_title)
 {
     // Make sure to kfree any preexisting title
@@ -687,7 +795,12 @@ void window_set_title(window_t *window, char *new_title)
     }
 }
 
-// Add the characters from the passed string to the end of the window title
+/**
+ * @brief Append characters to the existing window title, redrawing if needed.
+ *
+ * @param window Window whose title will be extended.
+ * @param additional_chars Null-terminated string to append.
+ */
 void window_append_title(window_t *window, char *additional_chars)
 {
     // Set the title if there isn't already one

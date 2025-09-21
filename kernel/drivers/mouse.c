@@ -4,11 +4,15 @@
 #include <mouse.h>
 #include <vesa.h>
 
-extern struct vbe_mode_info *vbe_info;
 #define ISR_PS2_MOUSE (0x20 + 12)
 
 static struct ps2_mouse mouse_device = {};
 
+/**
+ * @brief Wait for the PS/2 controller to become ready for read or write.
+ *
+ * @param a_type 0 to wait for available data, non-zero to wait for write readiness.
+ */
 static void mouse_wait(unsigned char a_type)
 {
     unsigned int timeout = 1000000;
@@ -27,12 +31,18 @@ static void mouse_wait(unsigned char a_type)
     }
 }
 
+/**
+ * @brief Update the cached mouse coordinates without generating callbacks.
+ */
 void mouse_set_position(int16_t x, int16_t y)
 {
     mouse_device.x = x;
     mouse_device.y = y;
 }
 
+/**
+ * @brief Send a command byte to the PS/2 mouse device.
+ */
 static void mouse_write(uint8_t command)
 {
     // Wait to be able to send a command
@@ -45,6 +55,9 @@ static void mouse_write(uint8_t command)
     outb(MOUSE_PORT, command);
 }
 
+/**
+ * @brief Read a byte from the PS/2 mouse data port.
+ */
 uint8_t mouse_read()
 {
     mouse_wait(0);
@@ -73,6 +86,9 @@ uint8_t mouse_read()
 //     // vesa_draw_mouse_cursor(mouse_device.x, mouse_device.y);
 // }
 
+/**
+ * @brief Interrupt handler for PS/2 mouse packets.
+ */
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
     uint8_t status                 = inb(MOUSE_STATUS);
@@ -145,6 +161,11 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
     });
 }
 
+/**
+ * @brief Initialise the PS/2 mouse and register its callback.
+ *
+ * @param callback Function invoked for each processed mouse packet.
+ */
 void mouse_init(mouse_callback callback)
 {
     mouse_wait(1);
@@ -172,6 +193,11 @@ void mouse_init(mouse_callback callback)
 }
 
 // Function to get current mouse position and status
+/**
+ * @brief Retrieve the latest mouse coordinates and button state.
+ *
+ * @param mouse Output structure receiving the state.
+ */
 void mouse_get_position(struct mouse *mouse)
 {
     if (mouse_device.received) {

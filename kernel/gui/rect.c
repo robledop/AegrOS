@@ -1,6 +1,15 @@
 #include <gui/rect.h>
 #include <kernel_heap.h>
 
+/**
+ * @brief Allocate a rectangle descriptor.
+ *
+ * @param top Top edge coordinate.
+ * @param left Left edge coordinate.
+ * @param bottom Bottom edge coordinate.
+ * @param right Right edge coordinate.
+ * @return Pointer to the newly allocated rectangle or nullptr on failure.
+ */
 rect_t *rect_new(int top, int left, int bottom, int right)
 {
     auto rect = (rect_t *)kzalloc(sizeof(rect_t));
@@ -22,6 +31,16 @@ rect_t *rect_new(int top, int left, int bottom, int right)
 //|s    ___|____          |o   |o__|
 //|____|___|   c|   --->  |____|
 //      |________|
+/**
+ * @brief Split a rectangle into non-overlapping regions after subtracting another.
+ *
+ * Returns a list of rectangles representing the visible portions of @p subject_rect after
+ * removing the area covered by @p cutting_rect.
+ *
+ * @param subject_rect Rectangle to be split (remains unchanged).
+ * @param cutting_rect Rectangle occluding part of the subject.
+ * @return List of allocated rectangles or nullptr on failure.
+ */
 list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
 {
     list_t *output_rects = list_new();
@@ -134,6 +153,13 @@ list_t *rect_split(rect_t *subject_rect, rect_t *cutting_rect)
     return output_rects;
 }
 
+/**
+ * @brief Compute the intersection of two rectangles.
+ *
+ * @param rect_a First rectangle.
+ * @param rect_b Second rectangle.
+ * @return Newly allocated rectangle describing the overlap, or nullptr if they do not intersect.
+ */
 rect_t *rect_intersect(rect_t *rect_a, rect_t *rect_b)
 {
     if (!(rect_a->left <= rect_b->right && rect_a->right >= rect_b->left && rect_a->top <= rect_b->bottom &&

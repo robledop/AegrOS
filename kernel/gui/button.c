@@ -3,6 +3,17 @@
 #include <kernel_heap.h>
 #include <string.h>
 
+/**
+ * @brief Allocate and initialise a GUI button.
+ *
+ * Creates a window-backed button positioned at the requested coordinates.
+ *
+ * @param x Left position in pixels.
+ * @param y Top position in pixels.
+ * @param w Button width in pixels.
+ * @param h Button height in pixels.
+ * @return Pointer to the new button or nullptr on failure.
+ */
 button_t *button_new(int16_t x, int16_t y, int16_t w, int16_t h)
 {
     // Like a Desktop, this is just a special kind of window
@@ -30,6 +41,11 @@ button_t *button_new(int16_t x, int16_t y, int16_t w, int16_t h)
     return button;
 }
 
+/**
+ * @brief Paint callback that renders the button contents.
+ *
+ * @param button_window Window representing the button.
+ */
 void button_paint(window_t *button_window)
 {
     auto button = (button_t *)button_window;
@@ -61,7 +77,13 @@ void button_paint(window_t *button_window)
     }
 }
 
-// This just sets and resets the toggle
+/**
+ * @brief Mouse down handler invoked when the button is pressed.
+ *
+ * @param button_window Window associated with the button.
+ * @param x Cursor X coordinate relative to the button.
+ * @param y Cursor Y coordinate relative to the button.
+ */
 void button_mousedown_handler(window_t *button_window, int16_t x, int16_t y)
 {
     auto button = (button_t *)button_window;

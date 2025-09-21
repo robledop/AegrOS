@@ -123,6 +123,9 @@ void vesa_enable_write_combining(void)
     lcr3((uint32_t)kernel_page_directory->directory_entry);
 }
 
+/**
+ * @brief Fill a rectangle in the framebuffer using 32-bit pixels when possible.
+ */
 void vesa_fill_rect32(int x, int y, int width, int height, uint32_t color)
 {
     if (width <= 0 || height <= 0) {
@@ -172,6 +175,9 @@ void vesa_fill_rect32(int x, int y, int width, int height, uint32_t color)
     }
 }
 
+/**
+ * @brief Blit a horizontal span of 32-bit pixels to the framebuffer.
+ */
 void vesa_blit_span32(int x, int y, const uint32_t *src, uint32_t pixel_count)
 {
     if (!src || pixel_count == 0) {
@@ -215,6 +221,9 @@ void vesa_blit_span32(int x, int y, const uint32_t *src, uint32_t pixel_count)
     vesa_copy_span32(row, src + offset, pixel_count);
 }
 
+/**
+ * @brief Write a single pixel to the framebuffer.
+ */
 void vesa_putpixel(int x, int y, uint32_t rgb)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
@@ -227,6 +236,9 @@ void vesa_putpixel(int x, int y, uint32_t rgb)
     *((uint32_t *)pixel)     = rgb;
 }
 
+/**
+ * @brief Read a single pixel from the framebuffer.
+ */
 uint32_t vesa_getpixel(int x, int y)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
@@ -239,6 +251,9 @@ uint32_t vesa_getpixel(int x, int y)
 }
 
 
+/**
+ * @brief Draw a 32x32 monochrome icon to the framebuffer.
+ */
 void vesa_puticon32(int x, int y, const unsigned char *icon)
 {
     for (int j = 0; j < 32; j++) {
@@ -255,6 +270,9 @@ void vesa_puticon32(int x, int y, const unsigned char *icon)
     }
 }
 
+/**
+ * @brief Draw a 32x32 ARGB bitmap to the framebuffer.
+ */
 void vesa_put_bitmap_32(int x, int y, const unsigned int *icon)
 {
     if (!icon) {
@@ -283,6 +301,9 @@ void vesa_put_bitmap_32(int x, int y, const unsigned int *icon)
     }
 }
 
+/**
+ * @brief Draw a 16x16 monochrome icon to the framebuffer.
+ */
 void vesa_put_black_and_white_icon16(int x, int y, const unsigned char *icon)
 {
     for (int j = 0; j < 16; j++) {
@@ -296,6 +317,9 @@ void vesa_put_black_and_white_icon16(int x, int y, const unsigned char *icon)
 }
 
 // TODO: Implement double buffering
+/**
+ * @brief Scroll the framebuffer contents up by one text line.
+ */
 void vesa_scroll_up()
 {
     uint8_t *framebuffer = (uint8_t *)vbe_info->framebuffer;
@@ -310,6 +334,9 @@ void vesa_scroll_up()
     }
 }
 
+/**
+ * @brief Clear the entire screen to a solid colour.
+ */
 void vesa_clear_screen(uint32_t color)
 {
     if (vbe_info->framebuffer == 0) {
@@ -319,6 +346,9 @@ void vesa_clear_screen(uint32_t color)
     vesa_fill_rect32(0, 0, (int)vbe_info->width, (int)vbe_info->height, color);
 }
 
+/**
+ * @brief Render an 8x8 character glyph at the specified position.
+ */
 void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
 {
     if (c > 128) {
@@ -352,6 +382,9 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
     }
 }
 
+/**
+ * @brief Print a string using 8x8 glyphs starting at the given position.
+ */
 void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, uint32_t bg)
 {
     for (int i = 0; i < len; i++) {
@@ -360,6 +393,9 @@ void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, u
     }
 }
 
+/**
+ * @brief Render a magnified 16x16 character glyph.
+ */
 void vesa_put_char16(unsigned char c, int x, int y, uint32_t color)
 {
     for (int l = 0; l < 16; l++) {
@@ -371,6 +407,9 @@ void vesa_put_char16(unsigned char c, int x, int y, uint32_t color)
     }
 }
 
+/**
+ * @brief Draw a Bresenham line between two points.
+ */
 void vesa_draw_line(int x1, int y1, int x2, int y2, uint32_t color)
 {
     int dx = x2 - x1;
@@ -403,12 +442,18 @@ void vesa_draw_line(int x1, int y1, int x2, int y2, uint32_t color)
     }
 }
 
+/**
+ * @brief Placeholder for drawing a text cursor.
+ */
 void vesa_draw_cursor(int x, int y)
 {
     // vesa_fill_rect(x, y + VESA_CHAR_WIDTH - 3, VESA_CHAR_WIDTH, 3, 0xFFFFFF);
     return;
 }
 
+/**
+ * @brief Placeholder for erasing a text cursor.
+ */
 void vesa_erase_cursor(int x, int y)
 {
     // vesa_fill_rect(x, y, VESA_CHAR_WIDTH, VESA_CHAR_WIDTH, DESKTOP_BACKGROUND_COLOR);

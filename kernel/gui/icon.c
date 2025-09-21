@@ -6,6 +6,14 @@
 #include "gui/window.h"
 #include "vesa.h"
 
+/**
+ * @brief Allocate and initialise an icon window.
+ *
+ * @param image Pointer to a 32x32 bitmap rendered beneath the caption.
+ * @param x Screen X coordinate for the icon.
+ * @param y Screen Y coordinate for the icon.
+ * @return Pointer to the created icon or nullptr on failure.
+ */
 icon_t *icon_new(unsigned int *image, int16_t x, int16_t y)
 {
     auto icon = (icon_t *)kzalloc(sizeof(icon_t));
@@ -30,6 +38,11 @@ icon_t *icon_new(unsigned int *image, int16_t x, int16_t y)
     return icon;
 }
 
+/**
+ * @brief Paint callback used to draw the icon and its label.
+ *
+ * @param button_window Window representing the icon.
+ */
 void icon_paint(window_t *button_window)
 {
     auto icon = (icon_t *)button_window;
@@ -55,6 +68,13 @@ void icon_paint(window_t *button_window)
     }
 }
 
+/**
+ * @brief Mouse down handler forwarding clicks to the icon callback.
+ *
+ * @param button_window Window representing the icon.
+ * @param x Cursor X coordinate relative to the icon.
+ * @param y Cursor Y coordinate relative to the icon.
+ */
 void icon_mousedown_handler(window_t *button_window, int16_t x, int16_t y)
 {
     auto icon = (icon_t *)button_window;

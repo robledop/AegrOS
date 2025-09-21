@@ -31,16 +31,29 @@
 
 struct spinlock disk_lock;
 
+/**
+ * @brief Initialise the ATA driver and its lock state.
+ */
 void ata_init()
 {
     initlock(&disk_lock, "ata");
 }
 
+/**
+ * @brief Retrieve the logical sector size used by the ATA device.
+ *
+ * @return Size of a sector in bytes.
+ */
 int ata_get_sector_size()
 {
     return 512;
 }
 
+/**
+ * @brief Poll the drive until the data request bit is set or an error occurs.
+ *
+ * @return ALL_OK on success, negative errno-style value on failure.
+ */
 int ata_wait_for_ready()
 {
     // Ignore the first four status reads
@@ -64,6 +77,14 @@ int ata_wait_for_ready()
     return ALL_OK;
 }
 
+/**
+ * @brief Read one or more sectors from disk using PIO mode.
+ *
+ * @param lba Starting logical block address.
+ * @param total Number of sectors to read.
+ * @param buffer Destination buffer (must hold total * sector_size bytes).
+ * @return ALL_OK on success, negative errno-style value on failure.
+ */
 int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
 {
     acquire(&disk_lock);
@@ -94,6 +115,14 @@ int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
     return ALL_OK;
 }
 
+/**
+ * @brief Write one or more sectors to disk using PIO mode.
+ *
+ * @param lba Starting logical block address.
+ * @param total Number of sectors to write.
+ * @param buffer Source buffer containing the data to write.
+ * @return ALL_OK on success, negative errno-style value on failure.
+ */
 int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 {
     acquire(&disk_lock);

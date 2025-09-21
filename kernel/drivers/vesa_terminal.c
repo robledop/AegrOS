@@ -1,10 +1,7 @@
+#include <config.h>
 #include <memory.h>
 #include <vesa.h>
 #include <vesa_terminal.h>
-
-#include "config.h"
-#include "gui/video_context.h"
-#include "kernel.h"
 
 #define MARGIN 15
 
@@ -21,10 +18,12 @@ int forecolor = 0xFFFFFF;
 int backcolor = DESKTOP_BACKGROUND_COLOR;
 
 
-extern struct vbe_mode_info *vbe_info;
 putchar_func_t putchar_func           = nullptr;
 clear_screen_func_t clear_screen_func = nullptr;
 
+/**
+ * @brief Map an ANSI colour code to an RGB value.
+ */
 int ansi_to_rgb(int ansi, bool bold)
 {
     switch (ansi) {
@@ -48,6 +47,9 @@ int ansi_to_rgb(int ansi, bool bold)
         return 0x000000; // Fallback: black
     }
 }
+/**
+ * @brief Reset ANSI parsing state for the pixel terminal.
+ */
 void reset()
 {
     v_param_escaping = false;
@@ -58,6 +60,9 @@ void reset()
     v_param_count = 1;
 }
 
+/**
+ * @brief Move the on-screen cursor one text line up.
+ */
 void cursor_up()
 {
     if (cursor_y > 0) {
@@ -67,6 +72,9 @@ void cursor_up()
     vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
+/**
+ * @brief Move the on-screen cursor one text line down.
+ */
 void cursor_down()
 {
     if (cursor_y < vbe_info->height - VESA_LINE_HEIGHT) {
@@ -76,6 +84,9 @@ void cursor_down()
     vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
+/**
+ * @brief Move the on-screen cursor one character left.
+ */
 void cursor_left()
 {
     if (cursor_x > 0) {
@@ -85,6 +96,9 @@ void cursor_left()
     vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
+/**
+ * @brief Move the on-screen cursor one character right.
+ */
 void cursor_right()
 {
     if (cursor_x < vbe_info->width - VESA_CHAR_WIDTH) {
@@ -95,6 +109,9 @@ void cursor_right()
 }
 
 
+/**
+ * @brief Process a single character within an ANSI escape sequence.
+ */
 bool v_param_process(const int c)
 {
     if (c >= '0' && c <= '9') {
@@ -189,6 +206,9 @@ bool v_param_process(const int c)
     return true;
 }
 
+/**
+ * @brief Update escape state machine, consuming characters when appropriate.
+ */
 bool v_handle_ansi_escape(const int c)
 {
     if (c == 0x1B) {
@@ -215,6 +235,9 @@ bool v_handle_ansi_escape(const int c)
 }
 
 // TODO: Figure out a less hacky way to do this
+/**
+ * @brief Initialise the VESA terminal with custom callbacks.
+ */
 void vesa_terminal_init(putchar_func_t func, clear_screen_func_t clear_func)
 {
     putchar_func      = func;
@@ -223,6 +246,9 @@ void vesa_terminal_init(putchar_func_t func, clear_screen_func_t clear_func)
 
 
 #ifdef PIXEL_RENDERING // If this is not defined, then we use the putchar defined in vga_buffer.c
+/**
+ * @brief Print a character to the VESA terminal, handling ANSI escapes and cursor.
+ */
 void putchar(char c)
 {
     if (putchar_func) {

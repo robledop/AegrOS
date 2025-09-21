@@ -28,6 +28,9 @@ static uint16_t tx_cur;                                    // Current Transmit D
 static struct pci_device *pci_device;
 
 
+/**
+ * @brief Write a 32-bit value to an e1000 register via MMIO or IO space.
+ */
 void e1000_write_command(const uint16_t p_address, const uint32_t p_value)
 {
     if (bar_type == PCI_BAR_MEM) {
@@ -38,6 +41,9 @@ void e1000_write_command(const uint16_t p_address, const uint32_t p_value)
     }
 }
 
+/**
+ * @brief Read a 32-bit value from an e1000 register via MMIO or IO space.
+ */
 uint32_t e1000_read_command(const uint16_t p_address)
 {
     if (bar_type == PCI_BAR_MEM) {
@@ -48,6 +54,11 @@ uint32_t e1000_read_command(const uint16_t p_address)
     return inl(io_base + 4);
 }
 
+/**
+ * @brief Detect whether the controller has an EEPROM attached.
+ *
+ * @return true if an EEPROM is present, false otherwise.
+ */
 bool e1000_detect_eeprom()
 {
     uint32_t val = 0;
@@ -64,6 +75,12 @@ bool e1000_detect_eeprom()
     return eeprom_exists;
 }
 
+/**
+ * @brief Read a 16-bit word from the controller's EEPROM.
+ *
+ * @param addr EEPROM word address.
+ * @return Value read from the EEPROM.
+ */
 uint32_t e1000_eeprom_read(const uint8_t addr)
 {
     uint16_t data = 0;
@@ -81,6 +98,11 @@ uint32_t e1000_eeprom_read(const uint8_t addr)
     return data;
 }
 
+/**
+ * @brief Populate the MAC address from EEPROM or MMIO registers.
+ *
+ * @return true if a MAC address was successfully read.
+ */
 bool e1000_read_mac_address()
 {
     if (eeprom_exists) {
@@ -109,6 +131,9 @@ bool e1000_read_mac_address()
     return true;
 }
 
+/**
+ * @brief Initialise receive descriptors and configure the controller for RX.
+ */
 void e1000_rx_init()
 {
     const uint8_t *ptr = (uint8_t *)(kmalloc(sizeof(struct e1000_rx_desc) * E1000_RX_RING_SIZE + 16));
@@ -134,6 +159,9 @@ void e1000_rx_init()
                             RCTL_BSIZE_8192);
 }
 
+/**
+ * @brief Initialise transmit descriptors and enable transmission.
+ */
 void e1000_tx_init()
 {
     const uint8_t *ptr = (uint8_t *)(kmalloc(sizeof(struct e1000_tx_desc) * E1000_TX_RING_SIZE + 16));
@@ -165,12 +193,20 @@ void e1000_tx_init()
     // e1000_write_command(REG_TIPG, 0x0060200A);
 }
 
+/**
+ * @brief Unmask e1000 interrupts and clear pending status bits.
+ */
 void e1000_enable_interrupt()
 {
     e1000_write_command(REG_IMS, E1000_IMS_ENABLE_MASK);
     e1000_read_command(REG_ICR);
 }
 
+/**
+ * @brief Probe PCI resources and start the e1000 network controller.
+ *
+ * @param pci PCI device descriptor for the controller.
+ */
 void e1000_init(struct pci_device *pci)
 {
     pci_device = pci;
@@ -187,6 +223,11 @@ void e1000_init(struct pci_device *pci)
     }
 }
 
+/**
+ * @brief Interrupt service routine for e1000 events.
+ *
+ * @param frame Interrupt context frame.
+ */
 void e1000_interrupt_handler(struct interrupt_frame *frame)
 {
     int interrupt = frame->interrupt_number;
@@ -223,12 +264,18 @@ void e1000_interrupt_handler(struct interrupt_frame *frame)
     }
 }
 
+/**
+ * @brief Log the detected MAC address to the console.
+ */
 void e1000_print_mac_address()
 {
     printf("[ " KBGRN "OK" KWHT " ] ");
     printf("Intel e1000 MAC Address: %s\n", get_mac_address_string(mac));
 }
 
+/**
+ * @brief Force the link-up state in the controller's control register.
+ */
 void e1000_linkup()
 {
     uint32_t val = e1000_read_command(REG_CTRL);
@@ -236,6 +283,11 @@ void e1000_linkup()
     e1000_write_command(REG_CTRL, val);
 }
 
+/**
+ * @brief Bring the controller online, register interrupts, and start queues.
+ *
+ * @return true on success, false otherwise.
+ */
 bool e1000_start()
 {
     e1000_detect_eeprom();
@@ -261,6 +313,9 @@ bool e1000_start()
 }
 
 /// @brief Process all available packets in the receive ring
+/**
+ * @brief Process all packets currently available in the receive ring.
+ */
 void e1000_receive()
 {
     while ((rx_descs[rx_cur]->status & E1000_RXD_STAT_DD)) {
@@ -282,6 +337,13 @@ void e1000_receive()
     }
 }
 
+/**
+ * @brief Submit a frame for transmission.
+ *
+ * @param data Pointer to the Ethernet frame.
+ * @param len Frame length in bytes.
+ * @return 0 on success.
+ */
 int e1000_send_packet(const void *data, const uint16_t len)
 {
     tx_descs[tx_cur]->addr   = (uintptr_t)data;

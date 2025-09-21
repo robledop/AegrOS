@@ -11,6 +11,9 @@ static int serial_init_done = 0;
 
 struct spinlock serial_lock = {};
 
+/**
+ * @brief Write a single character to the serial port.
+ */
 void serial_put(char a)
 {
     if (!serial_init_done) {
@@ -23,6 +26,9 @@ void serial_put(char a)
     outb(PORT, a);
 }
 
+/**
+ * @brief Write a null-terminated string to the serial port.
+ */
 void serial_write(const char *str)
 {
     if (!serial_init_done) {
@@ -33,6 +39,12 @@ void serial_write(const char *str)
     }
 }
 
+/**
+ * @brief Minimal printf implementation writing to the serial port.
+ *
+ * @param fmt Format string (supports %d, %x/%p, %s, %c).
+ * @return Number of characters written.
+ */
 int serial_printf(const char fmt[static 1], ...)
 {
     int written = 0;
@@ -95,6 +107,9 @@ int serial_printf(const char fmt[static 1], ...)
     return written;
 }
 
+/**
+ * @brief Initialise the COM1 serial port for debugging output.
+ */
 void init_serial()
 {
 #if defined(DEBUG_SERIAL) || defined(DEBUG_WARNINGS)

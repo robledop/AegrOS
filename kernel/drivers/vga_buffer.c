@@ -1,3 +1,8 @@
+/**
+ * @file vga_buffer.c
+ * @brief Text-mode VGA terminal driver providing character rendering and ANSI handling.
+ */
+
 #include <config.h>
 #include <io.h>
 #include <memory.h>
@@ -44,6 +49,12 @@ int ansi_to_vga_background[] = {
 
 struct spinlock vga_lock;
 
+/**
+ * @brief Configure the hardware text-mode cursor scanline range.
+ *
+ * @param cursor_start Upper scanline of the cursor (0-15).
+ * @param cursor_end Lower scanline of the cursor (0-15, must be >= cursor_start).
+ */
 void enable_cursor(const uint8_t cursor_start, const uint8_t cursor_end)
 {
     outb(0x3D4, 0x0A);
@@ -53,6 +64,12 @@ void enable_cursor(const uint8_t cursor_start, const uint8_t cursor_end)
     outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
 }
 
+/**
+ * @brief Move the hardware cursor to the given position.
+ *
+ * @param row Zero-based row index within the VGA text buffer.
+ * @param col Zero-based column index within the VGA text buffer.
+ */
 void update_cursor(const int row, const int col)
 {
     const uint16_t position = (row * VGA_WIDTH) + col;
@@ -63,6 +80,14 @@ void update_cursor(const int row, const int col)
     outb(0x3D5, (position >> 8) & 0xFF);
 }
 
+/**
+ * @brief Write a character cell to video memory.
+ *
+ * @param c ASCII character to render.
+ * @param attribute VGA attribute byte controlling foreground and background colors.
+ * @param x Column position or -1 to use the current cursor column.
+ * @param y Row position or -1 to use the current cursor row.
+ */
 void vga_buffer_write(const char c, const uint8_t attribute, const int x, const int y)
 {
     const int pos_x = x == -1 ? cursor_x : x;
@@ -72,30 +97,47 @@ void vga_buffer_write(const char c, const uint8_t attribute, const int x, const 
     *where                   = c | (attribute << 8);
 }
 
+/**
+ * @brief Move the cursor one column to the left.
+ */
 static void cursor_left()
 {
     cursor_x--;
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Move the cursor one column to the right.
+ */
 static void cursor_right()
 {
     cursor_x++;
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Move the cursor one row up.
+ */
 static void cursor_up()
 {
     cursor_y--;
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Move the cursor one row down.
+ */
 static void cursor_down()
 {
     cursor_y++;
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Read the current cursor position from the hardware registers.
+ *
+ * @return Absolute cursor position in characters from the top-left corner.
+ */
 uint16_t get_cursor_position(void)
 {
     uint16_t pos = 0;
@@ -106,6 +148,9 @@ uint16_t get_cursor_position(void)
     return pos;
 }
 
+/**
+ * @brief Scroll the visible text buffer up by one row and clear the final line.
+ */
 void scroll_screen()
 {
     auto const video_memory = (uint8_t *)VIDEO_MEMORY;
@@ -125,6 +170,11 @@ void scroll_screen()
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Render a single character while handling control and scrolling logic.
+ *
+ * @param c Character to render.
+ */
 void vga_putchar(const char c)
 {
     switch (c) {
@@ -168,6 +218,11 @@ void vga_putchar(const char c)
     update_cursor(cursor_y, cursor_x);
 }
 
+/**
+ * @brief Print a null-terminated string using the VGA text terminal.
+ *
+ * @param str Pointer to a valid C string.
+ */
 void print(const char str[static 1])
 {
     const size_t len = strlen(str);
@@ -176,6 +231,9 @@ void print(const char str[static 1])
     }
 }
 
+/**
+ * @brief Clear the entire text terminal and reset the cursor.
+ */
 void terminal_clear()
 {
     cursor_x = 0;
@@ -189,6 +247,9 @@ void terminal_clear()
     enable_cursor(14, 15);
 }
 
+/**
+ * @brief Initialize the VGA text-mode buffer and supporting synchronization.
+ */
 void vga_buffer_init()
 {
     cursor_x = 0;
@@ -197,6 +258,9 @@ void vga_buffer_init()
     terminal_clear();
 }
 
+/**
+ * @brief Reset ANSI escape sequence parsing state.
+ */
 void ansi_reset()
 {
     param_escaping = false;
@@ -207,7 +271,12 @@ void ansi_reset()
     param_count = 1;
 }
 
-/// @brief Process parameters of an ANSI escape sequence
+/**
+ * @brief Process parameters of an ANSI escape sequence.
+ *
+ * @param c Current character inside the escape sequence.
+ * @return true when the escape sequence is complete, false otherwise.
+ */
 bool param_process(const int c)
 {
     if (c >= '0' && c <= '9') {
@@ -301,7 +370,12 @@ bool param_process(const int c)
     return true;
 }
 
-/// @brief Check if the character is part of an ANSI escape sequence and process its parameters
+/**
+ * @brief Detect and interpret ANSI escape sequences.
+ *
+ * @param c Current incoming character.
+ * @return true if the character was consumed as part of an escape sequence.
+ */
 bool handle_ansi_escape(const int c)
 {
     if (c == 0x1B) {
@@ -328,6 +402,11 @@ bool handle_ansi_escape(const int c)
 }
 
 #ifndef PIXEL_RENDERING // If this is defined, then we use the putchar defined in vesa_terminal.c
+/**
+ * @brief Terminal-compatible putchar implementation with ANSI support.
+ *
+ * @param c Character to write.
+ */
 void putchar(const char c)
 {
     if (handle_ansi_escape(c)) {

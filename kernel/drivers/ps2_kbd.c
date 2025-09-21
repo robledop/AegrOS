@@ -15,12 +15,18 @@ void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame);
 
 #define PS2_CAPSLOCK 0x3A
 
+/**
+ * @brief Wait for the keyboard controller to acknowledge the previous command.
+ */
 void kbd_ack(void)
 {
     while (inb(0x60) != 0xfa)
         ;
 }
 
+/**
+ * @brief Update the keyboard LED status.
+ */
 void kbd_led_handling(const unsigned char ledstatus)
 {
     outb(0x60, 0xed);
@@ -29,6 +35,11 @@ void kbd_led_handling(const unsigned char ledstatus)
 }
 
 // Taken from xv6
+/**
+ * @brief Fetch a translated character from the PS/2 keyboard.
+ *
+ * @return ASCII character or 0 when no key is available.
+ */
 uint8_t keyboard_get_char()
 {
     acquire(&keyboard_getchar_lock);
@@ -78,6 +89,9 @@ uint8_t keyboard_get_char()
 }
 
 
+/**
+ * @brief Flush any pending bytes from the controller output buffer.
+ */
 static void keyboard_buffer_clear()
 {
     while (inb(0x64) & 1) {
@@ -85,6 +99,9 @@ static void keyboard_buffer_clear()
     }
 }
 
+/**
+ * @brief Initialise the PS/2 keyboard controller and register interrupts.
+ */
 int ps2_keyboard_init()
 {
     initlock(&keyboard_lock, "keyboard");
@@ -111,6 +128,9 @@ int ps2_keyboard_init()
     return 0;
 }
 
+/**
+ * @brief Interrupt handler for PS/2 keyboard events.
+ */
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 {
     pic_acknowledge((int)frame->interrupt_number);
@@ -122,6 +142,9 @@ void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
     }
 }
 
+/**
+ * @brief Create a keyboard driver instance for the PS/2 controller.
+ */
 struct keyboard *ps2_init()
 {
     struct keyboard *kbd = kzalloc(sizeof(struct keyboard));

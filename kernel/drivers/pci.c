@@ -146,6 +146,15 @@ struct pci_driver pci_drivers[] = {
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_82577LM, .init = &e1000_init},
 };
 
+/**
+ * @brief Read a 16-bit word from PCI configuration space.
+ *
+ * @param bus PCI bus number.
+ * @param slot Device slot number.
+ * @param func Function number.
+ * @param offset Register offset.
+ * @return Word read from configuration space.
+ */
 uint16_t pci_config_read_word(const uint8_t bus, const uint8_t slot, const uint8_t func, const uint8_t offset)
 {
     const uint32_t lbus  = bus;
@@ -167,6 +176,9 @@ uint16_t pci_config_read_word(const uint8_t bus, const uint8_t slot, const uint8
     return tmp;
 }
 
+/**
+ * @brief Write a 16-bit word to PCI configuration space.
+ */
 void pci_config_write_word(const uint8_t bus, const uint8_t slot, const uint8_t func, const uint8_t offset,
                            const uint16_t data)
 {
@@ -190,6 +202,9 @@ void pci_config_write_word(const uint8_t bus, const uint8_t slot, const uint8_t 
 }
 
 
+/**
+ * @brief Resolve a PCI class/subclass pair to a descriptive name.
+ */
 const char *pci_find_name(const uint8_t class, const uint8_t subclass)
 {
     for (size_t i = 0; i < sizeof(classes) / sizeof(struct pci_class); i++) {
@@ -200,6 +215,9 @@ const char *pci_find_name(const uint8_t class, const uint8_t subclass)
     return "Unknown PCI Device";
 }
 
+/**
+ * @brief Resolve a vendor ID to a descriptive name.
+ */
 const char *pci_find_vendor(const uint16_t vendor_id)
 {
     for (size_t i = 0; i < sizeof(vendors) / sizeof(struct pci_vendor); i++) {
@@ -210,6 +228,9 @@ const char *pci_find_vendor(const uint16_t vendor_id)
     return "Unknown Vendor";
 }
 
+/**
+ * @brief Attempt to load a driver matching the given PCI header.
+ */
 void load_driver(const struct pci_header pci, const uint8_t bus, const uint8_t device, const uint8_t function)
 {
     for (uint16_t i = 0; i < sizeof(pci_drivers) / sizeof(struct pci_driver); i++) {
@@ -231,6 +252,9 @@ void load_driver(const struct pci_header pci, const uint8_t bus, const uint8_t d
     }
 }
 
+/**
+ * @brief Read the full 256-byte PCI configuration header for a device.
+ */
 struct pci_header get_pci_data(const uint8_t bus, const uint8_t num, const uint8_t function)
 {
     struct pci_header pci_data;
@@ -241,6 +265,9 @@ struct pci_header get_pci_data(const uint8_t bus, const uint8_t num, const uint8
     return pci_data;
 }
 
+/**
+ * @brief Enumerate all buses, devices, and functions, loading matching drivers.
+ */
 void pci_scan()
 {
     printf("[ " KBGRN "OK" KWHT " ] ");
@@ -267,6 +294,9 @@ void pci_scan()
     }
 }
 
+/**
+ * @brief Enable bus mastering capability for a PCI device.
+ */
 void pci_enable_bus_mastering(const struct pci_device *device)
 {
     constexpr uint16_t command_register_offset = 0x04;
@@ -277,6 +307,9 @@ void pci_enable_bus_mastering(const struct pci_device *device)
     pci_config_write_word(device->bus, device->slot, device->function, command_register_offset, dev_command_reg);
 }
 
+/**
+ * @brief Retrieve a Base Address Register matching the requested type.
+ */
 uint32_t pci_get_bar(const struct pci_device *dev, const uint8_t type)
 {
     uint32_t bar = 0;

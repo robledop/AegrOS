@@ -22,6 +22,13 @@ unsigned int mouse_img[MOUSE_BUFSZ] = {
     CD, CD, CA, CB, CB, CA, CD, CD, CD, CD, CD, CD, CD, CD, CA, CB, CB, CA, CD, CD, CD, CD, CD, CD, CD, CA, CB, CB, CA,
     CD, CD, CD, CD, CD, CD, CD, CD, CA, CB, CA, CD, CD, CD, CD, CD, CD, CD, CD, CD, CA, CA, CD, CD};
 
+/**
+ * @brief Create a desktop window covering the entire video context.
+ *
+ * @param context Target video context to render into.
+ * @param wallpaper Optional ARGB wallpaper bitmap; pass nullptr for solid background.
+ * @return Newly allocated desktop instance or nullptr on failure.
+ */
 desktop_t *desktop_new(video_context_t *context, uint32_t *wallpaper)
 {
     auto desktop = (desktop_t *)kzalloc(sizeof(desktop_t));
@@ -51,7 +58,11 @@ desktop_t *desktop_new(video_context_t *context, uint32_t *wallpaper)
     return desktop;
 }
 
-// Paint the desktop
+/**
+ * @brief Paint handler that renders the wallpaper and desktop chrome.
+ *
+ * @param desktop_window Window representing the desktop.
+ */
 void desktop_paint_handler(window_t *desktop_window)
 {
     if (((desktop_t *)desktop_window)->wallpaper) {
@@ -77,7 +88,14 @@ void desktop_paint_handler(window_t *desktop_window)
                       0xFFFFFFFF);
 }
 
-// Our overload of the Window_process_mouse function used to capture the screen mouse position
+/**
+ * @brief Process mouse events for the desktop and draw the software cursor.
+ *
+ * @param desktop Desktop instance receiving the event.
+ * @param mouse_x Mouse X coordinate.
+ * @param mouse_y Mouse Y coordinate.
+ * @param mouse_buttons Button state bitmask.
+ */
 void desktop_process_mouse(desktop_t *desktop, uint16_t mouse_x, uint16_t mouse_y, uint8_t mouse_buttons)
 {
     // Do the old generic mouse handling

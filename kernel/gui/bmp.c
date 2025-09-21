@@ -5,6 +5,16 @@
 
 enum { BI_RGB = 0, BI_BITFIELDS = 3 };
 
+/**
+ * @brief Load a BMP image from disk into an ARGB buffer.
+ *
+ * Converts 24-bit BMP files to a 32-bit ARGB pixel array allocated via the
+ * kernel heap. Ownership of the buffer transfers to the caller.
+ *
+ * @param path Filesystem path to the BMP asset.
+ * @param[out] out_pixels Receives the newly allocated ARGB buffer.
+ * @return 0 on success, negative value on failure.
+ */
 int bitmap_load_argb(const char *path, uint32_t **out_pixels)
 {
     const int fd = vfs_open(nullptr, path, O_RDONLY);

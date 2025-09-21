@@ -1,6 +1,15 @@
 #include <gui/calculator.h>
 #include <kernel_heap.h>
 
+/**
+ * @brief Handle calculator button presses.
+ *
+ * Updates the calculator textbox contents based on which button triggered the event.
+ *
+ * @param button Button that generated the event.
+ * @param x Cursor X coordinate relative to the button (unused).
+ * @param y Cursor Y coordinate relative to the button (unused).
+ */
 void calculator_button_handler(button_t *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
 {
     auto calculator = (calculator_t *)button->window.parent;
@@ -98,6 +107,11 @@ void calculator_button_handler(button_t *button, [[maybe_unused]] int x, [[maybe
     }
 }
 
+/**
+ * @brief Create a new calculator window with buttons and display.
+ *
+ * @return Pointer to the newly allocated calculator window or nullptr on failure.
+ */
 calculator_t *calculator_new(void)
 {
     auto calculator = (calculator_t *)kzalloc(sizeof(calculator_t));

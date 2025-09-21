@@ -6,6 +6,13 @@
 #include <stdint.h>
 #include <vesa.h>
 
+/**
+ * @brief Allocate a drawing context with the given dimensions.
+ *
+ * @param width Context width in pixels.
+ * @param height Context height in pixels.
+ * @return Newly allocated context or nullptr on failure.
+ */
 video_context_t *context_new(uint16_t width, uint16_t height)
 {
     auto context = (video_context_t *)kzalloc(sizeof(video_context_t));
@@ -26,6 +33,20 @@ video_context_t *context_new(uint16_t width, uint16_t height)
     return context;
 }
 
+/**
+ * @brief Draw a bitmap clipped against a single rectangle.
+ *
+ * @param context Target video context.
+ * @param x Destination X coordinate.
+ * @param y Destination Y coordinate.
+ * @param draw_width Width of the region to draw.
+ * @param draw_height Height of the region to draw.
+ * @param clip_area Clipping rectangle in destination coordinates.
+ * @param pixels Source ARGB pixel buffer.
+ * @param stride Source stride in pixels.
+ * @param src_origin_x X offset in the source image.
+ * @param src_origin_y Y offset in the source image.
+ */
 void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int draw_width,
                                  unsigned int draw_height, rect_t *clip_area, const uint32_t *pixels,
                                  unsigned int stride, int src_origin_x, int src_origin_y)
@@ -78,6 +99,17 @@ void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigne
     }
 }
 
+/**
+ * @brief Fill a rectangle while respecting a clipping region.
+ *
+ * @param context Target video context.
+ * @param x Destination X coordinate.
+ * @param y Destination Y coordinate.
+ * @param width Width of the rectangle.
+ * @param height Height of the rectangle.
+ * @param clip_area Clipping rectangle to limit drawing.
+ * @param color Fill colour.
+ */
 void context_clipped_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
                           rect_t *clip_area, uint32_t color)
 {
@@ -119,6 +151,16 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
 }
 
 
+/**
+ * @brief Draw a bitmap using the context's clipping configuration.
+ *
+ * @param context Target video context.
+ * @param x Destination X coordinate.
+ * @param y Destination Y coordinate.
+ * @param width Bitmap width in pixels.
+ * @param height Bitmap height in pixels.
+ * @param pixels Source ARGB bitmap data.
+ */
 void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
                          uint32_t *pixels)
 {
@@ -213,6 +255,16 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
 }
 
 // Simple for-loop rectangle into a context
+/**
+ * @brief Fill a rectangular region, optionally respecting clip rectangles.
+ *
+ * @param context Target video context.
+ * @param x Destination X coordinate.
+ * @param y Destination Y coordinate.
+ * @param width Rectangle width.
+ * @param height Rectangle height.
+ * @param color Fill colour.
+ */
 void context_fill_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height, uint32_t color)
 {
     int max_x = x + (int)width;
@@ -260,18 +312,46 @@ void context_fill_rect(video_context_t *context, int x, int y, unsigned int widt
 }
 
 // A horizontal line as a filled rect of height 1
+/**
+ * @brief Draw a horizontal line using the fill-rect helper.
+ *
+ * @param context Target video context.
+ * @param x Starting X coordinate.
+ * @param y Y coordinate of the line.
+ * @param length Length in pixels.
+ * @param color Line colour.
+ */
 void context_horizontal_line(video_context_t *context, int x, int y, unsigned int length, uint32_t color)
 {
     context_fill_rect(context, x, y, length, 1, color);
 }
 
 // A vertical line as a filled rect of width 1
+/**
+ * @brief Draw a vertical line using the fill-rect helper.
+ *
+ * @param context Target video context.
+ * @param x X coordinate of the line.
+ * @param y Starting Y coordinate.
+ * @param length Length in pixels.
+ * @param color Line colour.
+ */
 void context_vertical_line(video_context_t *context, int x, int y, unsigned int length, uint32_t color)
 {
     context_fill_rect(context, x, y, 1, length, color);
 }
 
 // Rectangle drawing using our horizontal and vertical lines
+/**
+ * @brief Draw an axis-aligned rectangle outline.
+ *
+ * @param context Target video context.
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param width Rectangle width.
+ * @param height Rectangle height.
+ * @param color Outline colour.
+ */
 void context_draw_rect(video_context_t *context, int x, int y, unsigned int width, unsigned int height, uint32_t color)
 {
     context_horizontal_line(context, x, y, width, color);                         // top
@@ -282,6 +362,12 @@ void context_draw_rect(video_context_t *context, int x, int y, unsigned int widt
 
 // Update the clipping rectangles to only include those areas within both the
 // existing clipping region AND the passed rect_t
+/**
+ * @brief Intersect the current clipping region with the provided rectangle.
+ *
+ * @param context Video context whose clipping set is updated.
+ * @param rect Rectangle to intersect (freed by the function).
+ */
 void context_intersect_clip_rect(video_context_t *context, rect_t *rect)
 {
     context->clipping_on = 1;
@@ -314,6 +400,12 @@ void context_intersect_clip_rect(video_context_t *context, rect_t *rect)
 }
 
 // split all existing clip rectangles against the passed rect
+/**
+ * @brief Remove the area of @p subtracted_rect from the clipping region.
+ *
+ * @param context Video context whose clips are modified.
+ * @param subtracted_rect Rectangle to subtract.
+ */
 void context_subtract_clip_rect(video_context_t *context, rect_t *subtracted_rect)
 {
     // Check each item already in the list to see if it overlaps with
@@ -355,6 +447,12 @@ void context_subtract_clip_rect(video_context_t *context, rect_t *subtracted_rec
     }
 }
 
+/**
+ * @brief Add a non-overlapping clipping rectangle to the context.
+ *
+ * @param context Video context that receives the rectangle.
+ * @param added_rect Rectangle to add; ownership passes to the context.
+ */
 void context_add_clip_rect(video_context_t *context, rect_t *added_rect)
 {
     context_subtract_clip_rect(context, added_rect);
@@ -365,6 +463,11 @@ void context_add_clip_rect(video_context_t *context, rect_t *added_rect)
 }
 
 // Remove all of the clipping rects from the passed context object
+/**
+ * @brief Remove all clipping rectangles from the context.
+ *
+ * @param context Video context to clear.
+ */
 void context_clear_clip_rects(video_context_t *context)
 {
     context->clipping_on = 0;
@@ -378,6 +481,16 @@ void context_clear_clip_rects(video_context_t *context)
 }
 
 // Draw a single character with the specified font color at the specified coordinates
+/**
+ * @brief Render a single character clipped to the supplied rectangle.
+ *
+ * @param context Target video context.
+ * @param character Character to draw (ASCII subset).
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param color Colour to use for glyph pixels.
+ * @param bound_rect Clipping rectangle bounding the glyph.
+ */
 void context_draw_char_clipped(video_context_t *context, char character, int x, int y, uint32_t color,
                                rect_t *bound_rect)
 {
@@ -428,6 +541,15 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
 }
 
 // This will be a lot like context_fill_rect, but on a bitmap font character
+/**
+ * @brief Render a character, honouring the context's clip rectangles.
+ *
+ * @param context Target video context.
+ * @param character Character to draw (ASCII subset).
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param color Colour to use for glyph pixels.
+ */
 void context_draw_char(video_context_t *context, char character, int x, int y, uint32_t color)
 {
     // If there are clipping rects, draw the character clipped to
@@ -451,6 +573,15 @@ void context_draw_char(video_context_t *context, char character, int x, int y, u
 }
 
 // Draw a line of text with the specified font color at the specified coordinates
+/**
+ * @brief Draw a null-terminated string starting at the given position.
+ *
+ * @param context Target video context.
+ * @param string Text to render.
+ * @param x Left coordinate.
+ * @param y Top coordinate.
+ * @param color Colour of the text.
+ */
 void context_draw_text(video_context_t *context, char *string, int x, int y, uint32_t color)
 {
     for (; *string; x += VESA_CHAR_WIDTH)
