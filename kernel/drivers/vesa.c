@@ -1,12 +1,16 @@
 #include <config.h>
 #include <font.h>
 #include <memory.h>
+#include <paging.h>
+#include <pat.h>
 #include <sse.h>
 #include <stdint.h>
 #include <vesa.h>
+#include <x86.h>
 
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
+extern struct page_directory *kernel_page_directory;
 
 static inline int vesa_supports_32bpp(void)
 {
@@ -58,6 +62,65 @@ static inline void vesa_copy_span32(uint8_t *dst, const uint32_t *src, uint32_t 
         *((uint32_t *)dst) = *src++;
         dst += 4;
     }
+}
+
+/**
+ * @brief Promote the framebuffer mapping to write-combining via PAT.
+ *
+ * Requires PAT support and a 32-bit linear framebuffer. Each framebuffer 4 KiB page is
+ * remapped so its cache attribute selects the WC PAT entry and CR3 is reloaded to flush
+ * the TLB, providing a significant boost for sequential pixel writes.
+ */
+void vesa_enable_write_combining(void)
+{
+    if (!pat_available()) {
+        return;
+    }
+
+    const uint8_t wc = pat_wc_index();
+    if (wc == 0xFF) {
+        return;
+    }
+
+    if (vbe_info->framebuffer == 0 || vbe_info->pitch == 0 || vbe_info->height == 0) {
+        return;
+    }
+
+    const uint32_t bytes_per_pixel = vbe_info->bpp / 8;
+    if (bytes_per_pixel != 4) {
+        return;
+    }
+
+    const uint32_t fb_start_phys = (uint32_t)vbe_info->framebuffer;
+    const uint32_t fb_size       = vbe_info->pitch * vbe_info->height;
+    const uint32_t region_start  = fb_start_phys & ~(PAGING_PAGE_SIZE - 1U);
+    const uint32_t region_end    = (fb_start_phys + fb_size + PAGING_PAGE_SIZE - 1U) & ~(PAGING_PAGE_SIZE - 1U);
+
+    for (uint32_t addr = region_start; addr < region_end; addr += PAGING_PAGE_SIZE) {
+        const uint32_t entry = paging_get(kernel_page_directory, (void *)addr);
+        if ((entry & PDE_IS_PRESENT) == 0) {
+            continue;
+        }
+
+        uint32_t updated = entry & ~(PDE_CACHE_DISABLED | PDE_WRITE_THROUGH | 0x80U);
+
+        switch (wc) {
+        case 0x01:
+            updated |= PDE_WRITE_THROUGH; // PAT index 1
+            break;
+        case 0x05:
+            updated |= PDE_WRITE_THROUGH | 0x80U; // PAT index 5 (PAT bit set)
+            break;
+        default:
+            continue;
+        }
+
+        if (updated != entry) {
+            paging_set(kernel_page_directory, (void *)addr, updated);
+        }
+    }
+
+    lcr3((uint32_t)kernel_page_directory->directory_entry);
 }
 
 void vesa_fill_rect32(int x, int y, int width, int height, uint32_t color)

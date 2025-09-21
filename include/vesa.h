@@ -53,3 +53,4 @@ void vesa_print_string(const char *str, int len, int x, int y, uint32_t color, u
 void vesa_draw_cursor(int x, int y);
 void vesa_erase_cursor(int x, int y);
 void vesa_scroll_up();
+void vesa_enable_write_combining(void);

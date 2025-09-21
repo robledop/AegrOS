@@ -26,6 +26,22 @@
 #define CR4_UMIP       0x00000800
 #define CR4_LA57       0x00001000
 
+#define MSR_IA32_PAT 0x00000277
+
+static inline uint64_t rdmsr(uint32_t msr)
+{
+    uint32_t lo, hi;
+    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    return ((uint64_t)hi << 32) | lo;
+}
+
+static inline void wrmsr(uint32_t msr, uint64_t value)
+{
+    uint32_t lo = (uint32_t)value;
+    uint32_t hi = (uint32_t)(value >> 32);
+    asm volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
+}
+
 // Interrupt flags enabled
 #define EFLAGS_CF 0x00000001
 #define EFLAGS_PF 0x00000004

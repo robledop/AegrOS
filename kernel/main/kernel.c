@@ -28,6 +28,7 @@
 #include <process.h>
 #include <root_inode.h>
 #include <serial.h>
+#include <pat.h>
 #include <syscall.h>
 #include <thread.h>
 #include <timer.h>
@@ -159,6 +160,10 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     vesa_put_bitmap_32(1024 - 40, 10, (unsigned int *)xterm);
 #endif
     paging_init();
+    pat_init();
+#ifdef PIXEL_RENDERING
+    vesa_enable_write_combining();
+#endif
     pic_init();
     idt_init();
     pit_init();
