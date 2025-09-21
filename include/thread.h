@@ -20,6 +20,7 @@ struct cpu {
     int ncli;                  // Depth of pushcli nesting.
 
     bool interrupts_enabled; // Were interrupts enabled before pushcli?
+    _Alignas(16) uint8_t fpu_state[512];
     // struct process *proc;    // The process running on this cpu or null
 };
 
@@ -52,6 +53,7 @@ struct thread {
     uint32_t size;
     struct process *process;
     void *kernel_stack;
+    _Alignas(16) uint8_t fpu_state[512];
 };
 
 struct process_list {

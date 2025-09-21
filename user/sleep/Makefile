@@ -24,6 +24,7 @@ FLAGS = -g \
 	-falign-functions \
 	-falign-labels \
 	-falign-loops \
+	-msse2 -mfpmath=sse \
 	-fstrength-reduce \
 	-fomit-frame-pointer \
 	-finline-functions \

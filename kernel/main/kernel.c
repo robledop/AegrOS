@@ -37,6 +37,8 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
+#include "fpu.h"
+
 
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
 
@@ -136,6 +138,7 @@ void spawn_terminal(icon_t *icon, int x, int y)
 
 void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 {
+    fpu_init();
     cli();
 
 #ifdef PIXEL_RENDERING

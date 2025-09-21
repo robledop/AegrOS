@@ -59,6 +59,8 @@ FLAGS = -ffreestanding \
 	-falign-loops \
 	-fstrength-reduce \
 	-fno-omit-frame-pointer \
+	-msse2 -mfpmath=sse \
+	-mstackrealign \
 	-Wno-unused-function \
 	-Wno-unused-variable \
 	-fno-inline-functions \
@@ -75,6 +77,7 @@ FLAGS = -ffreestanding \
 	-Wextra \
 	-Wall
 
+#	-msse2 -mfpmath=sse \
 	# -Werror \
 	# -masm=intel \
 	# -pedantic-errors \

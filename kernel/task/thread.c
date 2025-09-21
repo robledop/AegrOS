@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <config.h>
 #include <elf.h>
+#include <fpu.h>
 #include <idt.h>
 #include <kernel.h>
 #include <kernel_heap.h>
@@ -74,9 +75,22 @@ void switch_to_scheduler(void)
     ASSERT(get_current_thread()->state != TASK_RUNNING);
     ASSERT((read_eflags() & EFLAGS_IF) != EFLAGS_IF);
 
-    const bool interrupts_enabled = get_cpu()->interrupts_enabled;
-    switch_context(&current_thread->context, get_cpu()->scheduler);
-    get_cpu()->interrupts_enabled = interrupts_enabled;
+    struct cpu *cpu_local         = get_cpu();
+    const bool interrupts_enabled = cpu_local->interrupts_enabled;
+
+    if (current_thread) {
+        fpu_save(current_thread->fpu_state);
+    }
+
+    fpu_restore(cpu_local->fpu_state);
+
+    switch_context(&current_thread->context, cpu_local->scheduler);
+
+    cpu_local->interrupts_enabled = interrupts_enabled;
+
+    if (current_thread) {
+        fpu_restore(current_thread->fpu_state);
+    }
 }
 
 struct thread *get_current_thread(void)
@@ -155,6 +169,8 @@ struct thread *thread_allocate(void (*entry)(void), const enum thread_state stat
     new_thread->context = (struct context *)kernel_stack_pointer;
     memset(new_thread->context, 0, sizeof *new_thread->context);
     new_thread->context->eip = (uintptr_t)thread_starting;
+
+    fpu_load_initial_state(new_thread->fpu_state);
 
     new_thread->next      = nullptr;
     new_thread->state     = state;
@@ -403,9 +419,14 @@ void scheduler(void)
             paging_switch_directory(p->page_directory);
             popcli();
 
+            fpu_save(current_cpu->fpu_state);
+            fpu_restore(p->thread->fpu_state);
+
             p->thread->state = TASK_RUNNING;
 
             switch_context(&(current_cpu->scheduler), p->thread->context);
+
+            fpu_restore(current_cpu->fpu_state);
 
             kernel_page();
 
@@ -432,7 +453,10 @@ void scheduler(void)
                 current_thread        = idle_thread;
                 current_thread->state = TASK_RUNNING;
                 idle_start            = get_cpu_time_ns();
+                fpu_save(current_cpu->fpu_state);
+                fpu_restore(current_thread->fpu_state);
                 switch_context(&(current_cpu->scheduler), current_thread->context);
+                fpu_restore(current_cpu->fpu_state);
                 idle_start = idle_start - get_cpu_time_ns();
                 idle_time += idle_start;
                 current_thread = nullptr;
@@ -601,6 +625,7 @@ void current_thread_page()
 void threads_init(void)
 {
     cpu = kzalloc(sizeof(struct cpu));
+    fpu_save(cpu->fpu_state);
     initlock(&process_list.lock, "process table");
     discover_cpu_speed();
 

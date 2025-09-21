@@ -22,6 +22,7 @@ FLAGS = -g \
 	-falign-jumps \
 	-falign-functions \
 	-falign-labels \
+	-msse2 -mfpmath=sse \
 	-falign-loops \
 	-fstrength-reduce \
 	-fomit-frame-pointer \
