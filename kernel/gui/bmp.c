@@ -36,7 +36,7 @@ int bitmap_load_argb(const char *path, uint32_t **out_pixels)
         panic("Not a BMP file\n");
     }
 
-    if (ih.biBitCount != 32 && ih.biBitCount != 24) {
+    if (ih.biBitCount != 24) {
         panic("Unsupported BMP format\n");
     }
 
