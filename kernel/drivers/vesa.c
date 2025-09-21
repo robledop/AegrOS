@@ -1,33 +1,156 @@
 #include <config.h>
 #include <font.h>
 #include <memory.h>
+#include <sse.h>
 #include <stdint.h>
 #include <vesa.h>
 
 static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 
+static inline int vesa_supports_32bpp(void)
+{
+    return vbe_info->bpp == 32;
+}
+
+static inline void vesa_fill_span32(uint8_t *dst, uint32_t pixel_count, uint32_t color)
+{
 #ifdef __SSE2__
-typedef unsigned long long vec128 __attribute__((vector_size(16)));
-
-union vec128_cast {
-    vec128 v;
-    unsigned long long q[2];
-};
-
-static inline vec128 vesa_load128(const void *ptr)
-{
-    vec128 value;
-    __asm__ volatile("movdqa %1, %0" : "=x"(value) : "m"(*(const unsigned char(*)[16])ptr));
-    return value;
-}
-
-static inline void vesa_store128(void *ptr, vec128 value)
-{
-    __asm__ volatile("movdqa %1, %0" : "=m"(*(unsigned char(*)[16])ptr) : "x"(value) : "memory");
-}
-
+    if (pixel_count >= 4U) {
+        vec128 fill = splat32(color);
+        while (((uintptr_t)dst & 15U) && pixel_count) {
+            *((uint32_t *)dst) = color;
+            dst += 4;
+            pixel_count--;
+        }
+        while (pixel_count >= 4U) {
+            storeu128(dst, fill);
+            dst += 16;
+            pixel_count -= 4U;
+        }
+    }
 #endif
+    while (pixel_count--) {
+        *((uint32_t *)dst) = color;
+        dst += 4;
+    }
+}
+
+static inline void vesa_copy_span32(uint8_t *dst, const uint32_t *src, uint32_t pixel_count)
+{
+#ifdef __SSE2__
+    if (pixel_count >= 4U) {
+        while (((uintptr_t)dst & 15U) && pixel_count) {
+            *((uint32_t *)dst) = *src++;
+            dst += 4;
+            pixel_count--;
+        }
+        while (pixel_count >= 4U) {
+            vec128 value = loadu128(src);
+            storeu128(dst, value);
+            dst += 16;
+            src += 4;
+            pixel_count -= 4U;
+        }
+    }
+#endif
+    while (pixel_count--) {
+        *((uint32_t *)dst) = *src++;
+        dst += 4;
+    }
+}
+
+void vesa_fill_rect32(int x, int y, int width, int height, uint32_t color)
+{
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    if (!vesa_supports_32bpp()) {
+        for (int j = 0; j < height; j++) {
+            for (int i = 0; i < width; i++) {
+                vesa_putpixel(x + i, y + j, color);
+            }
+        }
+        return;
+    }
+
+    const int screen_w = (int)vbe_info->width;
+    const int screen_h = (int)vbe_info->height;
+
+    int x0 = x;
+    int y0 = y;
+    int x1 = x + width;
+    int y1 = y + height;
+
+    if (x1 <= 0 || y1 <= 0 || x0 >= screen_w || y0 >= screen_h) {
+        return;
+    }
+
+    if (x0 < 0) {
+        x0 = 0;
+    }
+    if (y0 < 0) {
+        y0 = 0;
+    }
+    if (x1 > screen_w) {
+        x1 = screen_w;
+    }
+    if (y1 > screen_h) {
+        y1 = screen_h;
+    }
+
+    uint32_t span_pixels = (uint32_t)(x1 - x0);
+    uint8_t *row         = (uint8_t *)vbe_info->framebuffer + (uint32_t)y0 * vbe_info->pitch + (uint32_t)x0 * 4U;
+
+    for (int j = y0; j < y1; j++) {
+        vesa_fill_span32(row, span_pixels, color);
+        row += vbe_info->pitch;
+    }
+}
+
+void vesa_blit_span32(int x, int y, const uint32_t *src, uint32_t pixel_count)
+{
+    if (!src || pixel_count == 0) {
+        return;
+    }
+
+    if (!vesa_supports_32bpp()) {
+        for (uint32_t i = 0; i < pixel_count; i++) {
+            vesa_putpixel(x + (int)i, y, src[i]);
+        }
+        return;
+    }
+
+    const int screen_w = (int)vbe_info->width;
+    const int screen_h = (int)vbe_info->height;
+
+    if (y < 0 || y >= screen_h) {
+        return;
+    }
+
+    int x0          = x;
+    uint32_t offset = 0;
+    if (x0 < 0) {
+        offset = (uint32_t)(-x0);
+        if (offset >= pixel_count) {
+            return;
+        }
+        pixel_count -= offset;
+        x0 = 0;
+    }
+
+    if (x0 >= screen_w) {
+        return;
+    }
+
+    if (x0 + (int)pixel_count > screen_w) {
+        pixel_count = (uint32_t)(screen_w - x0);
+    }
+
+    uint8_t *row = (uint8_t *)vbe_info->framebuffer + (uint32_t)y * vbe_info->pitch + (uint32_t)x0 * 4U;
+    vesa_copy_span32(row, src + offset, pixel_count);
+}
 
 void vesa_putpixel(int x, int y, uint32_t rgb)
 {
@@ -71,9 +194,27 @@ void vesa_puticon32(int x, int y, const unsigned char *icon)
 
 void vesa_put_bitmap_32(int x, int y, const unsigned int *icon)
 {
-    for (int j = 0; j < 32; j++) {
-        for (int i = 0; i < 32; i++) {
-            uint32_t color = icon[j * 32 + i];
+    if (!icon) {
+        return;
+    }
+
+    const int icon_w = 32;
+    const int icon_h = 32;
+
+    if (vesa_supports_32bpp() && x >= 0 && y >= 0 && x + icon_w <= (int)vbe_info->width &&
+        y + icon_h <= (int)vbe_info->height) {
+        uint8_t *row = (uint8_t *)vbe_info->framebuffer + (uint32_t)y * vbe_info->pitch + (uint32_t)x * 4U;
+        for (int j = 0; j < icon_h; j++) {
+            const unsigned int *src_row = icon + (uint32_t)j * (uint32_t)icon_w;
+            vesa_copy_span32(row, (const uint32_t *)src_row, (uint32_t)icon_w);
+            row += vbe_info->pitch;
+        }
+        return;
+    }
+
+    for (int j = 0; j < icon_h; j++) {
+        for (int i = 0; i < icon_w; i++) {
+            uint32_t color = icon[j * icon_w + i];
             vesa_putpixel(x + i, y + j, color);
         }
     }
@@ -112,16 +253,7 @@ void vesa_clear_screen(uint32_t color)
         return;
     }
 
-    uint8_t *framebuffer     = (uint8_t *)vbe_info->framebuffer;
-    uint32_t bytes_per_pixel = vbe_info->bpp / 8;
-
-    for (uint32_t y = 0; y < vbe_info->height; y++) {
-        for (uint32_t x = 0; x < vbe_info->width; x++) {
-            uint8_t *pixel = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
-
-            *((uint32_t *)pixel) = color;
-        }
-    }
+    vesa_fill_rect32(0, 0, (int)vbe_info->width, (int)vbe_info->height, color);
 }
 
 void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
@@ -130,19 +262,30 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
         return;
     }
 
-    // Clear background
-    for (int i = 0; i < VESA_CHAR_WIDTH; i++) {
-        for (int j = 0; j < VESA_LINE_HEIGHT; j++) {
-            vesa_putpixel(x + i, y + j, bg);
-        }
-    }
+    vesa_fill_rect32(x, y, VESA_CHAR_WIDTH, VESA_LINE_HEIGHT, bg);
 
-    for (int l = 0; l < 8; l++) {
-        for (int i = 8; i >= 0; i--) {
-            if (font8x8_basic[c][l] & (1 << i)) {
-                vesa_putpixel((x) + i, (y) + l, color);
+    if (!vesa_supports_32bpp()) {
+        for (int l = 0; l < 8; l++) {
+            for (int i = 0; i < 8; i++) {
+                if (font8x8_basic[c][l] & (1 << i)) {
+                    vesa_putpixel(x + i, y + l, color);
+                }
             }
         }
+        return;
+    }
+
+    uint8_t *row = (uint8_t *)vbe_info->framebuffer + (uint32_t)y * vbe_info->pitch + (uint32_t)x * 4U;
+
+    for (int l = 0; l < 8; l++) {
+        uint8_t mask    = font8x8_basic[c][l];
+        uint32_t *dst32 = (uint32_t *)row;
+        for (int i = 0; i < 8; i++) {
+            if (mask & (1U << i)) {
+                dst32[i] = color;
+            }
+        }
+        row += vbe_info->pitch;
     }
 }
 

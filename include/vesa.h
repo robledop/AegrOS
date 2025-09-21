@@ -30,7 +30,7 @@ struct vbe_mode_info {
     uint16_t off_screen_mem_size; // size of memory in the framebuffer but not being displayed on the screen
 };
 
-// extern struct vbe_mode_info *vbe_info;
+extern struct vbe_mode_info *vbe_info;
 
 // void vesa_init();
 // void vesa_add_clip_rect(rect_t *added_rect);
@@ -39,6 +39,8 @@ void vesa_clear_screen(uint32_t color);
 void vesa_putpixel(int x, int y, uint32_t rbg);
 void vesa_put_char16(unsigned char c, int x, int y, uint32_t color);
 void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg);
+void vesa_fill_rect32(int x, int y, int width, int height, uint32_t color);
+void vesa_blit_span32(int x, int y, const uint32_t *src, uint32_t pixel_count);
 // void vesa_fill_rect(int x, int y, int w, int h, uint32_t color);
 // void vesa_draw_rect(int x, int y, unsigned int width, unsigned int height, uint32_t color);
 void vesa_puticon32(int x, int y, const unsigned char *icon);

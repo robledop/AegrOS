@@ -26,10 +26,8 @@ video_context_t *context_new(uint16_t width, uint16_t height)
     return context;
 }
 
-
-void context_clipped_rect_bitmap(video_context_t *context,
-                                 int x, int y, unsigned int draw_width, unsigned int draw_height,
-                                 rect_t *clip_area, uint32_t *pixels, unsigned int stride,
+void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int draw_width,
+                                 unsigned int draw_height, rect_t *clip_area, uint32_t *pixels, unsigned int stride,
                                  int src_origin_x, int src_origin_y)
 {
     int max_x = x + (int)draw_width;
@@ -68,14 +66,15 @@ void context_clipped_rect_bitmap(video_context_t *context,
     const int src_base_x = src_origin_x + (x - draw_origin_x);
     const int src_base_y = src_origin_y + (y - draw_origin_y);
 
-    // Draw the rectangle into the framebuffer line-by line
-    //(bonus points if you write an assembly routine to do it faster)
+    const int span = max_x - x;
+    if (span <= 0) {
+        return;
+    }
+
     for (int draw_y = y; draw_y < max_y; draw_y++) {
-        const int src_y = src_base_y + (draw_y - y);
-        for (int draw_x = x; draw_x < max_x; draw_x++) {
-            const int src_x = src_base_x + (draw_x - x);
-            vesa_putpixel(draw_x, draw_y, pixels[src_y * stride + src_x]);
-        }
+        const int src_y         = src_base_y + (draw_y - y);
+        const uint32_t *src_row = pixels + (uint32_t)src_y * stride + (uint32_t)src_base_x;
+        vesa_blit_span32(x, draw_y, src_row, (uint32_t)span);
     }
 }
 
@@ -110,11 +109,14 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
 
     // Draw the rectangle into the framebuffer line-by line
     //(bonus points if you write an assembly routine to do it faster)
-    for (; y < max_y; y++)
-        for (int cur_x = x; cur_x < max_x; cur_x++)
-            vesa_putpixel(cur_x, y, color);
-}
+    if (x >= max_x || y >= max_y) {
+        return;
+    }
 
+    const int width_span  = max_x - x;
+    const int height_span = max_y - y;
+    vesa_fill_rect32(x, y, width_span, height_span, color);
+}
 
 
 void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
@@ -138,7 +140,7 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
             return;
         }
         draw_width -= (unsigned int)src_origin_x;
-        draw_x      = 0;
+        draw_x = 0;
     }
 
     if (draw_y < 0) {
@@ -147,7 +149,7 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
             return;
         }
         draw_height -= (unsigned int)src_origin_y;
-        draw_y       = 0;
+        draw_y = 0;
     }
 
     if (draw_x + (int)draw_width > context->width) {
@@ -178,15 +180,15 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
         for (unsigned int i = 0; i < context->clip_rects->count; i++) {
             auto clip_area = (rect_t *)list_get_at(context->clip_rects, i);
             context_clipped_rect_bitmap(context,
-                                       draw_x,
-                                       draw_y,
-                                       draw_width,
-                                       draw_height,
-                                       clip_area,
-                                       pixels,
-                                       stride,
-                                       src_origin_x,
-                                       src_origin_y);
+                                        draw_x,
+                                        draw_y,
+                                        draw_width,
+                                        draw_height,
+                                        clip_area,
+                                        pixels,
+                                        stride,
+                                        src_origin_x,
+                                        src_origin_y);
         }
     } else {
 
@@ -197,15 +199,15 @@ void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int wi
             screen_area.bottom = context->height - 1;
             screen_area.right  = context->width - 1;
             context_clipped_rect_bitmap(context,
-                                       draw_x,
-                                       draw_y,
-                                       draw_width,
-                                       draw_height,
-                                       &screen_area,
-                                       pixels,
-                                       stride,
-                                       src_origin_x,
-                                       src_origin_y);
+                                        draw_x,
+                                        draw_y,
+                                        draw_width,
+                                        draw_height,
+                                        &screen_area,
+                                        pixels,
+                                        stride,
+                                        src_origin_x,
+                                        src_origin_y);
         }
     }
 }
@@ -299,8 +301,9 @@ void context_intersect_clip_rect(video_context_t *context, rect_t *rect)
     }
 
     // Delete the original rectangle list
-    while (context->clip_rects->count)
+    while (context->clip_rects->count) {
         kfree(list_remove_at(context->clip_rects, 0));
+    }
     kfree(context->clip_rects);
 
     // And re-point it to the new one we built above
@@ -414,26 +417,11 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
 
     // Now we do the actual pixel plotting loop
     for (int font_y = off_y; font_y < count_y; font_y++) {
-
-        // Capture the current line of the specified char
-        // Just a normal bmp[y * width + x], but in this
-        // case we're dealing with an array of 1bpp
-        // 8-bit-wide character lines
-        uint8_t shift_line = font_array[font_y * 128 + character];
-
-        // Pre-shift the line by the x-offset
-        shift_line <<= off_x;
-
+        uint8_t shift_line = font_array[font_y * 128 + character] << off_x;
         for (int font_x = off_x; font_x < count_x; font_x++) {
-
-            // Get the current leftmost bit of the current
-            // line of the character and, if it's set, plot a pixel
             if (shift_line & 0x80) {
                 vesa_putpixel(font_x + x, font_y + y, color);
             }
-            // context->buffer[(font_y + y) * context->width + (font_x + x)] = color;
-
-            // Shift in the next bit
             shift_line <<= 1;
         }
     }
