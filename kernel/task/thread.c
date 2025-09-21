@@ -41,7 +41,7 @@ uint64_t get_cpu_time_ns()
 int get_processes(struct process_info **proc_info)
 {
     int count = 0;
-    for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         struct process *p = process_list.processes[i];
         if (p) {
             count++;
@@ -50,7 +50,7 @@ int get_processes(struct process_info **proc_info)
 
     *proc_info = kzalloc(count * sizeof(struct process_info));
 
-    for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         struct process *p = process_list.processes[i];
         if (!p) {
             continue;
@@ -319,7 +319,7 @@ int wait(void)
         }
         // Scan through table looking for exited children.
         int havekids = 0;
-        for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+        for (int i = 0; i < MAX_PROCESSES; i++) {
             struct process *p = process_list.processes[i];
             if (!p || p->parent != curproc) {
                 continue;
@@ -352,7 +352,7 @@ int wait(void)
 int kill(const int pid)
 {
     acquire(&process_list.lock);
-    for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         struct process *p = process_list.processes[i];
         if (p && p->pid == pid) {
             p->killed = true;
@@ -400,7 +400,7 @@ void scheduler(void)
 
         // Loop over process table looking for process to run.
         acquire(&process_list.lock);
-        for (int i = 0; i < MAX_PROCESSES - 1; i++) {
+        for (int i = 0; i < MAX_PROCESSES; i++) {
             struct process *p = process_list.processes[i];
 
             if (!p || !p->thread || p->thread->state != TASK_READY) {
