@@ -31,6 +31,8 @@ struct thread *idle_thread    = nullptr;
 static uint64_t last_time     = 0;
 static uint64_t idle_time     = 0;
 static uint64_t idle_start    = 0;
+static struct cpu bootstrap_cpu;
+static struct cpu *cpu = &bootstrap_cpu;
 
 /// @brief Nanoseconds since boot
 uint64_t get_cpu_time_ns()
@@ -628,7 +630,9 @@ void current_thread_page()
 
 void threads_init(void)
 {
-    cpu = kzalloc(sizeof(struct cpu));
+    struct cpu *new_cpu = kzalloc(sizeof(struct cpu));
+    memcpy(new_cpu, cpu, sizeof(struct cpu));
+    cpu = new_cpu;
     fpu_save(cpu->fpu_state);
     initlock(&process_list.lock, "process table");
     discover_cpu_speed();

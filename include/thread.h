@@ -69,7 +69,6 @@ struct process_info {
     enum thread_state state;
 };
 
-static struct cpu *cpu = nullptr;
 extern struct thread *current_thread;
 
 #define TIME_SLICE_SIZE (10 * 1000 * 1000ULL)

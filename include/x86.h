@@ -27,6 +27,7 @@
 #define CR4_LA57       0x00001000
 
 #define MSR_IA32_PAT 0x00000277
+#define MSR_IA32_APIC_BASE 0x0000001B
 
 static inline uint64_t rdmsr(uint32_t msr)
 {
