@@ -9,14 +9,18 @@ void *memset(void *ptr, const int value, const size_t size)
 
 #ifdef __SSE2__
     if (size >= 64) {
+        // Vector with `value` repeated 16 times
         const vec128 fill = splat8((unsigned char)value);
         size_t remaining  = size;
 
+        // Align the pointer p to a 16-byte boundary.
+        // Sets individual bytes until the pointer is aligned.
         while (((uintptr_t)p & 15U) && remaining) {
             *p++ = (unsigned char)value;
             --remaining;
         }
 
+        // Write in 64 bytes chunks until there's less then 64 bytes remaining
         unsigned char *limit = p + (remaining & ~63ULL);
         while (p < limit) {
             storea128(p + 0, fill);
@@ -26,6 +30,7 @@ void *memset(void *ptr, const int value, const size_t size)
             p += 64;
         }
 
+        // Write the remaining bytes in 16 bytes chunks until there's less than 16 bytes remaining
         remaining &= 63U;
         while (remaining >= 16) {
             storea128(p, fill);
@@ -33,6 +38,7 @@ void *memset(void *ptr, const int value, const size_t size)
             remaining -= 16;
         }
 
+        // Write any leftover bytes one by one
         while (remaining--) {
             *p++ = (unsigned char)value;
         }
@@ -41,6 +47,7 @@ void *memset(void *ptr, const int value, const size_t size)
     }
 #endif
 
+    // Fallback for small sizes or non-SSE2
     for (size_t i = 0; i < size; i++) {
         p[i] = (unsigned char)value;
     }

@@ -6,7 +6,6 @@
 #include <list.h>
 #include <memory.h>
 #include <stdint.h>
-#include "vesa.h"
 
 #define VTERM_WIDTH 800
 #define VTERM_HEIGHT 400
@@ -211,7 +210,14 @@ static void vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y, rect
     out_rect->right  = out_rect->left + VESA_CHAR_WIDTH;
 
     // For debugging
-    // context_draw_rect(vterm->window.context, left - 1, top - 1, right - left + 2, bottom - top + 2, 0xFF00FF00);
+#if 0
+    context_draw_rect(vterm->window.context,
+                      out_rect->left - 1,
+                      out_rect->top - 1,
+                      out_rect->right - out_rect->left + 2,
+                      out_rect->bottom - out_rect->top + 2,
+                      0xFF00FF00);
+#endif
 }
 
 static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int old_cursor_y)

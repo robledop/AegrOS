@@ -27,8 +27,8 @@ video_context_t *context_new(uint16_t width, uint16_t height)
 }
 
 void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int draw_width,
-                                 unsigned int draw_height, rect_t *clip_area, uint32_t *pixels, unsigned int stride,
-                                 int src_origin_x, int src_origin_y)
+                                 unsigned int draw_height, rect_t *clip_area, const uint32_t *pixels,
+                                 unsigned int stride, int src_origin_x, int src_origin_y)
 {
     int max_x = x + (int)draw_width;
     int max_y = y + (int)draw_height;
@@ -417,7 +417,7 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
 
     // Now we do the actual pixel plotting loop
     for (int font_y = off_y; font_y < count_y; font_y++) {
-        uint8_t shift_line = font_array[font_y * 128 + character] << off_x;
+        uint8_t shift_line = font8x12[font_y * 128 + character] << off_x;
         for (int font_x = off_x; font_x < count_x; font_x++) {
             if (shift_line & 0x80) {
                 vesa_putpixel(font_x + x, font_y + y, color);

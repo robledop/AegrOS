@@ -267,7 +267,7 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
     if (!vesa_supports_32bpp()) {
         for (int l = 0; l < 8; l++) {
             for (int i = 0; i < 8; i++) {
-                if (font8x8_basic[c][l] & (1 << i)) {
+                if (font8x8[c][l] & (1 << i)) {
                     vesa_putpixel(x + i, y + l, color);
                 }
             }
@@ -278,7 +278,7 @@ void vesa_put_char8(unsigned char c, int x, int y, uint32_t color, uint32_t bg)
     uint8_t *row = (uint8_t *)vbe_info->framebuffer + (uint32_t)y * vbe_info->pitch + (uint32_t)x * 4U;
 
     for (int l = 0; l < 8; l++) {
-        uint8_t mask    = font8x8_basic[c][l];
+        uint8_t mask    = font8x8[c][l];
         uint32_t *dst32 = (uint32_t *)row;
         for (int i = 0; i < 8; i++) {
             if (mask & (1U << i)) {
@@ -301,7 +301,7 @@ void vesa_put_char16(unsigned char c, int x, int y, uint32_t color)
 {
     for (int l = 0; l < 16; l++) {
         for (int i = 15; i >= 0; i--) {
-            if (font8x8_basic[c][l / 2] & (1 << (i / 2))) {
+            if (font8x8[c][l / 2] & (1 << (i / 2))) {
                 vesa_putpixel((x) + i, (y) + l, color);
             }
         }
