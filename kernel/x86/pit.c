@@ -24,8 +24,9 @@ void pit_init()
     outb(PIT_COMMAND, data);
 }
 
-/// @brief Set the interval of the PIT
-/// @param interval The interval in milliseconds
+/** @brief Set the interval of the PIT
+ * @param interval The interval in milliseconds
+ */
 void pit_set_interval(const uint32_t interval)
 {
     const uint32_t frequency = 1000 / interval;

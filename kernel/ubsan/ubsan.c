@@ -401,7 +401,7 @@ void __ubsan_handle_nonnull_arg(void *data_raw)
     struct ubsan_nonnull_arg_data *data = (struct ubsan_nonnull_arg_data *)data_raw;
 #if !(defined(__GNUC__) && __GNUC__ < 6)
 #else
-    ubsan_value_handle_t index = (ubsan_value_handle_t)index_raw;
+    ubsan_value_handle_t index = (ubsan_value_handle_t)data_raw;
     (void)index;
 #endif
     ubsan_abort(&data->location, "null argument");

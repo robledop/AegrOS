@@ -27,7 +27,10 @@ bool pat_available(void)
  * pat_init() selects a PAT slot (typically index 1 or 5) and programs it to WC. A
  * return value of 0xFF indicates PAT is unavailable or initialisation failed.
  */
-uint8_t pat_wc_index(void) { return wc_index; }
+uint8_t pat_wc_index(void)
+{
+    return wc_index;
+}
 
 /**
  * @brief Initialise PAT entries to enable write-combining mappings.

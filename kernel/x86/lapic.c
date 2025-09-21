@@ -5,21 +5,21 @@
 
 #define LAPIC_DEFAULT_BASE 0xFEE00000U
 
-#define LAPIC_REG_ID          0x020
-#define LAPIC_REG_EOI         0x0B0
-#define LAPIC_REG_SVR         0x0F0
-#define LAPIC_REG_LVT_TIMER   0x320
-#define LAPIC_REG_TIMER_INIT  0x380
-#define LAPIC_REG_TIMER_CUR   0x390
-#define LAPIC_REG_TIMER_DIV   0x3E0
+#define LAPIC_REG_ID 0x020
+#define LAPIC_REG_EOI 0x0B0
+#define LAPIC_REG_SVR 0x0F0
+#define LAPIC_REG_LVT_TIMER 0x320
+#define LAPIC_REG_TIMER_INIT 0x380
+#define LAPIC_REG_TIMER_CUR 0x390
+#define LAPIC_REG_TIMER_DIV 0x3E0
 
-#define LAPIC_SVR_ENABLE           0x100
-#define LAPIC_TIMER_MODE_PERIODIC  0x00020000
-#define LAPIC_TIMER_VECTOR         0x20
-#define LAPIC_LVT_MASKED           0x00010000
+#define LAPIC_SVR_ENABLE 0x100
+#define LAPIC_TIMER_MODE_PERIODIC 0x00020000
+#define LAPIC_TIMER_VECTOR 0x20
+#define LAPIC_LVT_MASKED 0x00010000
 
-static volatile uint32_t *lapic = nullptr;
-static uint32_t lapic_ticks_per_ms  = 0;
+static volatile uint32_t *lapic    = nullptr;
+static uint32_t lapic_ticks_per_ms = 0;
 
 /**
  * @brief Read a Local APIC register.
@@ -98,7 +98,7 @@ void lapic_timer_calibrate(uint32_t hz)
         return;
     }
 
-    const uint32_t sample_ms = 10;
+    constexpr uint32_t sample_ms = 10;
 
     lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_LVT_MASKED);
     lapic_write(LAPIC_REG_TIMER_DIV, 0x3);
@@ -111,14 +111,14 @@ void lapic_timer_calibrate(uint32_t hz)
 
     uint32_t start = timer_tick;
     while ((timer_tick - start) < sample_ms) {
-        asm volatile("pause");
+        __asm__ volatile("pause");
     }
 
     if (!irq_enabled) {
         cli();
     }
 
-    uint32_t elapsed = 0xFFFFFFFFU - lapic_read(LAPIC_REG_TIMER_CUR);
+    uint32_t elapsed   = 0xFFFFFFFFU - lapic_read(LAPIC_REG_TIMER_CUR);
     lapic_ticks_per_ms = elapsed / sample_ms;
     if (lapic_ticks_per_ms == 0) {
         lapic_ticks_per_ms = 1;
@@ -167,4 +167,3 @@ void lapic_eoi(void)
     }
     lapic_write(LAPIC_REG_EOI, 0);
 }
-
