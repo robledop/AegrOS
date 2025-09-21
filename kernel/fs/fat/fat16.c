@@ -1,3 +1,8 @@
+/**
+ * @file fat16.c
+ * @brief FAT16 file system driver providing VFS integration and cluster-level helpers.
+ */
+
 #include <assert.h>
 #include <config.h>
 #include <disk.h>
@@ -28,6 +33,7 @@
 #define FAT16_EOC2 0xFFFF
 
 // For internal use
+/** @brief Discriminates between FAT items representing files or directories. */
 typedef unsigned int FAT_ITEM_TYPE;
 #define FAT_ITEM_TYPE_DIRECTORY 0
 #define FAT_ITEM_TYPE_FILE 1
@@ -41,6 +47,10 @@ typedef unsigned int FAT_ITEM_TYPE;
 #define FAT_FILE_ARCHIVE 0x20
 #define FAT_FILE_LONG_NAME 0x0F
 
+/**
+ * @struct fat_header_extended
+ * @brief FAT BIOS Parameter Block extension fields stored in the boot sector.
+ */
 struct fat_header_extended {
     uint8_t drive_number;
     uint8_t win_nt_bit;
@@ -50,6 +60,10 @@ struct fat_header_extended {
     uint8_t system_id_string[8];
 } __attribute__((packed));
 
+/**
+ * @struct fat_header
+ * @brief FAT BIOS Parameter Block describing core geometry details.
+ */
 struct fat_header {
     uint8_t jmp[3];
     uint8_t oem_name[8];
@@ -67,6 +81,10 @@ struct fat_header {
     uint32_t total_sectors_large;
 } __attribute__((packed));
 
+/**
+ * @struct fat_h
+ * @brief Combined FAT header as it appears on disk.
+ */
 struct fat_h {
     struct fat_header primary_header;
     union fat_h_e {
@@ -74,6 +92,10 @@ struct fat_h {
     } shared;
 };
 
+/**
+ * @struct fat_directory_entry
+ * @brief Packed on-disk representation of a FAT directory entry.
+ */
 struct fat_directory_entry {
     uint8_t name[8];
     uint8_t ext[3];
@@ -90,6 +112,10 @@ struct fat_directory_entry {
     uint32_t size;
 } __attribute__((packed));
 
+/**
+ * @struct fat_directory
+ * @brief Snapshot of a FAT directory loaded into memory.
+ */
 struct fat_directory {
     struct fat_directory_entry *entries;
     int entry_count;
@@ -97,12 +123,20 @@ struct fat_directory {
     uint32_t ending_sector_position;
 };
 
+/**
+ * @struct fat_item
+ * @brief Wrapper describing either a directory snapshot or a single entry.
+ */
 struct fat_item {
     struct fat_directory_entry *item;
     struct fat_directory *directory;
     FAT_ITEM_TYPE type;
 };
 
+/**
+ * @struct fat_private
+ * @brief Per-mount FAT16 driver state cached by the VFS.
+ */
 struct fat_private {
     struct fat_h header;
     struct fat_directory root_directory;
@@ -115,11 +149,16 @@ struct fat_private {
 
 #define FAT_ENTRIES_PER_SECTOR (512 / sizeof(struct fat_directory_entry))
 
-static uint8_t *fat_table              = nullptr;
-struct spinlock fat16_table_lock       = {};
-struct spinlock fat16_set_entry_lock   = {};
+/** @brief Cached in-memory copy of the first FAT table. */
+static uint8_t *fat_table = nullptr;
+/** @brief Guards concurrent FAT table loads. */
+struct spinlock fat16_table_lock = {};
+/** @brief Serializes callers updating individual FAT entries. */
+struct spinlock fat16_set_entry_lock = {};
+/** @brief Protects writes when flushing the FAT table back to disk. */
 struct spinlock fat16_table_flush_lock = {};
 
+/** @cond INTERNAL */
 int fat16_resolve(struct disk *disk);
 void *fat16_open(const struct path_root *path, FILE_MODE mode, enum INODE_TYPE *type_out, uint32_t *size_out);
 int fat16_read(const void *descriptor, size_t size, off_t nmemb, char *out);
@@ -134,7 +173,9 @@ int fat16_create_directory(const char *path);
 int fat16_get_directory(const struct path_root *path_root, struct fat_directory *fat_directory);
 int fat16_read_entry(struct file *descriptor, struct dir_entry *entry);
 uint16_t fat16_allocate_new_entry(const struct disk *disk, uint16_t clusters_needed);
+/** @endcond */
 
+/** @brief VFS operations vector for FAT16 regular files. */
 struct inode_operations fat16_file_inode_ops = {
     .open  = fat16_open,
     .read  = fat16_read,
@@ -144,6 +185,7 @@ struct inode_operations fat16_file_inode_ops = {
     .close = fat16_close,
 };
 
+/** @brief VFS operations vector for FAT16 directories. */
 struct inode_operations fat16_directory_inode_ops = {
     .open       = fat16_open,
     .read       = fat16_read,
@@ -156,8 +198,16 @@ struct inode_operations fat16_directory_inode_ops = {
     .read_entry = fat16_read_entry,
 };
 
+/** @brief Global file system descriptor registered with the VFS. */
 struct file_system *fat16_fs;
 
+/**
+ * @brief Allocate and initialize the FAT16 file system descriptor.
+ *
+ * Sets up synchronization primitives and registers the resolve handler used by the VFS.
+ *
+ * @return Pointer to the initialized file system descriptor.
+ */
 struct file_system *fat16_init()
 {
 
@@ -177,16 +227,35 @@ struct file_system *fat16_init()
     return fat16_fs;
 }
 
+/**
+ * @brief Check whether a directory reference corresponds to the volume root.
+ *
+ * @param directory Directory metadata under inspection.
+ * @param fat_private FAT16 instance private data.
+ * @return true when the directory matches the cached root directory.
+ */
 bool fat16_is_root_directory(const struct fat_directory *directory, const struct fat_private *fat_private)
 {
     return directory->sector_position == fat_private->root_directory.sector_position;
 }
 
+/**
+ * @brief Compute the first sector index that contains FAT table data.
+ *
+ * @param fat_private FAT16 instance private data.
+ * @return Sector number where the first FAT copy begins.
+ */
 static uint16_t get_fat_start_sector(const struct fat_private *fat_private)
 {
     return fat_private->header.primary_header.reserved_sectors;
 }
 
+/**
+ * @brief Initialize per-mount FAT16 private state and backing streams.
+ *
+ * @param disk Disk device associated with the mount.
+ * @param fat_private Instance storage to populate.
+ */
 static void fat16_init_private(const struct disk *disk, struct fat_private *fat_private)
 {
     memset(&fat_private->header, 0, sizeof(struct fat_h));
@@ -198,24 +267,50 @@ static void fat16_init_private(const struct disk *disk, struct fat_private *fat_
     fat_private->directory_stream     = disk_stream_create(disk->id);
 }
 
+/**
+ * @brief Translate a cluster index into a sector offset on disk.
+ *
+ * @param fat_private FAT16 private state providing layout information.
+ * @param cluster Cluster index from the FAT chain (>= 2).
+ * @return Absolute sector number corresponding to the cluster start.
+ */
 static uint32_t fat16_cluster_to_sector(const struct fat_private *fat_private, const int cluster)
 {
     return fat_private->root_directory.ending_sector_position +
         ((cluster - 2) * fat_private->header.primary_header.sectors_per_cluster);
 }
 
+/**
+ * @brief Convert a sector number to its owning cluster index.
+ *
+ * @param fat_private FAT16 private state.
+ * @param sector Sector number relative to the start of data region.
+ * @return Cluster index containing the sector.
+ */
 static uint16_t fat16_sector_to_cluster(const struct fat_private *fat_private, const int sector)
 {
     const int cluster_size = fat_private->header.primary_header.sectors_per_cluster;
     return sector / cluster_size;
 }
 
+/**
+ * @brief Translate a sector number into a byte offset on disk.
+ *
+ * @param disk Target disk descriptor.
+ * @param sector Sector number to convert.
+ * @return Absolute byte address suitable for stream seeking.
+ */
 static int fat16_sector_to_absolute(const struct disk *disk, const int sector)
 {
     return sector * disk->sector_size;
 }
 
-/// @brief Load the first FAT into memory
+/**
+ * @brief Load the primary FAT table from disk into memory.
+ *
+ * @param fat_private FAT16 private state containing layout metadata.
+ * @return `ALL_OK` on success or a negative errno-style value on failure.
+ */
 int fat16_load_table(const struct fat_private *fat_private)
 {
     if (fat_table == nullptr) {
@@ -244,7 +339,11 @@ int fat16_load_table(const struct fat_private *fat_private)
     return ALL_OK;
 }
 
-/// @brief Write the FAT back to disk
+/**
+ * @brief Persist the in-memory FAT table back to disk.
+ *
+ * @param fat_private FAT16 private state describing the target region.
+ */
 void fat16_flush_table(const struct fat_private *fat_private)
 {
     ASSERT(fat_table);
@@ -266,6 +365,12 @@ void fat16_flush_table(const struct fat_private *fat_private)
     release(&fat16_table_flush_lock);
 }
 
+/**
+ * @brief Update a FAT chain entry and flush the change to disk.
+ *
+ * @param cluster Cluster index to update.
+ * @param value New FAT value to store for the cluster.
+ */
 void fat16_set_fat_entry(const uint32_t cluster, const uint16_t value)
 {
     const uint32_t fat_offset             = cluster * FAT16_FAT_ENTRY_SIZE;
@@ -282,6 +387,12 @@ void fat16_set_fat_entry(const uint32_t cluster, const uint16_t value)
     release(&fat16_set_entry_lock);
 }
 
+/**
+ * @brief Find and reserve the next free cluster in the FAT chain.
+ *
+ * @param disk Disk device to search.
+ * @return Allocated cluster index or -1 if none are available.
+ */
 uint32_t fat16_get_free_cluster(const struct disk *disk)
 {
     // First 2 (2 * FAT_ENTRY_SIZE) entries are reserved
@@ -295,6 +406,13 @@ uint32_t fat16_get_free_cluster(const struct disk *disk)
     return -1;
 }
 
+/**
+ * @brief Count valid directory entries in a directory chain.
+ *
+ * @param disk Disk device hosting the directory.
+ * @param directory_start_sector First sector of the directory region.
+ * @return Number of valid entries or negative errno value on failure.
+ */
 int fat16_get_total_items_for_directory(const struct disk *disk, const uint32_t directory_start_sector)
 {
     struct fat_directory_entry entry      = {};
@@ -335,7 +453,12 @@ out:
     return res;
 }
 
-/// @brief Updates the root directory entry stored in the FAT private data
+/**
+ * @brief Populate the cached root directory entries within the private state.
+ *
+ * @param disk Disk whose root directory should be loaded.
+ * @return `ALL_OK` on success or negative errno value on failure.
+ */
 int fat16_load_root_directory(const struct disk *disk)
 {
     ASSERT(disk->sector_size > 0, "Invalid sector size");
@@ -386,6 +509,14 @@ error_out:
     return res;
 }
 
+/**
+ * @brief Resolve a FAT16 volume and attach driver state to the disk.
+ *
+ * Reads the on-disk headers, validates the signature, and caches the root directory.
+ *
+ * @param disk Disk to initialize.
+ * @return `ALL_OK` on success or a negative errno-compatible value.
+ */
 int fat16_resolve(struct disk *disk)
 {
     int res = 0;
@@ -444,6 +575,13 @@ out:
     return res;
 }
 
+/**
+ * @brief Copy a space-padded FAT string into a null-terminated buffer.
+ *
+ * @param out Pointer to the destination write cursor.
+ * @param in Source FAT string (space padded).
+ * @param size Maximum number of characters to copy.
+ */
 void fat16_get_null_terminated_string(char **out, const char *in, size_t size)
 {
     size_t i = 0;
@@ -461,6 +599,13 @@ void fat16_get_null_terminated_string(char **out, const char *in, size_t size)
     **out = 0x00;
 }
 
+/**
+ * @brief Construct an 8.3 filename string from a directory entry.
+ *
+ * @param entry Directory entry to read.
+ * @param out Destination buffer for the filename.
+ * @param max_len Size of the destination buffer.
+ */
 void fat16_get_relative_filename(const struct fat_directory_entry *entry, char *out, const int max_len)
 {
     memset(out, 0x00, max_len);
@@ -472,6 +617,12 @@ void fat16_get_relative_filename(const struct fat_directory_entry *entry, char *
     }
 }
 
+/**
+ * @brief Deep clone a FAT directory structure.
+ *
+ * @param directory Directory to duplicate.
+ * @return Newly allocated directory copy or nullptr on failure.
+ */
 struct fat_directory *fat16_clone_fat_directory(const struct fat_directory *directory)
 {
     if (!directory) {
@@ -499,6 +650,13 @@ struct fat_directory *fat16_clone_fat_directory(const struct fat_directory *dire
     return new_directory;
 }
 
+/**
+ * @brief Clone a FAT directory entry into freshly allocated memory.
+ *
+ * @param entry Directory entry to copy.
+ * @param size Size of the allocation to perform, must be >= entry size.
+ * @return Pointer to the cloned entry or nullptr on failure.
+ */
 struct fat_directory_entry *fat16_clone_fat_directory_entry(const struct fat_directory_entry *entry, const size_t size)
 {
     if (size < sizeof(struct fat_directory_entry)) {
@@ -518,6 +676,13 @@ struct fat_directory_entry *fat16_clone_fat_directory_entry(const struct fat_dir
 }
 
 
+/**
+ * @brief Read a FAT entry for a given cluster.
+ *
+ * @param disk Disk hosting the FAT.
+ * @param cluster Cluster index to query.
+ * @return FAT entry value or negative errno on failure.
+ */
 static int fat16_get_fat_entry(const struct disk *disk, const int cluster)
 {
     uint16_t result = ALL_OK;
@@ -544,6 +709,15 @@ out:
     return res;
 }
 
+/**
+ * @brief Walk a cluster chain until reaching the cluster owning an offset.
+ *
+ * @param disk Target disk.
+ * @param start_cluster First cluster of the file.
+ * @param offset Byte offset into the file.
+ * @param cache Optional lookup cache for FAT entries.
+ * @return Cluster index satisfying the offset or negative errno on failure.
+ */
 static int fat16_get_cluster_for_offset(const struct disk *disk, const int start_cluster, const uint32_t offset,
                                         hash_table_t *cache)
 {
@@ -600,6 +774,17 @@ out:
     return res;
 }
 
+/**
+ * @brief Recursively read file data spanning multiple clusters.
+ *
+ * @param disk Disk descriptor.
+ * @param cluster First cluster of the file.
+ * @param offset Byte offset within the file.
+ * @param total Total number of bytes to read.
+ * @param out Destination buffer.
+ * @param cache FAT entry cache accelerated by the caller.
+ * @return `ALL_OK` on success or negative errno code.
+ */
 static int fat16_read_internal(const struct disk *disk, const int cluster, const uint32_t offset, uint32_t total,
                                void *out, hash_table_t *cache)
 {
@@ -640,6 +825,11 @@ out:
     return res;
 }
 
+/**
+ * @brief Release memory held by a directory snapshot.
+ *
+ * @param directory Directory instance to destroy.
+ */
 void fat16_free_directory(struct fat_directory *directory)
 {
     if (!directory) {
@@ -652,6 +842,11 @@ void fat16_free_directory(struct fat_directory *directory)
     kfree(directory);
 }
 
+/**
+ * @brief Release a fat_item wrapper and any associated resources.
+ *
+ * @param item Item to destroy.
+ */
 void fat16_fat_item_free(struct fat_item *item)
 {
     if (!item) {
@@ -672,6 +867,13 @@ void fat16_fat_item_free(struct fat_item *item)
     kfree(item);
 }
 
+/**
+ * @brief Load an on-disk directory into memory.
+ *
+ * @param disk Backing disk device.
+ * @param entry Directory entry describing the subdirectory.
+ * @return Allocated directory snapshot or nullptr on failure.
+ */
 struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const struct fat_directory_entry *entry)
 {
     int res = 0;
@@ -722,6 +924,12 @@ out:
     return directory;
 }
 
+/**
+ * @brief Create a fat_item wrapper for a directory snapshot.
+ *
+ * @param dir Directory to wrap.
+ * @return Newly allocated fat_item or nullptr on failure.
+ */
 struct fat_item *fat16_new_fat_item_for_directory(const struct fat_directory *dir)
 {
     struct fat_item *f_item = kzalloc(sizeof(struct fat_item));
@@ -741,6 +949,13 @@ struct fat_item *fat16_new_fat_item_for_directory(const struct fat_directory *di
     return f_item;
 }
 
+/**
+ * @brief Create a fat_item wrapper for a directory entry.
+ *
+ * @param disk Disk hosting the entry.
+ * @param entry FAT directory entry to wrap.
+ * @return fat_item containing either a file or directory representation.
+ */
 struct fat_item *fat16_new_fat_item_for_directory_entry(const struct disk *disk,
                                                         const struct fat_directory_entry *entry)
 {
@@ -770,6 +985,14 @@ struct fat_item *fat16_new_fat_item_for_directory_entry(const struct disk *disk,
     return f_item;
 }
 
+/**
+ * @brief Locate an entry within a directory by name.
+ *
+ * @param disk Disk descriptor.
+ * @param directory Directory to inspect.
+ * @param name Null-terminated 8.3 name to match.
+ * @return fat_item representing the entry or nullptr when not found.
+ */
 struct fat_item *fat16_find_item_in_directory(const struct disk *disk, const struct fat_directory *directory,
                                               const char *name)
 {
@@ -785,6 +1008,13 @@ struct fat_item *fat16_find_item_in_directory(const struct disk *disk, const str
     return f_item;
 }
 
+/**
+ * @brief Resolve a path into a FAT item by traversing directory entries.
+ *
+ * @param disk Disk hosting the file system.
+ * @param path Linked list describing the path components.
+ * @return fat_item for the final component or nullptr on failure.
+ */
 struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct path_part *path)
 {
     dbgprintf("Getting directory entry for: %s\n", path->name);
@@ -800,7 +1030,7 @@ struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct
     const struct path_part *next_part = path->next;
     current_item                      = root_item;
     while (next_part != nullptr) {
-        if (!current_item || current_item->type != FAT_ITEM_TYPE_DIRECTORY) {
+        if (current_item->type != FAT_ITEM_TYPE_DIRECTORY) {
             fat16_fat_item_free(current_item);
             current_item = nullptr;
             break;
@@ -819,6 +1049,17 @@ out:
     return current_item;
 }
 
+/**
+ * @brief Open a file or directory described by a path.
+ *
+ * Creates descriptors, handles optional creation, and returns metadata to the caller.
+ *
+ * @param path Parsed path structure.
+ * @param mode Open mode flags (supports `O_CREAT`).
+ * @param type_out Output parameter for resolved inode type.
+ * @param size_out Output parameter for file size or directory entry count.
+ * @return Opaque descriptor pointer or encoded error via `ERROR()` macro.
+ */
 void *fat16_open(const struct path_root *path, const FILE_MODE mode, enum INODE_TYPE *type_out, uint32_t *size_out)
 {
     int error_code = 0;
@@ -896,6 +1137,17 @@ error_out:
     return ERROR(error_code);
 }
 
+/**
+ * @brief Modify an existing directory entry in place.
+ *
+ * @param directory Parent directory metadata.
+ * @param entry Entry snapshot to locate on disk.
+ * @param new_name New 8-character name (space padded as needed).
+ * @param new_ext Optional 3-character extension.
+ * @param attributes Attribute bitmask to store.
+ * @param file_size Updated file length in bytes.
+ * @return `ALL_OK` on success or negative errno value.
+ */
 int fat16_change_entry(const struct fat_directory *directory, const struct fat_directory_entry *entry,
                        const char *new_name, const char *new_ext, const uint8_t attributes, const uint32_t file_size)
 {
@@ -946,7 +1198,17 @@ int fat16_change_entry(const struct fat_directory *directory, const struct fat_d
     return -EIO;
 }
 
-/// @brief Add a new entry to the directory
+/**
+ * @brief Insert a new directory entry representing a file or subdirectory.
+ *
+ * @param directory Parent directory metadata.
+ * @param name 8-character name (space padded if shorter).
+ * @param ext Optional 3-character extension.
+ * @param attributes Attribute flags to assign.
+ * @param file_cluster First cluster of the file content.
+ * @param file_size File size in bytes.
+ * @return `ALL_OK` on success or negative errno value when no slot is available.
+ */
 int fat16_add_entry(const struct fat_directory *directory, const char *name, const char *ext, const uint8_t attributes,
                     const uint16_t file_cluster, const uint32_t file_size)
 {
@@ -983,6 +1245,13 @@ int fat16_add_entry(const struct fat_directory *directory, const char *name, con
     return -EIO;
 }
 
+/**
+ * @brief Write contiguous data across a FAT cluster chain.
+ *
+ * @param data Buffer containing the bytes to write.
+ * @param starting_cluster First cluster of the file.
+ * @param size Number of bytes to persist.
+ */
 void fat16_write_data_to_clusters(uint8_t *data, const uint16_t starting_cluster, const uint32_t size)
 {
     const struct disk *disk               = disk_get(0);
@@ -1020,6 +1289,13 @@ void fat16_write_data_to_clusters(uint8_t *data, const uint16_t starting_cluster
     }
 }
 
+/**
+ * @brief Allocate a chain of clusters and link them together.
+ *
+ * @param disk Disk against which to allocate clusters.
+ * @param clusters_needed Number of clusters to reserve.
+ * @return First cluster in the allocated chain or negative errno on failure.
+ */
 uint16_t fat16_allocate_new_entry(const struct disk *disk, const uint16_t clusters_needed)
 {
     uint16_t previous_cluster = 0;
@@ -1046,6 +1322,14 @@ uint16_t fat16_allocate_new_entry(const struct disk *disk, const uint16_t cluste
     return first_cluster;
 }
 
+/**
+ * @brief Debug helper that prints the cluster chain of a file.
+ *
+ * @param disk Disk descriptor.
+ * @param first_cluster Starting cluster.
+ * @param name File name component.
+ * @param ext File extension component.
+ */
 void debug_print_fat_chain(const struct disk *disk, const uint16_t first_cluster, const char *name, const char *ext)
 {
     printf("Chain for file %s.%s\n", name, ext);
@@ -1057,6 +1341,14 @@ void debug_print_fat_chain(const struct disk *disk, const uint16_t first_cluster
     }
 }
 
+/**
+ * @brief Initialize `.` and `..` entries within a newly allocated directory cluster.
+ *
+ * @param disk Disk descriptor.
+ * @param cluster Cluster containing the new directory data region.
+ * @param parent_cluster Cluster index of the parent directory.
+ * @param current_cluster Cluster index of the new directory.
+ */
 void fat16_initialize_directory(const struct disk *disk, const uint16_t cluster, const uint16_t parent_cluster,
                                 const uint16_t current_cluster)
 {
@@ -1085,7 +1377,15 @@ void fat16_initialize_directory(const struct disk *disk, const uint16_t cluster,
     disk_write_sector(sector, buffer);
 }
 
-
+/**
+ * @brief Create a new directory at the provided path.
+ *
+ * Allocates the necessary cluster, seeds `.` and `..`, and links the entry into its parent directory.
+ *
+ * @param path Absolute path string pointing to the directory to create.
+ * @retval ALL_OK Directory created successfully.
+ * @retval -errno Negative errno code on parsing, allocation, or disk failure.
+ */
 int fat16_create_directory(const char *path)
 {
     const struct path_root *root = path_parser_parse(path);
@@ -1110,6 +1410,17 @@ int fat16_create_directory(const char *path)
     return 0;
 }
 
+/**
+ * @brief Create a new file and optionally populate its contents.
+ *
+ * Allocates sufficient clusters, inserts the directory entry, and writes initial data if provided.
+ *
+ * @param path Absolute path string for the file.
+ * @param data Optional data buffer to write (may be NULL when `size` is zero).
+ * @param size Number of bytes to write from `data`.
+ * @retval ALL_OK File created successfully.
+ * @retval -errno Negative errno from path resolution, allocation, or disk I/O.
+ */
 int fat16_create_file(const char *path, void *data, const int size)
 {
     const struct path_root *path_root = path_parser_parse(path);
@@ -1157,6 +1468,17 @@ int fat16_create_file(const char *path, void *data, const int size)
     return ALL_OK;
 }
 
+/**
+ * @brief Write data to an open FAT16 file descriptor.
+ *
+ * Extends the file if necessary, merges the new payload at the current position, and flushes the data to disk.
+ *
+ * @param descriptor File descriptor returned by `fat16_open`.
+ * @param data Buffer containing bytes to write.
+ * @param size Number of bytes to write.
+ * @retval ALL_OK Data written successfully.
+ * @retval -errno Negative errno when allocation, parsing, or disk access fails.
+ */
 int fat16_write(const void *descriptor, const char *data, const size_t size)
 {
     // TODO: lock
@@ -1194,6 +1516,18 @@ int fat16_write(const void *descriptor, const char *data, const size_t size)
     return ALL_OK;
 }
 
+/**
+ * @brief Read data from an open FAT16 file descriptor.
+ *
+ * Traverses the cluster chain to copy `size * nmemb` bytes starting at the current file offset.
+ *
+ * @param descriptor File descriptor returned by `fat16_open`.
+ * @param size Size of each element to read.
+ * @param nmemb Number of elements to read.
+ * @param out Destination buffer that receives the data.
+ * @retval >=0 Total number of bytes read.
+ * @retval -errno Negative errno value when the read operation fails.
+ */
 int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, char *out)
 {
     int res = 0;
@@ -1225,6 +1559,17 @@ int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, cha
     return res;
 }
 
+/**
+ * @brief Adjust the file offset for an open descriptor.
+ *
+ * Validates bounds and updates the descriptor cursor relative to the requested origin.
+ *
+ * @param private File structure pointer passed by the VFS.
+ * @param offset Offset relative to the selected origin.
+ * @param seek_mode One of `SEEK_SET`, `SEEK_CURRENT`, `SEEK_END`.
+ * @retval ALL_OK Seek succeeded.
+ * @retval -errno Negative errno when the requested move is invalid or unsupported.
+ */
 int fat16_seek(void *private, const uint32_t offset, const enum FILE_SEEK_MODE seek_mode)
 {
     int res = 0;
@@ -1266,6 +1611,15 @@ out:
     return res;
 }
 
+/**
+ * @brief Populate POSIX-like metadata for a FAT item.
+ *
+ * Fills size, mode bits, timestamps, and long filename indicators into the provided `stat` buffer.
+ *
+ * @param descriptor File descriptor returned by `fat16_open`.
+ * @param stat Output structure to fill.
+ * @retval ALL_OK Metadata populated successfully.
+ */
 int fat16_stat(void *descriptor, struct stat *stat)
 {
     auto const desc                  = (struct file *)descriptor;
@@ -1319,6 +1673,13 @@ int fat16_stat(void *descriptor, struct stat *stat)
     return ALL_OK;
 }
 
+/**
+ * @brief Tear down a FAT16 file descriptor and release associated resources.
+ *
+ * Frees the associated fat_item (file or directory snapshot) and the descriptor allocation.
+ *
+ * @param descriptor Descriptor to free; ignored when NULL.
+ */
 static void fat16_free_file_descriptor(struct fat_file_descriptor *descriptor)
 {
     if (!descriptor) {
@@ -1330,6 +1691,14 @@ static void fat16_free_file_descriptor(struct fat_file_descriptor *descriptor)
     kfree(descriptor);
 }
 
+/**
+ * @brief Close a FAT16-backed file descriptor.
+ *
+ * Invoked by the VFS to release driver-specific resources.
+ *
+ * @param descriptor File structure pointer provided by the VFS.
+ * @retval ALL_OK Descriptor resources released.
+ */
 int fat16_close(void *descriptor)
 {
     auto const desc = (struct file *)descriptor;
@@ -1337,6 +1706,16 @@ int fat16_close(void *descriptor)
     return ALL_OK;
 }
 
+/**
+ * @brief Resolve a path into a directory snapshot.
+ *
+ * Walks the FAT directory hierarchy, cloning directory entries so the caller owns the returned snapshot.
+ *
+ * @param path_root Parsed path structure.
+ * @param fat_directory Output directory snapshot to populate.
+ * @retval ALL_OK Directory snapshot produced.
+ * @retval -ENOENT Requested directory could not be located.
+ */
 int fat16_get_directory(const struct path_root *path_root, struct fat_directory *fat_directory)
 {
     auto const disk                       = disk_get(path_root->drive_number);
@@ -1384,6 +1763,15 @@ int fat16_get_directory(const struct path_root *path_root, struct fat_directory 
     return ALL_OK;
 }
 
+/**
+ * @brief Convert FAT date/time fields to Unix epoch seconds.
+ *
+ * Expands the packed FAT date and time fields and converts them via `mktime` to a POSIX timestamp.
+ *
+ * @param fat_date FAT date bitfield.
+ * @param fat_time FAT time bitfield.
+ * @return Unix timestamp representing the given FAT time.
+ */
 time_t fat_date_time_to_unix_time(const uint16_t fat_date, const uint16_t fat_time)
 {
     const int day   = fat_date & 0x1F;
@@ -1408,6 +1796,17 @@ time_t fat_date_time_to_unix_time(const uint16_t fat_date, const uint16_t fat_ti
     return unix_time;
 }
 
+/**
+ * @brief Translate a FAT directory entry into a VFS `dir_entry` record.
+ *
+ * Generates an inode number, lowercases and trims the 8.3 filename, and stores the result in the caller buffer.
+ *
+ * @param fat_entry Entry to convert.
+ * @param index Index within the directory, used for inode numbering.
+ * @param entry Output directory entry structure.
+ * @retval ALL_OK Entry converted successfully.
+ * @retval -ENOMEM Temporary allocation failed while formatting the name.
+ */
 int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, const size_t index, struct dir_entry *entry)
 {
     char *full_name = nullptr;
@@ -1500,6 +1899,16 @@ error_cleanup:
 }
 
 // ! This is supposed to read the NEXT directory entry
+/**
+ * @brief Iterate a directory descriptor and return the next entry.
+ *
+ * Converts the cached FAT directory entry into a portable `dir_entry` and advances the descriptor offset.
+ *
+ * @param descriptor Directory descriptor managed by the VFS.
+ * @param entry Output buffer for the next entry.
+ * @retval ALL_OK Entry emitted successfully.
+ * @retval -ENOENT Directory enumeration has completed.
+ */
 int fat16_read_entry(struct file *descriptor, struct dir_entry *entry)
 {
     const struct fat_file_descriptor *fat_desc = descriptor->fs_data;
@@ -1520,6 +1929,11 @@ int fat16_read_entry(struct file *descriptor, struct dir_entry *entry)
 
 #if 0
 
+/**
+ * @brief Diagnostic helper that prints FAT16 partition metadata to the debug console.
+ *
+ * @param disk Disk descriptor whose FAT16 header should be inspected.
+ */
 void fat16_print_partition_stats(const struct disk *disk)
 {
     struct fat_private *fat_private = disk->fs_private;
