@@ -34,10 +34,13 @@ void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigne
     int max_y = y + (int)height;
 
     // Translate the rectangle coordinates by the context translation values
-    x += context->translate_x;
-    y += context->translate_y;
+    const int draw_origin_x = x + context->translate_x;
+    const int draw_origin_y = y + context->translate_y;
+    x                       = draw_origin_x;
+    y                       = draw_origin_y;
     max_x += context->translate_x;
     max_y += context->translate_y;
+
 
     // Make sure we don't go outside of the clip region:
     if (x < clip_area->left) {
@@ -60,7 +63,9 @@ void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigne
     //(bonus points if you write an assembly routine to do it faster)
     for (; y < max_y; y++)
         for (int cur_x = x; cur_x < max_x; cur_x++) {
-            vesa_putpixel(cur_x, y, pixels[y * width + cur_x]);
+            const int src_x = cur_x - draw_origin_x;
+            const int src_y = y - draw_origin_y;
+            vesa_putpixel(cur_x, y, pixels[src_y * width + src_x]);
         }
 }
 
