@@ -55,12 +55,10 @@ DIR *opendir(const char *path)
 
     DIR *dirp = malloc(sizeof(DIR));
     ASSERT(dirp);
-    if (dirp == nullptr) {
+    if (!dirp) {
         close(fd);
         return nullptr;
     }
-
-    ASSERT(dirp != nullptr);
 
     dirp->fd     = fd;
     dirp->offset = 0;
