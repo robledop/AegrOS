@@ -32,6 +32,8 @@ void *sys_create_process(void)
     strncpy(path, "/bin/", sizeof(path));
     strncpy(path + strlen("/bin/"), program_name, sizeof(path));
 
+    warningf("Creating process %s\n", program_name);
+
     struct process *process = nullptr;
     int res                 = process_load_enqueue(path, &process);
     if (res < 0) {

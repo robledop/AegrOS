@@ -1,7 +1,7 @@
 #pragma once
 
 // #define DEBUG_SERIAL
-#define DEBUG_WARNINGS
+// #define DEBUG_WARNINGS
 
 #ifdef DEBUG_SERIAL
 #define dbgprintf(a, ...) serial_printf("%s(): " a, __func__, ##__VA_ARGS__)

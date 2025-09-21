@@ -2,6 +2,7 @@
 #include <process.h>
 #include <spinlock.h>
 #include <syscall.h>
+#include "serial.h"
 
 struct spinlock fork_lock = {};
 
@@ -14,6 +15,8 @@ void *sys_fork(void)
         release(&fork_lock);
         return (void *)-1;
     }
+
+    warningf("Forking %s, pid: %d\n", parent->file_name, parent->pid);
 
     auto const child = process_clone(parent);
     if (!child) {

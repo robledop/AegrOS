@@ -5,8 +5,8 @@ MEMORY=128 # Be careful not to allocate too much memory as the page table may ov
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 QEMU_ACCEL=
-#QEMU_DEBUG=-serial file:serial.log  -d int -D qemu.log
-QEMU_DEBUG=
+QEMU_DEBUG=-serial file:serial.log  -d int -D qemu.log
+#QEMU_DEBUG=
 CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 AS=nasm
 LD=$(HOME)/opt/cross/bin/i686-elf-ld
