@@ -127,7 +127,8 @@ void path_parser_free(struct path_root *root)
 
 static struct mount_point *determine_mount_point(const char *path)
 {
-    char *path_dup = strdup(path);
+    char *path_dup_raw = strdup(path);
+    char *path_dup     = path_dup_raw;
     if (strncmp("/", path_dup, 1) == 0) {
         path_dup++;
     }
@@ -146,7 +147,7 @@ static struct mount_point *determine_mount_point(const char *path)
     }
     struct mount_point *mount_point = vfs_get_mount_point(mount_point_index);
 
-    kfree(path_dup);
+    kfree(path_dup_raw);
     return mount_point;
 }
 
