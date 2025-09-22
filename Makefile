@@ -2,11 +2,10 @@ $(shell mkdir -p ./bin)
 $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
 MEMORY=128 # Be careful not to allocate too much memory as the page table may overlap with the heap
-QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off -device virtio-gpu-pci
+QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off -device VGA,vgamem_mb=16
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 QEMU_ACCEL=
-QEMU_DEBUG=-monitor stdio #-serial file:serial.log  -d int -D qemu.log
-#QEMU_DEBUG=
+QEMU_DEBUG=#-serial file:serial.log  -d int -D qemu.log
 CC=$(HOME)/opt/cross/bin/i686-elf-gcc
 AS=nasm
 LD=$(HOME)/opt/cross/bin/i686-elf-ld
@@ -93,7 +92,7 @@ qemu_grub_debug: FLAGS += -DGRUB
 
 qemu_grub_debug_pixel: FLAGS += -DPIXEL_RENDERING -DGRUB
 qemu_grub_debug_pixel: AS_FLAGS += -DPIXEL_RENDERING
-qemu_grub_debug_pixel: QEMU_ACCEL += #-accel kvm # accel may interfere with debugging
+qemu_grub_debug_pixel: QEMU_ACCEL += -accel kvm # accel may interfere with debugging
 
 .PHONY: all
 # Build that uses my own 2-stage bootloader
@@ -176,7 +175,7 @@ qemu: all FORCE
 .PHONY: qemu_grub_debug
 qemu_grub_debug: grub FORCE
 	./scripts/create_tap.sh
-	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY)  $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_ACCEL) $(QEMU_DEBUG)
+	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_ACCEL) $(QEMU_DEBUG)
 
 .PHONY: qemu_grub_debug_pixel
 qemu_grub_debug_pixel: qemu_grub_debug FORCE
