@@ -102,6 +102,7 @@ void vesa_enable_write_combining(void)
             continue;
         }
 
+        // Clear existing PAT, PCD, and PWT bits
         uint32_t updated = entry & ~(PDE_CACHE_DISABLED | PDE_WRITE_THROUGH | 0x80U);
 
         switch (wc) {
@@ -120,6 +121,7 @@ void vesa_enable_write_combining(void)
         }
     }
 
+    // Re-apply the page directory to flush the TLB
     lcr3((uint32_t)kernel_page_directory->directory_entry);
 }
 
