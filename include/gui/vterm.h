@@ -1,5 +1,7 @@
 #pragma once
 #include <gui/window.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 struct vterm;
 
@@ -16,6 +18,16 @@ typedef struct vterm {
     uint32_t *color_buffer;
     int buffer_width;
     int buffer_height;
+    bool needs_full_repaint;
+    bool has_dirty_region;
+    int dirty_min_col;
+    int dirty_min_row;
+    int dirty_max_col;
+    int dirty_max_row;
 } vterm_t;
 
 vterm_t *vterm_new();
+void vterm_set_active(vterm_t *vterm);
+vterm_t *vterm_active(void);
+void vterm_write(vterm_t *vterm, const char *data, size_t length);
+void vterm_flush(vterm_t *vterm);

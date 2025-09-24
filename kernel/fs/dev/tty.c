@@ -1,3 +1,4 @@
+#include <gui/vterm.h>
 #include <kernel.h>
 #include <memory.h>
 #include <printf.h>
@@ -8,7 +9,6 @@
 #include <tty.h>
 #include <vfs.h>
 #include "spinlock.h"
-#include "x86.h"
 
 enum tty_mode {
     RAW,
@@ -89,10 +89,20 @@ static int tty_read(const void *descriptor, size_t size, off_t offset, char *out
     return (int)bytes_read;
 }
 
-static int tty_write(const void *descriptor, const char *buffer, const size_t size)
+static int tty_write([[maybe_unused]] const void *descriptor, const char *buffer, const size_t size)
 {
+    if (size == 0 || buffer == nullptr) {
+        return 0;
+    }
+
+    vterm_t *term = vterm_active();
+    if (term) {
+        vterm_write(term, buffer, size);
+        vterm_flush(term);
+        return (int)size;
+    }
+
     for (size_t i = 0; i < size; i++) {
-        // TODO: Do this properly!!!
         putchar(buffer[i]);
     }
 

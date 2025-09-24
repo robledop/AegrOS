@@ -18,6 +18,10 @@ int vterm_param_count     = 1;
 int vterm_forecolor = 0xFFFFFF;
 int vterm_backcolor = DESKTOP_BACKGROUND_COLOR;
 
+
+static void vterm_emit_char(vterm_t *vterm, char c, bool batched);
+static void vterm_flush_dirty(vterm_t *vterm);
+
 /**
  * @brief Reset ANSI escape parsing state for the virtual terminal.
  */
@@ -81,7 +85,8 @@ void vterm_clear_screen(struct vterm *vterm)
     vterm->cursor_x = 0;
     vterm->cursor_y = 0;
 
-    window_paint((window_t *)vterm, nullptr, 1);
+    vterm->needs_full_repaint = true;
+    vterm_flush_dirty(vterm);
 }
 
 /**
@@ -325,46 +330,241 @@ void vterm_paint(window_t *window)
  */
 void vterm_putchar(struct vterm *vterm, char c)
 {
-    if (vterm_handle_ansi_escape(vterm, c)) {
-        return; // Do not print escape sequences characters
+    vterm_emit_char(vterm, c, false);
+}
+
+
+static vterm_t *active_vterm;
+
+static inline int vterm_buffer_columns(const vterm_t *vterm)
+{
+    const int width = vterm->window.width - (2 * WIN_BORDER_WIDTH);
+    return width / VESA_CHAR_WIDTH;
+}
+
+static inline int vterm_buffer_rows(const vterm_t *vterm)
+{
+    const int height = vterm->window.height - (WIN_TITLE_HEIGHT + (2 * WIN_BORDER_WIDTH));
+    return height / VESA_LINE_HEIGHT;
+}
+
+static void vterm_mark_dirty(vterm_t *vterm, int col, int row)
+{
+    if (col < 0 || row < 0) {
+        return;
     }
+
+    if (!vterm->has_dirty_region) {
+        vterm->dirty_min_col    = col;
+        vterm->dirty_max_col    = col;
+        vterm->dirty_min_row    = row;
+        vterm->dirty_max_row    = row;
+        vterm->has_dirty_region = true;
+        return;
+    }
+
+    if (col < vterm->dirty_min_col) {
+        vterm->dirty_min_col = col;
+    }
+    if (col > vterm->dirty_max_col) {
+        vterm->dirty_max_col = col;
+    }
+    if (row < vterm->dirty_min_row) {
+        vterm->dirty_min_row = row;
+    }
+    if (row > vterm->dirty_max_row) {
+        vterm->dirty_max_row = row;
+    }
+}
+
+static void vterm_emit_char(vterm_t *vterm, char c, bool batched)
+{
+    if (vterm_handle_ansi_escape(vterm, c)) {
+        return;
+    }
+
+    const int cols = vterm_buffer_columns(vterm);
+    const int rows = vterm_buffer_rows(vterm);
 
     int old_cursor_x = vterm->cursor_x;
     int old_cursor_y = vterm->cursor_y;
 
-    uint16_t width  = vterm->window.width - (2 * WIN_BORDER_WIDTH);
-    uint16_t height = vterm->window.height - (WIN_TITLE_HEIGHT + WIN_BORDER_WIDTH);
+    const bool cursor_was_at_line_end = vterm->cursor_x >= cols;
 
-    if (vterm->cursor_x >= width / VESA_CHAR_WIDTH || c == '\n') {
+    if (cursor_was_at_line_end || c == '\n') {
         vterm->cursor_x = 0;
         vterm->cursor_y++;
-    } else {
-        if (c == '\b') {
-            if (vterm->cursor_x > 0) {
-                vterm->cursor_x--;
-                vterm->buffer[vterm->cursor_y * (width / VESA_CHAR_WIDTH) + vterm->cursor_x] = 0;
-            }
-        } else if (c == '\t') {
-            vterm->cursor_x += 4;
-            if (vterm->cursor_x >= width / VESA_CHAR_WIDTH) {
-                vterm->cursor_x = 0;
-                vterm->cursor_y++;
-            }
-        } else if (c == '\r') {
+    } else if (c == '\b') {
+        if (vterm->cursor_x > 0) {
+            vterm->cursor_x--;
+            vterm->buffer[vterm->cursor_y * cols + vterm->cursor_x] = 0;
+        }
+    } else if (c == '\t') {
+        vterm->cursor_x += 4;
+        if (vterm->cursor_x >= cols) {
             vterm->cursor_x = 0;
-        } else {
-            vterm->buffer[vterm->cursor_y * (width / VESA_CHAR_WIDTH) + vterm->cursor_x] = c;
-            vterm->cursor_x++;
+            vterm->cursor_y++;
+        }
+    } else if (c == '\r') {
+        vterm->cursor_x = 0;
+    } else {
+        const int index = vterm->cursor_y * cols + vterm->cursor_x;
+        if (index >= 0 && index < cols * rows) {
+            vterm->buffer[index] = c;
+        }
+        if (batched) {
+            vterm_mark_dirty(vterm, vterm->cursor_x, vterm->cursor_y);
+        }
+        vterm->cursor_x++;
+        if (vterm->cursor_x >= cols) {
+            vterm->cursor_x = 0;
+            vterm->cursor_y++;
         }
     }
 
-    int buffer_height = height / VESA_LINE_HEIGHT;
-
-    if (vterm->cursor_y >= buffer_height - 1) {
+    if (vterm->cursor_y >= rows - 1) {
         vterm_scroll_up(vterm);
-        window_paint((window_t *)vterm, nullptr, 1);
+        if (batched) {
+            vterm->needs_full_repaint = true;
+        } else {
+            window_paint((window_t *)vterm, nullptr, 1);
+        }
+        return;
+    }
+
+    if (batched) {
+        vterm_mark_dirty(vterm, old_cursor_x, old_cursor_y);
+        vterm_mark_dirty(vterm, vterm->cursor_x, vterm->cursor_y);
     } else {
         vterm_repaint_characters(vterm, old_cursor_x, old_cursor_y);
+    }
+}
+
+static void vterm_write_range(vterm_t *vterm, const char *data, size_t length, bool batched)
+{
+    if (!data || length == 0) {
+        return;
+    }
+
+    for (size_t i = 0; i < length; i++) {
+        vterm_emit_char(vterm, data[i], batched);
+    }
+}
+
+static void vterm_flush_dirty(vterm_t *vterm)
+{
+    if (vterm->needs_full_repaint) {
+        window_paint((window_t *)vterm, nullptr, 1);
+        vterm->needs_full_repaint = false;
+        vterm->has_dirty_region   = false;
+        return;
+    }
+
+    if (!vterm->has_dirty_region) {
+        return;
+    }
+
+    rect_t rect;
+    rect.left   = vterm->window.x + WIN_BORDER_WIDTH + vterm->dirty_min_col * VESA_CHAR_WIDTH;
+    rect.top    = vterm->window.y + WIN_TITLE_HEIGHT + vterm->dirty_min_row * VESA_LINE_HEIGHT;
+    rect.right  = vterm->window.x + WIN_BORDER_WIDTH + (vterm->dirty_max_col + 1) * VESA_CHAR_WIDTH;
+    rect.bottom = vterm->window.y + WIN_TITLE_HEIGHT + (vterm->dirty_max_row + 1) * VESA_LINE_HEIGHT;
+
+    list_node_t node = {
+        .payload = &rect,
+        .prev    = nullptr,
+        .next    = nullptr,
+    };
+    list_t dirty_regions = {
+        .count     = 1,
+        .root_node = &node,
+    };
+
+    window_paint((window_t *)vterm, &dirty_regions, 1);
+    vterm->has_dirty_region = false;
+}
+
+void vterm_set_active(vterm_t *vterm)
+{
+    active_vterm = vterm;
+    if (vterm) {
+        vterm->needs_full_repaint = true;
+    }
+}
+
+vterm_t *vterm_active(void)
+{
+    return active_vterm;
+}
+
+static bool should_flush_immediately(const char *data, size_t length)
+{
+    if (length == 0) {
+        return false;
+    }
+
+    // Short inputs (typing) benefit from immediate feedback.
+    if (length <= 4) {
+        return true;
+    }
+
+    // Treat newline-terminated input as short commands; flush immediately.
+    if (data[length - 1] == '\n' && length <= 16) {
+        return true;
+    }
+
+    return false;
+}
+
+void vterm_write(vterm_t *vterm, const char *data, size_t length)
+{
+    if (should_flush_immediately(data, length)) {
+        vterm_write_range(vterm, data, length, false);
+        vterm_flush_dirty(vterm);
+        return;
+    }
+
+    vterm_write_range(vterm, data, length, true);
+}
+
+void vterm_flush(vterm_t *vterm)
+{
+    vterm_flush_dirty(vterm);
+    if (!vterm->has_dirty_region && !vterm->needs_full_repaint) {
+        const int cols = vterm_buffer_columns(vterm);
+        const int rows = vterm_buffer_rows(vterm);
+
+        if (cols > 0 && rows > 0) {
+            int col = vterm->cursor_x;
+            int row = vterm->cursor_y;
+
+            if (col >= cols) {
+                col = cols - 1;
+            }
+            if (row >= rows) {
+                row = rows - 1;
+            }
+
+            if (col >= 0 && row >= 0) {
+                rect_t rect;
+                rect.left   = vterm->window.x + WIN_BORDER_WIDTH + col * VESA_CHAR_WIDTH;
+                rect.top    = vterm->window.y + WIN_TITLE_HEIGHT + row * VESA_LINE_HEIGHT;
+                rect.right  = rect.left + VESA_CHAR_WIDTH;
+                rect.bottom = rect.top + VESA_LINE_HEIGHT;
+
+                list_node_t node = {
+                    .payload = &rect,
+                    .prev    = nullptr,
+                    .next    = nullptr,
+                };
+                list_t dirty = {
+                    .count     = 1,
+                    .root_node = &node,
+                };
+
+                window_paint((window_t *)vterm, &dirty, 1);
+            }
+        }
     }
 }
 
@@ -416,5 +616,6 @@ vterm_t *vterm_new()
     vterm->window.paint_function = vterm_paint;
     vterm->clear_screen          = vterm_clear_screen;
 
+    vterm_set_active(vterm);
     return vterm;
 }
