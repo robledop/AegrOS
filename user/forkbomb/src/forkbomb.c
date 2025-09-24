@@ -21,7 +21,7 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
 
     for (int i = 0; i < ITERATIONS; i++) {
         char *current_directory = getcwd();
-        printf("create_process: %d", i);
+        printf("create_process (echo): %d\n", i);
         const int pid = create_process((char *)"echo lalala", current_directory);
         if (pid < 0) {
             printf("Failed to create process\n");
@@ -37,7 +37,7 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
         if (r < 0) {
             printf("Fork failed\n");
         } else if (r == 0) {
-            printf("\nChild will exec blank.elf\n" KWHT " ");
+            printf("\nChild will exec blank.elf\t" KWHT " ");
             exec("/bin/blank.elf", nullptr);
 
             printf(KRED "This should not be printed\n" KRESET);
@@ -73,9 +73,11 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
             exit(0);
         } else {
             // waitpid(r, nullptr);
-            printf(KYEL "\tParent of %d (pid:%d)\n" KWHT, i, getpid());
+            printf(KYEL "\tParent of %d (pid:%d)" KWHT, i, getpid());
         }
     }
+
+    printf("\n");
 
     printf(KBRED "\n##################################\n"
                  "Tests with sleep()\n"
@@ -83,10 +85,12 @@ int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
 
     for (int i = 0; i < ITERATIONS; i++) {
         const char *current_directory = getcwd();
-        printf("\t create_process: %d", i);
-        const int pid = create_process((char *)"sleep 10000", current_directory);
+        printf("\t create_process (sleep 1000): %d", i);
+        const int pid = create_process((char *)"sleep 1000", current_directory);
         if (pid < 0) {
             printf("Failed to create process\n");
+        } else {
+            waitpid(pid, nullptr);
         }
     }
 

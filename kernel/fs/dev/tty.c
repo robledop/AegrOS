@@ -7,6 +7,8 @@
 #include <thread.h>
 #include <tty.h>
 #include <vfs.h>
+#include "spinlock.h"
+#include "x86.h"
 
 enum tty_mode {
     RAW,
@@ -90,6 +92,7 @@ static int tty_read(const void *descriptor, size_t size, off_t offset, char *out
 static int tty_write(const void *descriptor, const char *buffer, const size_t size)
 {
     for (size_t i = 0; i < size; i++) {
+        // TODO: Do this properly!!!
         putchar(buffer[i]);
     }
 

@@ -68,7 +68,6 @@ int ata_wait_for_ready()
     while ((status & ATA_STATUS_BUSY) && !(status & ATA_STATUS_DRQ)) {
         if (status & ATA_STATUS_ERR || status & ATA_STATUS_FAULT) {
             panic("Error: Drive fault\n");
-            release(&disk_lock);
             return -EIO;
         }
 
@@ -87,7 +86,7 @@ int ata_wait_for_ready()
  */
 int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
 {
-    acquire(&disk_lock);
+    // acquire(&disk_lock);
     outb(ATA_REG_CONTROL, 0x02); // Disable interrupts. We are polling.
 
     outb(ATA_REG_DEVSEL, (lba >> 24 & 0x0F) | ATA_MASTER);
@@ -101,6 +100,7 @@ int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
     for (int b = 0; b < total; b++) {
         const int result = ata_wait_for_ready();
         if (result != ALL_OK) {
+            outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
             return result;
         }
         // Read sector
@@ -110,7 +110,9 @@ int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
         ptr += 256; // Advance the buffer 256 words (512 bytes)
     }
 
-    release(&disk_lock);
+    // release(&disk_lock);
+
+    outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
 
     return ALL_OK;
 }
@@ -131,6 +133,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 
     int result = ata_wait_for_ready();
     if (result != ALL_OK) {
+        outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
         return result;
     }
 
@@ -145,6 +148,8 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 
     result = ata_wait_for_ready();
     if (result != ALL_OK) {
+        outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
+        release(&disk_lock);
         return result;
     }
 
@@ -166,6 +171,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
         ptr += 512; // Advance the buffer 512 bytes (one sector)
     }
 
+    outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
     release(&disk_lock);
 
     return 0;
