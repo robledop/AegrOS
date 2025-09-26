@@ -37,7 +37,10 @@
 #define ENOTTY 17
 
 // End of file
-#define EOF -1
+#define EOF (-1)
+
+// FAT end of cluster chain marker
+#define FAT_EOC 18
 
 
 static inline char *strerror(const int error)

@@ -3,17 +3,10 @@
 #include <status.h>
 #include <syscall.h>
 #include <vfs.h>
+#include <x86.h>
 
 void *sys_write(void)
 {
-    // const int fd      = get_integer_argument(2);
-    // const size_t size = get_integer_argument(0);
-    // char *buffer      = get_string_argument(1, size + 1);
-    //
-    // const int res = vfs_write(current_process(), fd, buffer, size);
-    //
-    // kfree(buffer);
-
     const size_t size     = (size_t)thread_peek_stack_item(get_current_thread(), 0);
     void *virtual_address = thread_peek_stack_item(get_current_thread(), 1);
     const int fd          = (int)thread_peek_stack_item(get_current_thread(), 2);

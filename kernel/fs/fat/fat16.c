@@ -730,8 +730,6 @@ static int fat16_get_cluster_for_offset(const struct disk *disk, const int start
     const uint32_t clusters_ahead = offset / size_of_cluster;
 
     for (uint32_t i = 0; i < clusters_ahead; i++) {
-        // char key[10];
-        // itoa(cluster_to_use, key);
         int entry;
         auto cached_entry = (int)ht_get(cache, cluster_to_use);
         if (cached_entry) {
@@ -746,7 +744,7 @@ static int fat16_get_cluster_for_offset(const struct disk *disk, const int start
         // signifies that the current cluster is the last cluster of the file.
         // This means there are no more clusters to read for this file.
         if (entry >= 0xFFF8) {
-            res = -EIO;
+            res = -FAT_EOC;
             goto out;
         }
 
@@ -794,6 +792,13 @@ static int fat16_read_internal(const struct disk *disk, const int cluster, const
     struct disk_stream *stream           = private->cluster_read_stream;
     const uint32_t size_of_cluster_bytes = private->header.primary_header.sectors_per_cluster * disk->sector_size;
     const int cluster_to_use             = fat16_get_cluster_for_offset(disk, cluster, offset, cache);
+
+    if (cluster_to_use == -FAT_EOC) {
+        // We tried to read beyond the end of the file
+        res = -FAT_EOC;
+        goto out;
+    }
+
     if (cluster_to_use < 0) {
         res = cluster_to_use;
         goto out;
@@ -1532,21 +1537,26 @@ int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, cha
 {
     int res = 0;
 
-    auto const desc                            = (struct file *)descriptor;
-    const struct fat_file_descriptor *fat_desc = desc->fs_data;
-    const struct fat_directory_entry *entry    = fat_desc->item->item;
-    const struct disk *disk                    = fat_desc->disk;
-    uint32_t offset                            = fat_desc->position;
+    auto const desc                         = (struct file *)descriptor;
+    struct fat_file_descriptor *fat_desc    = desc->fs_data;
+    const struct fat_directory_entry *entry = fat_desc->item->item;
+    const struct disk *disk                 = fat_desc->disk;
+    uint32_t offset                         = fat_desc->position;
 
     hash_table_t *cache = ht_create();
 
     for (off_t i = 0; i < nmemb; i++) {
         res = fat16_read_internal(disk, entry->first_cluster, offset, size, out, cache);
+        if (res == -FAT_EOC) {
+            // Reached the end of the file
+            return 0;
+        }
         if (ISERR(res)) {
             warningf("Failed to read from file\n");
             ht_destroy(cache);
             return res;
         }
+
 
         out += size;
         offset += size;
@@ -1555,6 +1565,8 @@ int fat16_read(const void *descriptor, const size_t size, const off_t nmemb, cha
     ht_destroy(cache);
 
     res = (int)nmemb * (int)size;
+
+    fat_desc->position += res;
 
     return res;
 }

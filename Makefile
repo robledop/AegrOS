@@ -92,7 +92,7 @@ qemu_grub_debug: FLAGS += -DGRUB
 
 qemu_grub_debug_pixel: FLAGS += -DPIXEL_RENDERING -DGRUB
 qemu_grub_debug_pixel: AS_FLAGS += -DPIXEL_RENDERING
-qemu_grub_debug_pixel: QEMU_ACCEL += -accel kvm # accel may interfere with debugging
+qemu_grub_debug_pixel: QEMU_ACCEL += #-accel kvm # accel may interfere with debugging
 
 .PHONY: all
 # Build that uses my own 2-stage bootloader

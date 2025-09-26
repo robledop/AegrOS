@@ -6,6 +6,7 @@
 
 void *sys_read(void)
 {
+    // TODO: Read should advance the read pointer so that we can read a file little by little and not all at once
     void *virtual_address    = thread_peek_stack_item(get_current_thread(), 3);
     void *task_file_contents = thread_virtual_to_physical_address(get_current_thread(), virtual_address);
 
