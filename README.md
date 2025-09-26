@@ -5,7 +5,7 @@ Written in C23, so it requires a version of GCC that supports it.
 
 ## Documentation
 
-[Things I learned](docs/THINGS_I_LEARNED.md)
+[Cool things I learned](docs/COOL_THINGS_I_LEARNED.md)
 
 ![Screenshot](docs/img/screenshot7.png)
 
