@@ -13,6 +13,7 @@ void wc(int fd, char *name)
     int l = w = c = 0;
     int inword    = 0;
     while ((n = read(fd, buf, sizeof(buf))) > 0) {
+        printf(".");
         for (int i = 0; i < n; i++) {
             if (buf[i] != '\0') {
                 c++;
@@ -44,14 +45,14 @@ void wc(int fd, char *name)
 
 int main(int argc, char *argv[])
 {
-    int fd, i;
+    int fd;
 
     if (argc <= 1) {
         wc(0, "");
         exit(0);
     }
 
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if ((fd = open(argv[i], 0)) < 0) {
             printf("wc: cannot open %s\n", argv[i]);
             exit(0);

@@ -61,7 +61,6 @@ extern FILE *stderr;
 
 int print(const char *str, uint32_t size);
 int mkdir(const char *path);
-DIR *opendir(const char *path);
 int getkey(void);
 int getkey_blocking(void);
 char *getcwd(void);
