@@ -874,13 +874,6 @@ struct fat_directory fat16_load_fat_directory(const struct disk *disk, const str
         goto out;
     }
 
-    // directory = kzalloc(sizeof(struct fat_directory));
-    // if (!directory) {
-    //     warningf("Failed to allocate memory for directory\n");
-    //     res = -ENOMEM;
-    //     goto out;
-    // }
-
     const int cluster                 = entry->first_cluster;
     const uint32_t cluster_sector     = fat16_cluster_to_sector(fat_private, cluster);
     const int total_items             = fat16_get_total_items_for_directory(disk, cluster_sector);
@@ -1799,21 +1792,6 @@ int fat16_read_file_dir_entry(const struct fat_directory_entry *fat_entry, const
     char *ext_buf   = nullptr;
 
     memset(entry, 0, sizeof(struct dir_entry));
-    // entry->inode = memfs_create_inode(INODE_FILE, &fat16_file_inode_ops);
-    // if (entry->inode == nullptr) {
-    //     return -ENOMEM;
-    // }
-    // entry->inode_owned         = true;
-    // entry->inode->fs_type      = FS_TYPE_FAT16;
-    // entry->inode->data         = (void *)fat_entry;
-    // entry->inode->size         = fat_entry->size;
-    // entry->inode->atime        = fat_date_time_to_unix_time(fat_entry->access_date, 0);
-    // entry->inode->mtime        = fat_date_time_to_unix_time(fat_entry->modification_date,
-    // fat_entry->modification_time); entry->inode->ctime        = fat_date_time_to_unix_time(fat_entry->creation_date,
-    // fat_entry->creation_time); entry->inode->is_read_only = fat_entry->attributes & FAT_FILE_READ_ONLY;
-    // entry->inode->is_hidden    = fat_entry->attributes & FAT_FILE_HIDDEN;
-    // entry->inode->is_system    = fat_entry->attributes & FAT_FILE_SYSTEM;
-    // entry->inode->is_archive   = fat_entry->attributes & FAT_FILE_ARCHIVE;
 
     const uint32_t cluster = ((uint32_t)fat_entry->cluster_high << 16) | fat_entry->first_cluster;
     entry->inode_number    = (unsigned long)(((uint64_t)cluster << 16) | (index & 0xFFFFu));
