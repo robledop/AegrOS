@@ -129,7 +129,7 @@ struct fat_directory {
  */
 struct fat_item {
     struct fat_directory_entry *item;
-    struct fat_directory *directory;
+    struct fat_directory directory;
     FAT_ITEM_TYPE type;
 };
 
@@ -533,11 +533,6 @@ int fat16_resolve(struct disk *disk)
     disk->fs         = fat16_fs;
 
     struct disk_stream stream = disk_stream_create(disk->id);
-    // if (!stream) {
-    //     panic("Failed to create disk stream");
-    //     res = -ENOMEM;
-    //     goto out;
-    // }
 
     if (disk_stream_read(&stream, &fat_private->header, sizeof(fat_private->header)) != ALL_OK) {
         panic("Failed to read FAT16 header\n");
@@ -564,9 +559,6 @@ int fat16_resolve(struct disk *disk)
     vfs_add_mount_point("/", disk->id, nullptr);
 
 out:
-    // if (stream) {
-    //     disk_stream_close(stream);
-    // }
     if (res < 0) {
         kfree(fat_private);
         disk->fs_private = nullptr;
@@ -623,29 +615,20 @@ void fat16_get_relative_filename(const struct fat_directory_entry *entry, char *
  * @param directory Directory to duplicate.
  * @return Newly allocated directory copy or nullptr on failure.
  */
-struct fat_directory *fat16_clone_fat_directory(const struct fat_directory *directory)
+struct fat_directory fat16_clone_fat_directory(const struct fat_directory *directory)
 {
-    if (!directory) {
-        return nullptr;
-    }
+    struct fat_directory new_directory = {};
 
-    struct fat_directory *new_directory = kzalloc(sizeof(struct fat_directory));
-    if (!new_directory) {
-        warningf("Failed to allocate memory for new directory\n");
-        return nullptr;
-    }
-
-    new_directory->entries = kzalloc(directory->entry_count * sizeof(struct fat_directory_entry));
-    if (!new_directory->entries) {
+    new_directory.entries = kzalloc(directory->entry_count * sizeof(struct fat_directory_entry));
+    if (!new_directory.entries) {
         warningf("Failed to allocate memory for new directory entries\n");
-        kfree(new_directory);
-        return nullptr;
+        return new_directory;
     }
 
-    memcpy(new_directory->entries, directory->entries, directory->entry_count * sizeof(struct fat_directory_entry));
-    new_directory->entry_count            = directory->entry_count;
-    new_directory->sector_position        = directory->sector_position;
-    new_directory->ending_sector_position = directory->ending_sector_position;
+    memcpy(new_directory.entries, directory->entries, directory->entry_count * sizeof(struct fat_directory_entry));
+    new_directory.entry_count            = directory->entry_count;
+    new_directory.sector_position        = directory->sector_position;
+    new_directory.ending_sector_position = directory->ending_sector_position;
 
     return new_directory;
 }
@@ -835,16 +818,16 @@ out:
  *
  * @param directory Directory instance to destroy.
  */
-void fat16_free_directory(struct fat_directory *directory)
+void fat16_free_directory(struct fat_directory directory)
 {
-    if (!directory) {
-        return;
-    }
+    // if (!directory) {
+    //     return;
+    // }
 
-    if (directory->entries) {
-        kfree(directory->entries);
+    if (directory.entries) {
+        kfree(directory.entries);
     }
-    kfree(directory);
+    // kfree(directory);
 }
 
 /**
@@ -861,7 +844,7 @@ void fat16_fat_item_free(struct fat_item *item)
     if (item->type == FAT_ITEM_TYPE_DIRECTORY) {
         fat16_free_directory(item->directory);
     } else if (item->type == FAT_ITEM_TYPE_FILE) {
-        item->directory = nullptr;
+        item->directory = (struct fat_directory){};
     }
 
     if (item->item) {
@@ -879,11 +862,11 @@ void fat16_fat_item_free(struct fat_item *item)
  * @param entry Directory entry describing the subdirectory.
  * @return Allocated directory snapshot or nullptr on failure.
  */
-struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const struct fat_directory_entry *entry)
+struct fat_directory fat16_load_fat_directory(const struct disk *disk, const struct fat_directory_entry *entry)
 {
     int res = 0;
 
-    struct fat_directory *directory       = {};
+    struct fat_directory directory        = {};
     const struct fat_private *fat_private = disk->fs_private;
     if (!(entry->attributes & FAT_FILE_SUBDIRECTORY)) {
         warningf("Invalid directory entry\n");
@@ -891,30 +874,30 @@ struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const st
         goto out;
     }
 
-    directory = kzalloc(sizeof(struct fat_directory));
-    if (!directory) {
-        warningf("Failed to allocate memory for directory\n");
-        res = -ENOMEM;
-        goto out;
-    }
+    // directory = kzalloc(sizeof(struct fat_directory));
+    // if (!directory) {
+    //     warningf("Failed to allocate memory for directory\n");
+    //     res = -ENOMEM;
+    //     goto out;
+    // }
 
     const int cluster                 = entry->first_cluster;
     const uint32_t cluster_sector     = fat16_cluster_to_sector(fat_private, cluster);
     const int total_items             = fat16_get_total_items_for_directory(disk, cluster_sector);
-    directory->entry_count            = total_items;
-    const unsigned int directory_size = directory->entry_count * sizeof(struct fat_directory_entry);
+    directory.entry_count             = total_items;
+    const unsigned int directory_size = directory.entry_count * sizeof(struct fat_directory_entry);
     if (directory_size == 0) {
         goto out;
     }
-    directory->entries = kzalloc(directory_size);
-    if (!directory->entries) {
+    directory.entries = kzalloc(directory_size);
+    if (!directory.entries) {
         warningf("Failed to allocate memory for directory entries\n");
         res = -ENOMEM;
         goto out;
     }
 
     hash_table_t *cache = ht_create();
-    res                 = fat16_read_internal(disk, cluster, 0x00, directory_size, directory->entries, cache);
+    res                 = fat16_read_internal(disk, cluster, 0x00, directory_size, directory.entries, cache);
     ht_destroy(cache);
     if (res != ALL_OK) {
         warningf("Failed to read directory entries\n");
@@ -924,7 +907,7 @@ struct fat_directory *fat16_load_fat_directory(const struct disk *disk, const st
 out:
     if (res != ALL_OK) {
         fat16_free_directory(directory);
-        return nullptr;
+        // return nullptr;
     }
     return directory;
 }
@@ -944,12 +927,7 @@ struct fat_item *fat16_new_fat_item_for_directory(const struct fat_directory *di
     }
 
     f_item->directory = fat16_clone_fat_directory(dir);
-    if (!f_item->directory) {
-        warningf("Failed to clone directory\n");
-        kfree(f_item);
-        return nullptr;
-    }
-    f_item->type = FAT_ITEM_TYPE_DIRECTORY;
+    f_item->type      = FAT_ITEM_TYPE_DIRECTORY;
 
     return f_item;
 }
@@ -973,16 +951,11 @@ struct fat_item *fat16_new_fat_item_for_directory_entry(const struct disk *disk,
     f_item->item = fat16_clone_fat_directory_entry(entry, sizeof(struct fat_directory_entry));
 
     if (entry->attributes & FAT_FILE_SUBDIRECTORY) {
-        f_item->type      = FAT_ITEM_TYPE_DIRECTORY;
-        f_item->directory = fat16_load_fat_directory(disk, entry);
-        if (!f_item->directory) {
-            kfree(f_item->item);
-            kfree(f_item);
-            return nullptr;
-        }
-        f_item->directory->sector_position = (int)fat16_cluster_to_sector(disk->fs_private, entry->first_cluster);
-        f_item->directory->ending_sector_position =
-            f_item->directory->sector_position + (f_item->directory->entry_count * sizeof(struct fat_directory_entry));
+        f_item->type                      = FAT_ITEM_TYPE_DIRECTORY;
+        f_item->directory                 = fat16_load_fat_directory(disk, entry);
+        f_item->directory.sector_position = (int)fat16_cluster_to_sector(disk->fs_private, entry->first_cluster);
+        f_item->directory.ending_sector_position =
+            f_item->directory.sector_position + (f_item->directory.entry_count * sizeof(struct fat_directory_entry));
         return f_item;
     }
 
@@ -1041,7 +1014,7 @@ struct fat_item *fat16_get_directory_entry(const struct disk *disk, const struct
             break;
         }
 
-        struct fat_item *tmp_item = fat16_find_item_in_directory(disk, current_item->directory, next_part->name);
+        struct fat_item *tmp_item = fat16_find_item_in_directory(disk, &current_item->directory, next_part->name);
         fat16_fat_item_free(current_item);
         current_item = tmp_item;
         if (!current_item) {
@@ -1130,7 +1103,7 @@ success_out:
     descriptor->position = 0;
     descriptor->disk     = disk;
     *size_out            = descriptor->item->type == FAT_ITEM_TYPE_FILE ? descriptor->item->item->size
-                                                                        : (uint32_t)descriptor->item->directory->entry_count;
+                                                                        : (uint32_t)descriptor->item->directory.entry_count;
 
     return descriptor;
 
@@ -1662,9 +1635,9 @@ int fat16_stat(void *descriptor, struct stat *stat)
             stat->st_lfn = true;
         }
     } else if (desc_item->type == FAT_ITEM_TYPE_DIRECTORY) {
-        const struct fat_directory *directory = desc_item->directory;
+        const struct fat_directory directory = desc_item->directory;
 
-        stat->st_size = directory->entry_count;
+        stat->st_size = directory.entry_count;
         stat->st_mode |= S_IFDIR;
 
         stat->st_mode |= S_IRUSR;
@@ -1753,7 +1726,7 @@ int fat16_get_directory(const struct path_root *path_root, struct fat_directory 
     path_part = path_part->next;
 
     while (path_part != nullptr && current_item != nullptr) {
-        struct fat_item *next_item = fat16_find_item_in_directory(disk, current_item->directory, path_part->name);
+        struct fat_item *next_item = fat16_find_item_in_directory(disk, &current_item->directory, path_part->name);
         if (next_item == nullptr || next_item->type != FAT_ITEM_TYPE_DIRECTORY) {
             fat16_fat_item_free(current_item);
             break;
@@ -1768,9 +1741,9 @@ int fat16_get_directory(const struct path_root *path_root, struct fat_directory 
     }
 
     ASSERT(current_item);
-    ASSERT(current_item->directory);
+    // ASSERT(current_item.directory);
 
-    *fat_directory = *current_item->directory;
+    *fat_directory = current_item->directory;
 
     return ALL_OK;
 }
@@ -1926,15 +1899,15 @@ int fat16_read_entry(struct file *descriptor, struct dir_entry *entry)
     const struct fat_file_descriptor *fat_desc = descriptor->fs_data;
 
     ASSERT(descriptor->type == INODE_DIRECTORY);
-    if (descriptor->offset >= fat_desc->item->directory->entry_count) {
+    if (descriptor->offset >= fat_desc->item->directory.entry_count) {
         return -ENOENT;
     }
 
     // const struct fat_directory *fat_directory      = fat_desc->item->directory;
     // const struct fat_directory_entry *current_item = &fat_directory->entries[descriptor->offset++];
-    const struct fat_directory *fat_directory      = fat_desc->item->directory;
+    const struct fat_directory fat_directory       = fat_desc->item->directory;
     const size_t index                             = descriptor->offset++;
-    const struct fat_directory_entry *current_item = &fat_directory->entries[index];
+    const struct fat_directory_entry *current_item = &fat_directory.entries[index];
 
     return fat16_read_file_dir_entry(current_item, index, entry);
 }
