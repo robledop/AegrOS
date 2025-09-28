@@ -6,22 +6,21 @@
 #include <serial.h>
 #include <stream.h>
 
-struct disk_stream *disk_stream_create(const int disk_index)
+struct disk_stream disk_stream_create(const int disk_index)
 {
     struct disk *disk = disk_get(disk_index);
     if (!disk) {
         panic("Failed to get disk %d\n");
-        return nullptr;
     }
 
-    struct disk_stream *stream = kzalloc(sizeof(struct disk_stream));
-    if (!stream) {
-        panic("Failed to allocate memory for disk stream\n");
-        return nullptr;
-    }
-    stream->position = 0;
-    stream->disk     = disk;
-    return stream;
+    // struct disk_stream *stream = kzalloc(sizeof(struct disk_stream));
+    // if (!stream) {
+    //     panic("Failed to allocate memory for disk stream\n");
+    //     return nullptr;
+    // }
+    // stream->position = 0;
+    // stream->disk     = disk;
+    return (struct disk_stream){.position = 0, .disk = disk};
 }
 
 int disk_stream_seek(struct disk_stream *stream, const uint32_t position)

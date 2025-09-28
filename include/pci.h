@@ -138,7 +138,7 @@ struct pci_driver {
     uint16_t vendor_id;
     uint16_t device_id;
     /// Initialize the driver for the device.
-    void (*init)(struct pci_device *device);
+    void (*init)(struct pci_device device);
 };
 
 struct pci_class {
@@ -153,5 +153,5 @@ struct pci_vendor {
 };
 
 void pci_scan(void);
-NON_NULL void pci_enable_bus_mastering(const struct pci_device *device);
-NON_NULL uint32_t pci_get_bar(const struct pci_device *dev, uint8_t type);
+NON_NULL void pci_enable_bus_mastering(struct pci_device device);
+NON_NULL uint32_t pci_get_bar(struct pci_device dev, uint8_t type);

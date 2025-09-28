@@ -25,7 +25,7 @@ static struct e1000_rx_desc *rx_descs[E1000_RX_RING_SIZE]; // Receive Descriptor
 static struct e1000_tx_desc *tx_descs[E1000_TX_RING_SIZE]; // Transmit Descriptor Buffers
 static uint16_t rx_cur;                                    // Current Receive Descriptor Buffer
 static uint16_t tx_cur;                                    // Current Transmit Descriptor Buffer
-static struct pci_device *pci_device;
+static struct pci_device pci_device;
 
 
 /**
@@ -207,7 +207,7 @@ void e1000_enable_interrupt()
  *
  * @param pci PCI device descriptor for the controller.
  */
-void e1000_init(struct pci_device *pci)
+void e1000_init(struct pci_device pci)
 {
     pci_device = pci;
     bar_type   = pci_get_bar(pci_device, PCI_BAR_MEM) & 1;
@@ -231,7 +231,7 @@ void e1000_init(struct pci_device *pci)
 void e1000_interrupt_handler(struct interrupt_frame *frame)
 {
     int interrupt = frame->interrupt_number;
-    if (interrupt == pci_device->header.irq + IRQ0) {
+    if (interrupt == pci_device.header.irq + IRQ0) {
         // This might be needed here if your handler doesn't clear interrupts from each device and must be done
         // before EOI if using the PIC. Without this, the card will spam interrupts as the int-line will stay high.
         e1000_write_command(REG_IMS, 0x1);
@@ -301,7 +301,7 @@ bool e1000_start()
     for (int i = 0; i < 0x80; i++)
         e1000_write_command(REG_MTA + i * 4, 0);
 
-    if (idt_register_interrupt_callback(IRQ0 + pci_device->header.irq, e1000_interrupt_handler) == 0) {
+    if (idt_register_interrupt_callback(IRQ0 + pci_device.header.irq, e1000_interrupt_handler) == 0) {
         e1000_enable_interrupt();
         e1000_rx_init();
         e1000_tx_init();

@@ -145,11 +145,11 @@ void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 /**
  * @brief Create a keyboard driver instance for the PS/2 controller.
  */
-struct keyboard *ps2_init()
+struct keyboard ps2_init()
 {
-    struct keyboard *kbd = kzalloc(sizeof(struct keyboard));
-    strncpy(kbd->name, "ps2", sizeof(kbd->name));
-    kbd->init = ps2_keyboard_init;
+    // struct keyboard *kbd = kzalloc(sizeof(struct keyboard));
+    // strncpy(kbd->name, "ps2", sizeof(kbd->name));
+    // kbd->init = ps2_keyboard_init;
 
-    return kbd;
+    return (struct keyboard){.name = "ps2", .init = ps2_keyboard_init};
 }

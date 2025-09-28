@@ -24,4 +24,4 @@ void keyboard_init(void);
 // __attribute__((nonnull)) void keyboard_backspace(struct process *process);
 void keyboard_push(uint8_t c);
 uint8_t keyboard_pop(void);
-NON_NULL int keyboard_register(const struct keyboard *kbd);
+NON_NULL int keyboard_register(struct keyboard kbd);

@@ -240,13 +240,20 @@ void load_driver(const struct pci_header pci, const uint8_t bus, const uint8_t d
             printf("[ " KBGRN "OK" KWHT " ] ");
             printf("Loading driver for %s\n", pci_find_name(pci.class, pci.subclass));
 
-            struct pci_device *pci_device = kzalloc(sizeof(struct pci_device));
-            pci_device->header            = pci;
-            pci_device->bus               = bus;
-            pci_device->slot              = device;
-            pci_device->function          = function;
+            // struct pci_device *pci_device = kzalloc(sizeof(struct pci_device));
+            // struct pci_device{
+            //     .header   = pci,
+            //     .bus      = bus,
+            //     .slot     = device,
+            //     .function = function,
+            // } pci_device;
 
-            pci_drivers[i].init(pci_device);
+            pci_drivers[i].init((struct pci_device){
+                .header   = pci,
+                .bus      = bus,
+                .slot     = device,
+                .function = function,
+            });
             return;
         }
     }
@@ -297,24 +304,23 @@ void pci_scan()
 /**
  * @brief Enable bus mastering capability for a PCI device.
  */
-void pci_enable_bus_mastering(const struct pci_device *device)
+void pci_enable_bus_mastering(const struct pci_device device)
 {
     constexpr uint16_t command_register_offset = 0x04;
-    uint16_t dev_command_reg =
-        pci_config_read_word(device->bus, device->slot, device->function, command_register_offset);
+    uint16_t dev_command_reg = pci_config_read_word(device.bus, device.slot, device.function, command_register_offset);
     dev_command_reg |= PCI_COMMAND_BUS_MASTER;
 
-    pci_config_write_word(device->bus, device->slot, device->function, command_register_offset, dev_command_reg);
+    pci_config_write_word(device.bus, device.slot, device.function, command_register_offset, dev_command_reg);
 }
 
 /**
  * @brief Retrieve a Base Address Register matching the requested type.
  */
-uint32_t pci_get_bar(const struct pci_device *dev, const uint8_t type)
+uint32_t pci_get_bar(const struct pci_device dev, const uint8_t type)
 {
     uint32_t bar = 0;
     for (int i = 0; i < 6; i++) {
-        bar = dev->header.bars[i];
+        bar = dev.header.bars[i];
         if ((bar & 0x1) == type) {
             return bar;
         }

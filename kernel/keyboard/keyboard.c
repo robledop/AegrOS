@@ -9,14 +9,14 @@ void keyboard_init()
     keyboard_register(ps2_init());
 }
 
-int keyboard_register(const struct keyboard *kbd)
+int keyboard_register(const struct keyboard kbd)
 {
-    if (kbd->init == nullptr) {
+    if (kbd.init == nullptr) {
         panic("Keyboard init function is not available.");
         return -EINVARG;
     }
 
-    return kbd->init();
+    return kbd.init();
 }
 
 void keyboard_push(const uint8_t c)

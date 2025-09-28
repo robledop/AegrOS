@@ -151,5 +151,5 @@ struct e1000_tx_desc {
     volatile uint16_t special;
 } __attribute__((packed));
 
-NON_NULL void e1000_init(struct pci_device *pci);
+NON_NULL void e1000_init(struct pci_device pci);
 NON_NULL int e1000_send_packet(const void *p_data, uint16_t p_len);

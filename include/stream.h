@@ -13,7 +13,7 @@ struct disk_stream {
     struct disk *disk;
 };
 
-struct disk_stream *disk_stream_create(int disk_index);
+struct disk_stream disk_stream_create(int disk_index);
 NON_NULL int disk_stream_seek(struct disk_stream *stream, uint32_t position);
 NON_NULL int disk_stream_read(struct disk_stream *stream, void *out, uint32_t size);
 NON_NULL int disk_stream_write(struct disk_stream *stream, const void *in, uint32_t size);

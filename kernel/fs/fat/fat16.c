@@ -140,11 +140,11 @@ struct fat_item {
 struct fat_private {
     struct fat_h header;
     struct fat_directory root_directory;
-    struct disk_stream *cluster_read_stream;
-    struct disk_stream *cluster_write_stream;
-    struct disk_stream *fat_read_stream;
-    struct disk_stream *fat_write_stream;
-    struct disk_stream *directory_stream;
+    struct disk_stream cluster_read_stream;
+    struct disk_stream cluster_write_stream;
+    struct disk_stream fat_read_stream;
+    struct disk_stream fat_write_stream;
+    struct disk_stream directory_stream;
 };
 
 #define FAT_ENTRIES_PER_SECTOR (512 / sizeof(struct fat_directory_entry))
@@ -422,15 +422,15 @@ int fat16_get_total_items_for_directory(const struct disk *disk, const uint32_t 
     int count = 0;
     ASSERT(disk->sector_size > 0, "Invalid sector size");
     const uint32_t directory_start_pos = directory_start_sector * disk->sector_size;
-    struct disk_stream *stream         = fat_private->directory_stream;
-    if (disk_stream_seek(stream, directory_start_pos) != ALL_OK) {
+    struct disk_stream stream          = fat_private->directory_stream;
+    if (disk_stream_seek(&stream, directory_start_pos) != ALL_OK) {
         panic("Failed to seek to directory start");
         res = -EIO;
         goto out;
     }
 
     while (1) {
-        if (disk_stream_read(stream, &entry, sizeof(entry)) != ALL_OK) {
+        if (disk_stream_read(&stream, &entry, sizeof(entry)) != ALL_OK) {
             panic("Failed to read directory entry");
             res = -EIO;
             goto out;
@@ -482,14 +482,14 @@ int fat16_load_root_directory(const struct disk *disk)
         goto error_out;
     }
 
-    struct disk_stream *stream = fat_private->directory_stream;
-    if (disk_stream_seek(stream, fat16_sector_to_absolute(disk, root_dir_sector_pos)) != ALL_OK) {
+    struct disk_stream stream = fat_private->directory_stream;
+    if (disk_stream_seek(&stream, fat16_sector_to_absolute(disk, root_dir_sector_pos)) != ALL_OK) {
         panic("Failed to seek to root directory\n");
         res = -EIO;
         goto error_out;
     }
 
-    if (disk_stream_read(stream, dir, root_dir_size) != ALL_OK) {
+    if (disk_stream_read(&stream, dir, root_dir_size) != ALL_OK) {
         panic("Failed to read root directory\n");
         res = -EIO;
         goto error_out;
@@ -532,14 +532,14 @@ int fat16_resolve(struct disk *disk)
     disk->fs_private = fat_private;
     disk->fs         = fat16_fs;
 
-    struct disk_stream *stream = disk_stream_create(disk->id);
-    if (!stream) {
-        panic("Failed to create disk stream");
-        res = -ENOMEM;
-        goto out;
-    }
+    struct disk_stream stream = disk_stream_create(disk->id);
+    // if (!stream) {
+    //     panic("Failed to create disk stream");
+    //     res = -ENOMEM;
+    //     goto out;
+    // }
 
-    if (disk_stream_read(stream, &fat_private->header, sizeof(fat_private->header)) != ALL_OK) {
+    if (disk_stream_read(&stream, &fat_private->header, sizeof(fat_private->header)) != ALL_OK) {
         panic("Failed to read FAT16 header\n");
         res = -EIO;
         goto out;
@@ -564,9 +564,9 @@ int fat16_resolve(struct disk *disk)
     vfs_add_mount_point("/", disk->id, nullptr);
 
 out:
-    if (stream) {
-        disk_stream_close(stream);
-    }
+    // if (stream) {
+    //     disk_stream_close(stream);
+    // }
     if (res < 0) {
         kfree(fat_private);
         disk->fs_private = nullptr;
@@ -789,7 +789,7 @@ static int fat16_read_internal(const struct disk *disk, const int cluster, const
     int res = 0;
 
     const struct fat_private *private    = disk->fs_private;
-    struct disk_stream *stream           = private->cluster_read_stream;
+    struct disk_stream stream            = private->cluster_read_stream;
     const uint32_t size_of_cluster_bytes = private->header.primary_header.sectors_per_cluster * disk->sector_size;
     const int cluster_to_use             = fat16_get_cluster_for_offset(disk, cluster, offset, cache);
 
@@ -810,12 +810,12 @@ static int fat16_read_internal(const struct disk *disk, const int cluster, const
     const uint32_t starting_pos    = (starting_sector * disk->sector_size) + offset_from_cluster;
     const uint32_t total_to_read   = total > size_of_cluster_bytes ? size_of_cluster_bytes : total;
 
-    res = disk_stream_seek(stream, starting_pos);
+    res = disk_stream_seek(&stream, starting_pos);
     if (res != ALL_OK) {
         goto out;
     }
 
-    res = disk_stream_read(stream, out, total_to_read);
+    res = disk_stream_read(&stream, out, total_to_read);
     if (res != ALL_OK) {
         goto out;
     }
