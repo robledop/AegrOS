@@ -1,10 +1,9 @@
+#include <kernel_heap.h>
 #include <printf.h>
 #include <process.h>
 #include <string.h>
 #include <syscall.h>
 #include <termcolors.h>
-
-#include "kernel_heap.h"
 
 // TODO: Re-implement this in userland using a device file
 void *sys_ps(void)
