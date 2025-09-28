@@ -158,6 +158,15 @@ struct thread *thread_allocate(void (*entry)(void), const enum thread_state stat
         new_thread->trap_frame->eip    = PROGRAM_VIRTUAL_ADDRESS;
 
         stack_push_pointer(&kernel_stack_pointer, (uintptr_t)trap_return);
+
+        // Allocate the user stack.
+        // process_map_memory() later maps it to the correct place in the process's page directory
+        // We will probably need to handle this differently if we want to support multiple threads in a process
+        void *program_stack_pointer = kzalloc(USER_STACK_SIZE);
+        if (!program_stack_pointer) {
+            panic("Failed to allocate memory for program stack\n");
+        }
+        new_thread->user_stack = program_stack_pointer;
     } else if (mode == KERNEL_MODE) {
         stack_push_pointer(&kernel_stack_pointer, (size_t)entry);
 
@@ -166,6 +175,7 @@ struct thread *thread_allocate(void (*entry)(void), const enum thread_state stat
 
         new_thread->page_directory = page_directory;
     }
+
 
     kernel_stack_pointer -= sizeof *new_thread->context;
     new_thread->context = (struct context *)kernel_stack_pointer;
@@ -600,6 +610,7 @@ struct thread *thread_create(struct process *process)
         panic("Failed to initialize thread\n");
         goto out;
     }
+
 
 out:
     if (ISERR(res)) {

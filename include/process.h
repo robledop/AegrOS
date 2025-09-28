@@ -54,7 +54,6 @@ struct process {
     };
 
     struct file *file_descriptors[MAX_FILE_DESCRIPTORS];
-    void *user_stack;
     uint32_t size;
     struct process_arguments arguments;
     char *current_directory;

@@ -110,9 +110,9 @@ int process_zombify(struct process *process)
     res = process_free_program_data(process);
     ASSERT(res == 0, "Failed to free program data for process");
 
-    if (process->user_stack) {
-        kfree(process->user_stack);
-        process->user_stack = nullptr;
+    if (process->thread->user_stack) {
+        kfree(process->thread->user_stack);
+        process->thread->user_stack = nullptr;
     }
 
     if (process->thread) {
@@ -484,8 +484,8 @@ int process_map_memory(struct process *process)
     // Map stack
     res = paging_map_to(process->page_directory,
                         (char *)USER_STACK_BOTTOM, // stack grows down
-                        process->user_stack,
-                        paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
+                        process->thread->user_stack,
+                        paging_align_address((char *)process->thread->user_stack + USER_STACK_SIZE),
                         PDE_IS_PRESENT | PDE_IS_WRITABLE | PDE_SUPERVISOR);
 
 
@@ -509,14 +509,14 @@ int process_unmap_memory(const struct process *process)
 
     ASSERT(res >= 0, "Failed to unmap memory for process");
 
-    if (process->user_stack == nullptr) {
+    if (process->thread->user_stack == nullptr) {
         return res;
     }
 
     res = paging_map_to(process->page_directory,
                         (char *)USER_STACK_BOTTOM, // stack grows down
-                        process->user_stack,
-                        paging_align_address((char *)process->user_stack + USER_STACK_SIZE),
+                        process->thread->user_stack,
+                        paging_align_address((char *)process->thread->user_stack + USER_STACK_SIZE),
                         PDE_UNMAPPED);
     return res;
 }
@@ -556,10 +556,9 @@ out:
 
 int process_load_for_slot(const char file_name[static 1], struct process **process, const uint16_t pid)
 {
-    int res                     = 0;
-    struct thread *thread       = nullptr;
-    struct process *proc        = nullptr;
-    void *program_stack_pointer = nullptr;
+    int res               = 0;
+    struct thread *thread = nullptr;
+    struct process *proc  = nullptr;
 
     if (process_get(pid) != nullptr) {
         panic("Process slot is not empty\n");
@@ -580,16 +579,8 @@ int process_load_for_slot(const char file_name[static 1], struct process **proce
         goto out;
     }
 
-    program_stack_pointer = kzalloc(USER_STACK_SIZE);
-    if (!program_stack_pointer) {
-        panic("Failed to allocate memory for program stack\n");
-        res = -ENOMEM;
-        goto out;
-    }
-
     strncpy(proc->file_name, file_name, sizeof(proc->file_name));
-    proc->user_stack = program_stack_pointer;
-    proc->pid        = pid;
+    proc->pid = pid;
 
     thread = thread_create(proc);
     if (ISERR(thread)) {
@@ -672,8 +663,8 @@ int process_copy_allocations(struct process *dest, const struct process *src)
 
 void process_copy_stack(struct process *dest, const struct process *src)
 {
-    dest->user_stack = kzalloc(USER_STACK_SIZE);
-    memcpy(dest->user_stack, src->user_stack, USER_STACK_SIZE);
+    dest->thread->user_stack = kzalloc(USER_STACK_SIZE);
+    memcpy(dest->thread->user_stack, src->thread->user_stack, USER_STACK_SIZE);
     memcpy(dest->thread->kernel_stack, src->thread->kernel_stack, KERNEL_STACK_SIZE);
 }
 

@@ -77,8 +77,8 @@ void *sys_exec(void)
     process->arguments.argc    = 0;
     process_free_program_data(process);
     process_unmap_memory(process);
-    kfree(process->user_stack);
-    process->user_stack                       = nullptr;
+    kfree(process->thread->user_stack);
+    process->thread->user_stack               = nullptr;
     void *old_kernel_stack                    = process->thread->kernel_stack;
     struct page_directory *old_page_directory = process->page_directory;
     struct interrupt_frame *old_trap_frame    = process->thread->trap_frame;
@@ -106,7 +106,7 @@ void *sys_exec(void)
     }
     void *program_stack_pointer = kzalloc(USER_STACK_SIZE);
     strncpy(process->file_name, full_path, sizeof(process->file_name));
-    process->user_stack = program_stack_pointer; // Physical address of the stack for the process
+    process->thread->user_stack = program_stack_pointer; // Physical address of the stack for the process
 
     struct thread *thread = kzalloc(sizeof(struct thread));
     thread->kernel_stack  = old_kernel_stack;

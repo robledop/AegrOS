@@ -1,3 +1,6 @@
+PATH := $(HOME)/opt/cross/bin:$(PATH)
+export PATH
+
 $(shell mkdir -p ./bin)
 $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
@@ -6,9 +9,9 @@ QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=of
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 QEMU_ACCEL=
 QEMU_DEBUG=#-serial file:serial.log  -d int -D qemu.log
-CC=$(HOME)/opt/cross/bin/i686-elf-gcc
+CC=i686-elf-gcc
 AS=nasm
-LD=$(HOME)/opt/cross/bin/i686-elf-ld
+LD=i686-elf-ld
 OBJCOPY=$(HOME)/opt/cross/bin/i686-elf-objcopy
 SRC_DIRS := $(shell find ./kernel -type d ! -path './kernel/boot')
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))

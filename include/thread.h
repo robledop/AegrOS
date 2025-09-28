@@ -52,6 +52,7 @@ struct thread {
     uint32_t size;
     struct process *process;
     void *kernel_stack;
+    void *user_stack;
     _Alignas(16) uint8_t fpu_state[512];
 };
 
