@@ -63,12 +63,6 @@ struct process_list {
     int active_count;
 };
 
-struct process_info {
-    uint16_t pid;
-    int priority;
-    char file_name[MAX_PATH_LENGTH];
-    enum thread_state state;
-};
 
 extern struct thread *current_thread;
 
@@ -96,12 +90,7 @@ struct cpu *get_cpu();
 
 void switch_context(struct context **, struct context *);
 struct thread *thread_allocate(void (*entry)(void), enum thread_state state, const char *name, enum thread_mode mode);
-int process_get_free_pid();
 
-struct process *process_get(int pid);
-void process_set(int pid, struct process *process);
 void set_idle_thread(struct thread *thread);
 int thread_init(struct thread *thread, struct process *process);
 uint64_t get_cpu_time_ns();
-
-int get_processes(struct process_info **proc_info);

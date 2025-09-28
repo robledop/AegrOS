@@ -59,6 +59,13 @@ struct process {
     char *current_directory;
 };
 
+struct process_info {
+    uint16_t pid;
+    int priority;
+    char file_name[MAX_PATH_LENGTH];
+    enum thread_state state;
+};
+
 NON_NULL int process_load_enqueue(const char file_name[static 1], struct process **process);
 NON_NULL int process_load(const char file_name[static 1], struct process **process);
 NON_NULL int process_load_for_slot(const char file_name[static 1], struct process **process, uint16_t pid);
@@ -90,3 +97,7 @@ void process_wakeup(const void *wait_channel);
 
 void process_free_file_descriptors(struct process *process);
 void process_copy_file_descriptors(struct process *dest, struct process *src);
+int process_get_free_pid();
+struct process *process_get(int pid);
+void process_set(int pid, struct process *process);
+int get_processes(struct process_info **proc_info);

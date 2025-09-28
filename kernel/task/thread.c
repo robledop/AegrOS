@@ -22,7 +22,7 @@ extern void trap_return(void);
 static void on_timer();
 void thread_starting(void);
 
-struct process_list process_list;
+extern struct process_list process_list;
 extern struct tss_entry tss_entry;
 extern struct page_directory *kernel_page_directory;
 static uint64_t instr_per_ns;
@@ -40,34 +40,6 @@ uint64_t get_cpu_time_ns()
     return (__rdtsc()) / instr_per_ns;
 }
 
-int get_processes(struct process_info **proc_info)
-{
-    int count = 0;
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        struct process *p = process_list.processes[i];
-        if (p) {
-            count++;
-        }
-    }
-
-    *proc_info = kzalloc(count * sizeof(struct process_info));
-
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        struct process *p = process_list.processes[i];
-        if (!p) {
-            continue;
-        }
-        struct process_info info = {
-            .pid      = p->pid,
-            .priority = p->priority,
-            .state    = p->thread->state,
-        };
-        strncpy(info.file_name, p->file_name, MAX_PATH_LENGTH);
-        memcpy(*proc_info + i, &info, sizeof(struct process_info));
-    }
-
-    return count;
-}
 
 /// @brief Switch to the scheduler context (the scheduler() function)
 void switch_to_scheduler(void)
@@ -407,7 +379,6 @@ void scheduler(void)
     struct cpu *current_cpu = get_cpu();
     current_thread          = nullptr;
 
-    // ReSharper disable once CppDFAEndlessLoop
     for (;;) {
         // Enable interrupts on this processor.
         sti();
@@ -651,33 +622,4 @@ void threads_init(void)
     last_time = get_cpu_time_ns();
 
     timer_register_callback(on_timer);
-}
-
-int process_get_free_pid()
-{
-    acquire(&process_list.lock);
-
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        if (process_list.processes[i] == nullptr) {
-            release(&process_list.lock);
-            return i;
-        }
-    }
-
-    release(&process_list.lock);
-
-    return -EINSTKN;
-}
-
-struct process *process_get(const int pid)
-{
-    return process_list.processes[pid];
-}
-
-void process_set(const int pid, struct process *process)
-{
-    ASSERT(process_list.lock.locked);
-
-    process_list.processes[pid] = process;
-    process_list.count += process ? 1 : -1;
 }

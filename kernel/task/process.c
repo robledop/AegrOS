@@ -16,7 +16,7 @@
 #include <thread.h>
 #include <vfs.h>
 
-extern struct process_list process_list;
+struct process_list process_list;
 
 struct process *current_process(void)
 {
@@ -110,15 +110,17 @@ int process_zombify(struct process *process)
     res = process_free_program_data(process);
     ASSERT(res == 0, "Failed to free program data for process");
 
-    if (process->thread->user_stack) {
-        kfree(process->thread->user_stack);
-        process->thread->user_stack = nullptr;
-    }
 
     if (process->thread) {
         if (process->thread->kernel_stack) {
             kfree(process->thread->kernel_stack);
         }
+
+        if (process->thread->user_stack) {
+            kfree(process->thread->user_stack);
+            process->thread->user_stack = nullptr;
+        }
+
         kfree(process->thread);
         process->thread = nullptr;
     }
@@ -847,4 +849,62 @@ struct file *process_get_file_descriptor(const struct process *process, const ui
     }
 
     return process->file_descriptors[index];
+}
+
+int process_get_free_pid()
+{
+    acquire(&process_list.lock);
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_list.processes[i] == nullptr) {
+            release(&process_list.lock);
+            return i;
+        }
+    }
+
+    release(&process_list.lock);
+
+    return -EINSTKN;
+}
+
+struct process *process_get(const int pid)
+{
+    return process_list.processes[pid];
+}
+
+void process_set(const int pid, struct process *process)
+{
+    ASSERT(process_list.lock.locked);
+
+    process_list.processes[pid] = process;
+    process_list.count += process ? 1 : -1;
+}
+
+int get_processes(struct process_info **proc_info)
+{
+    int count = 0;
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        struct process *p = process_list.processes[i];
+        if (p) {
+            count++;
+        }
+    }
+
+    *proc_info = kzalloc(count * sizeof(struct process_info));
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        struct process *p = process_list.processes[i];
+        if (!p) {
+            continue;
+        }
+        struct process_info info = {
+            .pid      = p->pid,
+            .priority = p->priority,
+            .state    = p->thread->state,
+        };
+        strncpy(info.file_name, p->file_name, MAX_PATH_LENGTH);
+        memcpy(*proc_info + i, &info, sizeof(struct process_info));
+    }
+
+    return count;
 }

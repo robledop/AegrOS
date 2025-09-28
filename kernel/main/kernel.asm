@@ -4,7 +4,6 @@
 %include "config.asm"
 
   global _start
-  global cause_problem
   global set_kernel_mode_segments
 
 _start:

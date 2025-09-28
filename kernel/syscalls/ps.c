@@ -1,8 +1,8 @@
 #include <printf.h>
+#include <process.h>
 #include <string.h>
 #include <syscall.h>
 #include <termcolors.h>
-#include <thread.h>
 
 #include "kernel_heap.h"
 

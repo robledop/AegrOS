@@ -1,13 +1,11 @@
-#include <assert.h>
 #include <config.h>
 #include <debug.h>
+#include <fpu.h>
 #include <gdt.h>
 #include <gui/bmp.h>
-#include <gui/button.h>
 #include <gui/calculator.h>
 #include <gui/desktop.h>
 #include <gui/icon.h>
-#include <gui/rect.h>
 #include <gui/vterm.h>
 #include <gui/window.h>
 #include <icons.h>
@@ -16,8 +14,6 @@
 #include <kernel.h>
 #include <kernel_heap.h>
 #include <keyboard.h>
-#include <list.h>
-#include <memory.h>
 #include <mouse.h>
 #include <net/network.h>
 #include <paging.h>
@@ -38,9 +34,6 @@
 #include <vga_buffer.h>
 #include <x86.h>
 
-#include "fpu.h"
-
-
 void display_grub_info(const multiboot_info_t *mbd, unsigned int magic);
 
 #define STACK_CHK_GUARD 0xe2dee396
@@ -49,7 +42,6 @@ uint32_t wait_for_network_timeout = 15'000;
 
 uintptr_t __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
 
-extern struct vbe_mode_info *vbe_info;
 static desktop_t *desktop;
 static vterm_t *terminal;
 static calculator_t *calculator;
@@ -185,9 +177,6 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     uint32_t *pixels = nullptr;
     bitmap_load_argb("wpaper.bmp", &pixels);
 
-    // ASSERT(pixels);
-
-
     video_context_t *context = context_new(vbe_info->width, vbe_info->height);
     desktop                  = desktop_new(context, pixels);
     mouse_init(main_mouse_event_handler);
@@ -210,13 +199,9 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 
     window_paint((window_t *)desktop, nullptr, 1);
-    // context_draw_bitmap(context, 0, 0, 1024, 768, pixels);
-
-    // spawn_terminal();
 #else
     start_shell();
 #endif
-
 
     scheduler();
 
