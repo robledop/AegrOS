@@ -1,11 +1,11 @@
 #include <assert.h>
 #include <kernel.h>
+#include <memory.h>
 #include <paging.h>
 #include <x86.h>
-
-
 #include "kernel_heap.h"
 #include "serial.h"
+#include "spinlock.h"
 #include "status.h"
 
 // https://wiki.osdev.org/Paging
@@ -171,7 +171,7 @@ int paging_map_range(const struct page_directory *directory, void *virtual_addre
         if (res < 0) {
             warningf("Failed to map page %d\n", mapped_pages);
             for (int rollback = mapped_pages - 1; rollback >= 0; rollback--) {
-                void *rollback_virtual = (char *)virtual_address + (rollback * PAGING_PAGE_SIZE);
+                void *rollback_virtual  = (char *)virtual_address + (rollback * PAGING_PAGE_SIZE);
                 void *rollback_physical = (char *)physical_start_address + (rollback * PAGING_PAGE_SIZE);
                 paging_map(directory, rollback_virtual, rollback_physical, PDE_UNMAPPED);
             }
@@ -260,4 +260,302 @@ void paging_init()
     kernel_page_directory = paging_create_directory(PDE_IS_WRITABLE | PDE_IS_PRESENT | PDE_SUPERVISOR);
     paging_switch_directory(kernel_page_directory);
     enable_paging();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Memory overhaul
+
+
+char *kalloc(void);
+void new_kfree(char *v);
+static uint32_t *walkpgdir(uint32_t *pgdir, const void *va, int alloc);
+
+/** @brief End of kernel text; defined in linker script. */
+// extern char data[]; // defined by kernel.ld
+char data[]; // defined by kernel.ld
+
+/** @brief First address after kernel loaded from ELF file */
+// extern char end[]; // first address after kernel loaded from ELF file
+char end[]; // first address after kernel loaded from ELF file
+
+#define EXTMEM 0x100000     // Start of extended memory (1MB)
+#define PHYSTOP 0x20000000  // Top physical memory (512MB)
+#define DEVSPACE 0xFE000000 // Other devices are at high addresses (3.75GB)
+
+// Key addresses for address space layout (see kmap in vm.c for layout)
+#define KERNBASE 0x80000000          // First kernel virtual address (2GB)
+#define KERNLINK (KERNBASE + EXTMEM) // Address where kernel is linked (2GB + 1MB))
+
+#define V2P(a) ((uint32_t)(a) - KERNBASE)
+#define P2V(a) ((void *)((uint32_t)(a) + KERNBASE))
+
+#define V2P_WO(x) ((x) - KERNBASE) // same as V2P, but without casts
+#define P2V_WO(x) ((x) + KERNBASE) // same as P2V, but without casts
+
+// number of elements in a fixed-size array
+#define NELEM(x) (sizeof(x) / sizeof((x)[0]))
+
+// Page table/directory entry flags.
+#define PTE_P 0x001  // Present
+#define PTE_W 0x002  // Writeable
+#define PTE_U 0x004  // User
+#define PTE_PS 0x080 // Page Size (4MB pages)
+
+// Page directory and page table constants.
+#define NPDENTRIES 1024 // # directory entries per page directory
+#define NPTENTRIES 1024 // # PTEs per page table
+#define PGSIZE 4096     // bytes mapped by a page
+
+#define PTXSHIFT 12 // offset of PTX in a linear address
+#define PDXSHIFT 22 // offset of PDX in a linear address
+
+
+#define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1)) // round up to the next page boundary
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))              // round down to the page boundary
+
+// Address in the page table or page directory entry
+#define PTE_ADDR(pte) ((uint32_t)(pte) & ~0xFFF)
+#define PTE_FLAGS(pte) ((uint32_t)(pte) & 0xFFF)
+
+// page directory index
+#define PDX(va) (((uint32_t)(va) >> PDXSHIFT) & 0x3FF)
+
+// page table index
+#define PTX(va) (((uint32_t)(va) >> PTXSHIFT) & 0x3FF)
+
+// construct virtual address from indexes and offset
+#define PGADDR(d, t, o) ((uint32_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
+
+/** @brief Static kernel mapping template present in every page directory. */
+static struct kmap {
+    void *virt;
+    uint32_t phys_start;
+    uint32_t phys_end;
+    int perm;
+} kmap[] = {
+    {(void *)KERNBASE, 0,             EXTMEM,    PTE_W}, // I/O space
+    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0    }, // kern text+rodata
+    {(void *)data,     V2P(data),     PHYSTOP,   PTE_W}, // kern data+memory
+    {(void *)DEVSPACE, DEVSPACE,      0,         PTE_W}, // more devices
+};
+
+/** @brief Linked list node for free pages */
+struct run {
+    struct run *next;
+};
+
+/** @brief Kernel memory allocator state */
+struct {
+    struct spinlock lock;
+    int use_lock;
+    struct run *freelist;
+} kmem;
+
+uint32_t *kpgdir;
+
+
+/** @brief Free a range of memory */
+void freerange(void *vstart, void *vend)
+{
+    char *p = (char *)PGROUNDUP((uint32_t)vstart);
+    for (; p + PGSIZE <= (char *)vend; p += PGSIZE)
+        new_kfree(p);
+}
+
+/**
+ * @brief Shrink a process's address space.
+ *
+ * Frees user pages between @p newsz and @p oldsz.
+ *
+ * @param pgdir Page directory to trim.
+ * @param oldsz Current size in bytes.
+ * @param newsz Desired size in bytes.
+ * @return The resulting size after deallocation.
+ */
+int deallocuvm(uint32_t *pgdir, uint32_t oldsz, uint32_t newsz)
+{
+    if (newsz >= oldsz) {
+        return oldsz;
+    }
+
+    uint32_t a = PGROUNDUP(newsz);
+    for (; a < oldsz; a += PGSIZE) {
+        uint32_t *pte = walkpgdir(pgdir, (char *)a, 0);
+        if (!pte) {
+            a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
+        } else if ((*pte & PTE_P) != 0) {
+            uint32_t pa = PTE_ADDR(*pte);
+            if (pa == 0) {
+                panic("kfree");
+            }
+            char *v = P2V(pa);
+            new_kfree(v);
+            *pte = 0;
+        }
+    }
+    return newsz;
+}
+
+
+/** @brief Free a user page table and all associated physical pages. */
+void freevm(uint32_t *pgdir)
+{
+    if (pgdir == nullptr) {
+        panic("freevm: no pgdir");
+    }
+    deallocuvm(pgdir, KERNBASE, 0);
+    for (uint32_t i = 0; i < NPDENTRIES; i++) {
+        if (pgdir[i] & PTE_P) {
+            char *v = P2V(PTE_ADDR(pgdir[i]));
+            new_kfree(v);
+        }
+    }
+    new_kfree((char *)pgdir);
+}
+
+
+/**
+ * @brief Locate or optionally allocate the PTE for a virtual address.
+ *
+ * @param pgdir Page directory to search.
+ * @param va Virtual address whose page-table entry is requested.
+ * @param alloc When non-zero, allocate intermediate page tables on demand.
+ * @return Pointer to the requested PTE, or 0 on allocation failure.
+ */
+static uint32_t *walkpgdir(uint32_t *pgdir, const void *va, int alloc)
+{
+    uint32_t *pgtab;
+
+    uint32_t *pde = &pgdir[PDX(va)];
+    if (*pde & PTE_P) {
+        pgtab = (uint32_t *)P2V(PTE_ADDR(*pde));
+    } else {
+        if (!alloc || (pgtab = (uint32_t *)kalloc()) == nullptr) {
+            return nullptr;
+        }
+        // Make sure all those PTE_P bits are zero.
+        memset(pgtab, 0, PGSIZE);
+        // The permissions here are overly generous, but they can
+        // be further restricted by the permissions in the page table
+        // entries, if necessary.
+        *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;
+    }
+    return &pgtab[PTX(va)];
+}
+
+
+/**
+ * @brief Map a range of virtual addresses to physical memory.
+ *
+ * @param pgdir Page directory to modify.
+ * @param va Starting virtual address; need not be page-aligned.
+ * @param size Size in bytes of the region to map.
+ * @param pa Starting physical address.
+ * @param perm Permission bits to set on each mapping.
+ * @return 0 on success or -1 if allocation fails.
+ */
+static int mappages(uint32_t *pgdir, void *va, uint32_t size, uint32_t pa, int perm)
+{
+    uint32_t *pte;
+
+    const char *a    = (char *)PGROUNDDOWN((uint32_t)va);
+    const char *last = (char *)PGROUNDDOWN(((uint32_t)va) + size - 1);
+    for (;;) {
+        if ((pte = walkpgdir(pgdir, a, 1)) == nullptr) {
+            return -1;
+        }
+        if (*pte & PTE_P) {
+            panic("remap");
+        }
+        *pte = pa | perm | PTE_P;
+        if (a == last) {
+            break;
+        }
+        a += PGSIZE;
+        pa += PGSIZE;
+    }
+    return 0;
+}
+
+/**
+ * @brief Build the kernel portion of a new page directory.
+ *
+ * @return Pointer to the initialized page directory or 0 on failure.
+ */
+uint32_t *setupkvm(void)
+{
+    uint32_t *pgdir;
+
+    if ((pgdir = (uint32_t *)kalloc()) == nullptr) {
+        return nullptr;
+    }
+    memset(pgdir, 0, PGSIZE);
+    if (P2V(PHYSTOP) > (void *)DEVSPACE) {
+        panic("PHYSTOP too high");
+    }
+    for (const struct kmap *k = kmap; k < &kmap[NELEM(kmap)]; k++)
+        if (mappages(pgdir, k->virt, k->phys_end - k->phys_start, (uint32_t)k->phys_start, k->perm) < 0) {
+            freevm(pgdir);
+            return nullptr;
+        }
+    return pgdir;
+}
+
+/** @brief Switch to the kernel-only page table for the idle CPU. */
+void switch_kvm(void)
+{
+    lcr3(V2P(kpgdir)); // switch to the kernel page table
+}
+
+
+/** @brief Allocate the kernel page directory and activate it. */
+void kvmalloc(void)
+{
+    kpgdir = setupkvm();
+    switch_kvm();
+}
+
+
+/** @brief Free the page of physical memory pointed at by v,
+ * which normally should have been returned by a
+ * call to kalloc().  (The exception is when
+ * initializing the allocator; see kinit)
+ */
+void new_kfree(char *v)
+{
+    if ((uint32_t)v % PGSIZE || v < end || V2P(v) >= PHYSTOP) {
+        panic("kfree");
+    }
+
+    // Fill with junk to catch dangling refs.
+    memset(v, 1, PGSIZE);
+
+    if (kmem.use_lock) {
+        acquire(&kmem.lock);
+    }
+    struct run *r = (struct run *)v;
+    r->next       = kmem.freelist; // The current head of the free list becomes the next of this page
+    kmem.freelist = r;             // This page becomes the head of the free list
+    if (kmem.use_lock) {
+        release(&kmem.lock);
+    }
+}
+
+// Allocate one 4096-byte page of physical memory.
+// Returns a pointer that the kernel can use.
+// Returns 0 if the memory cannot be allocated.
+/** @brief Allocate one 4096-byte page of physical memory */
+char *kalloc(void)
+{
+    if (kmem.use_lock) {
+        acquire(&kmem.lock);
+    }
+    struct run *r = kmem.freelist; // Gets the first free page
+    if (r) {
+        kmem.freelist = r->next; // The next free page becomes the head of the list
+    }
+    if (kmem.use_lock) {
+        release(&kmem.lock);
+    }
+    return (char *)r; // Returns the first free page (or 0 if none)
 }
