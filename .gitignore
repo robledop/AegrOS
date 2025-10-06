@@ -9,6 +9,11 @@ rootfs/testdir/
 *.img
 *.iso
 config.asm
+memlayout.asm
+syscall.asm
+traps.asm
+disk.img
+disk.vdi
 .cache/
 .ccls-cache/
 compile_commands.json
