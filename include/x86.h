@@ -181,3 +181,74 @@ static inline void stosl(void* addr, int data, int cnt)
 {
     __asm__ volatile("cld; rep stosl" : "=D"(addr), "=c"(cnt) : "0"(addr), "1"(cnt), "a"(data) : "memory", "cc");
 }
+
+static inline void lgdt(struct segdesc* p, int size)
+{
+    volatile uint16_t pd[3];
+
+    pd[0] = size - 1;
+    pd[1] = (uint32_t)p;
+    pd[2] = (uint32_t)p >> 16;
+
+    __asm__ volatile("lgdt (%0)" : : "r" (pd));
+}
+
+struct gate_desc;
+
+static inline void lidt(struct gate_desc* p, int size)
+{
+    volatile uint16_t pd[3];
+
+    pd[0] = size - 1;
+    pd[1] = (uint32_t)p;
+    pd[2] = (uint32_t)p >> 16;
+
+    __asm__ volatile("lidt (%0)" : : "r" (pd));
+}
+
+
+static inline uint32_t rcr2(void)
+{
+    uint32_t val;
+    __asm__ volatile("movl %%cr2,%0" : "=r" (val));
+    return val;
+}
+
+
+// Layout of the trap frame built on the stack by the
+// hardware and by trapasm.S, and passed to trap().
+struct trapframe
+{
+    // registers as pushed by pusha
+    uint32_t edi;
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t oesp; // useless & ignored
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
+
+    // rest of trap frame
+    uint16_t gs;
+    uint16_t padding1;
+    uint16_t fs;
+    uint16_t padding2;
+    uint16_t es;
+    uint16_t padding3;
+    uint16_t ds;
+    uint16_t padding4;
+    uint32_t trapno;
+
+    // below here defined by x86 hardware
+    uint32_t err;
+    uint32_t eip;
+    uint16_t cs;
+    uint16_t padding5;
+    uint32_t eflags;
+
+    // below here only when crossing rings, such as from user to kernel
+    uint32_t esp;
+    uint16_t ss;
+    uint16_t padding6;
+};

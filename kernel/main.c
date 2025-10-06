@@ -1,3 +1,4 @@
+#include "kalloc.h"
 #include <stdint.h>
 #include <multiboot.h>
 #include <memlayout.h>
@@ -7,6 +8,7 @@
 #include <vga_buffer.h>
 #include <assert.h>
 #include <io.h>
+#include <vm.h>
 
 extern char end[]; // first address after kernel loaded from ELF file
 
@@ -23,6 +25,11 @@ void kernel_main(multiboot_info_t* mbd_phys, uint32_t magic)
     printf(KGRN "\nWelcome to " KBBLU "AegrOS" KWHT "!\n");
     cpu_print_info();
 
+    kinit1(end, P2V(8 * 1024 * 1024)); // phys page allocator for kernel
+    kvmalloc(); // kernel page table
+
+
+    printf("halt");
     while (1)
     {
         hlt();

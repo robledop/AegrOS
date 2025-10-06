@@ -14,6 +14,11 @@ for NASM_HEADER in "$@"
 do
     C_HEADER="${HEADER_DIR}/${NASM_HEADER%%.asm}.h"
     if [ "$C_HEADER" -nt "$NASM_HEADER" ]; then
+        # Add header comment
+        echo "; AUTO-GENERATED from ${C_HEADER##*/}" > "${HEADER_DIR}/$NASM_HEADER"
+        echo "; DO NOT EDIT - Changes will be overwritten on recompile" >> "${HEADER_DIR}/$NASM_HEADER"
+        echo "" >> "${HEADER_DIR}/$NASM_HEADER"
+
         sed 's/\/\*/;/' "$C_HEADER" | # change start of block comments
         sed 's/\*\///'            | # change end of block comments
         sed 's/\/\//;/'           | # change start of line comments
@@ -88,7 +93,7 @@ do
         ' |
         # keep only #define, #ifndef, #endif lines
         sed -n -e '/^[[:space:]]*#define/p' -e '/^[[:space:]]*#ifndef/p' -e '/^[[:space:]]*#endif/p' |
-        sed 's/^[[:space:]]*#/%/'             > "${HEADER_DIR}/$NASM_HEADER" # change preprocessor directives and write to NASM header
+        sed 's/^[[:space:]]*#/%/'             >> "${HEADER_DIR}/$NASM_HEADER" # change preprocessor directives and append to NASM header
     fi
 
     echo "" >> "${HEADER_DIR}/$NASM_HEADER" # ensure there is a newline at the end of the file

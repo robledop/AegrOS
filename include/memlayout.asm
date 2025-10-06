@@ -1,3 +1,6 @@
+; AUTO-GENERATED from memlayout.h
+; DO NOT EDIT - Changes will be overwritten on recompile
+
 %ifndef _memlayout
 %define _memlayout
 %define EXTMEM 0x100000    ; Start of extended memory (1MB)

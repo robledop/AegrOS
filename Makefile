@@ -1,17 +1,16 @@
 PATH := $(HOME)/opt/cross/bin:$(PATH)
 export PATH
 
-$(shell mkdir -p ./bin)
 $(shell mkdir -p ./rootfs/bin)
 QEMU=qemu-system-i386
-MEMORY=1024 # Be careful not to allocate too much memory as the page table may overlap with the heap
+MEMORY=1024
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off -device VGA,vgamem_mb=16
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 CC=i686-elf-gcc
 AS=nasm
 LD=i686-elf-ld
 OBJCOPY=$(HOME)/opt/cross/bin/i686-elf-objcopy
-SRC_DIRS := $(shell find ./kernel)
+SRC_DIRS := $(shell find ./kernel -type d)
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))
 $(shell mkdir -p $(BUILD_DIRS))
 ASM_FILES := $(wildcard $(addsuffix /*.asm, $(SRC_DIRS)))
@@ -23,7 +22,8 @@ INCLUDES = -I ./include
 AS_INCLUDES = -I ./include
 DEBUG_FLAGS = -g
 OPTIMIZATION_FLAGS = -O0
-AS_HEADERS = memlayout.asm
+# Assembly headers to be converted from C headers via scripts/c_to_nasm.sh
+AS_HEADERS = memlayout.asm syscall.asm traps.asm
 
 FLAGS = -ffreestanding \
 	 $(OPTIMIZATION_FLAGS) \
@@ -37,6 +37,8 @@ FLAGS = -ffreestanding \
 	-mstackrealign \
 	-Wno-unused-function \
 	-Wno-unused-variable \
+	-Wno-unused-but-set-variable \
+	-Wno-format \
 	-fno-builtin \
 	-Wno-unused-label \
 	-Wno-cpp \
@@ -53,7 +55,6 @@ FLAGS += -fsanitize=undefined
 FLAGS += -fstack-protector
 #FLAGS += -msse2 -mfpmath=sse
 
-.PHONY: .asm_headers
 .asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include $(AS_HEADERS)
 
@@ -63,12 +64,11 @@ FLAGS += -fstack-protector
 ./build/%.o: ./kernel/%.c FORCE
 	$(CC) $(INCLUDES) $(FLAGS) $(DEBUG_FLAGS) -c $< -o $@
 
-./bin/kernel-grub.bin: $(FILES) FORCE
+./rootfs/AegrOS.bin: $(FILES) FORCE
 	$(LD) $(DEBUG_FLAGS) -relocatable $(FILES) -o ./build/kernelfull.o
 	$(CC) $(FLAGS) $(DEBUG_FLAGS) -T ./kernel/boot/linker.ld -o ./rootfs/boot/AegrOS.bin ./build/kernelfull.o
 
-.PHONY: grub
-grub: ./bin/kernel-grub.bin FORCE
+grub: ./rootfs/AegrOS.bin FORCE
 	grub-file --is-x86-multiboot ./rootfs/boot/AegrOS.bin
 	./scripts/create-grub-image.sh
 
@@ -80,16 +80,16 @@ tap:
 qemu_grub_debug: grub tap FORCE
 	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_DEBUG)
 
-
 .PHONY: qemu_grub
 qemu_grub: grub tap FORCE
 	$(QEMU) -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK)
 
+vbox: grub FORCE
+	./scripts/start_vbox.sh $(MEMORY)
 
 .PHONY: clean
 clean:
-	rm -rf ./build ./bin ./rootfs/boot/AegrOS.bin ./rootfs/bin/* ./disk.img
-
+	rm -rf ./build ./bin ./rootfs/boot/AegrOS.bin ./rootfs/bin/* ./disk.img ./disk.vd
 
 # Force rebuild of all files
 .PHONY: FORCE

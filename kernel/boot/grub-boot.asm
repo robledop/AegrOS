@@ -2,8 +2,8 @@
 ; Declare constants for the multiboot header.
 MBALIGN  equ  1 << 0            ; align loaded modules on page boundaries
 MEMINFO  equ  1 << 1            ; provide memory map
-VIDEOMODE equ  1 << 2            ; request video mode
 %ifdef PIXEL_RENDERING
+VIDEOMODE equ  1 << 2            ; request video mode
 MBFLAGS equ MBALIGN | MEMINFO | VIDEOMODE
 %else
 MBFLAGS equ MBALIGN | MEMINFO
@@ -18,6 +18,7 @@ multiboot_header:
 	dd MAGIC
 	dd MBFLAGS
 	dd CHECKSUM
+%ifdef PIXEL_RENDERING
     ; Video mode fields (required when VIDEOMODE flag is set)
 	dd 0    ; header_addr (not used)
 	dd 0    ; load_addr (not used)
@@ -28,14 +29,10 @@ multiboot_header:
 	dd 1024 ; width
 	dd 768  ; height
 	dd 32   ; depth
+%endif
 
-;global _start:function (_start.end - _start)
 global _start
-;_start equ V2P_WO(entry)
-_start equ entry
-
-global entry
-entry:
+_start:
     mov esi, eax ; Save the magic number from grub
     mov edi, ebx ; Save the address of the multiboot info structure from grub
 
@@ -65,8 +62,7 @@ entry:
 	extern kernel_main
 	mov eax, kernel_main
     jmp eax
-;	call kernel_main
-;
+
 	cli
 .hang:	hlt
 	jmp .hang
@@ -76,5 +72,4 @@ section .bss
 align 16
 stack_bottom:
 resb 4096 ; 4KB stack
-global kernel_stack_top
 kernel_stack_top:
