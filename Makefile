@@ -76,20 +76,24 @@ grub: ./rootfs/AegrOS.bin FORCE
 tap:
 	./scripts/create_tap.sh
 
-.PHONY: qemu_grub_debug
-qemu_grub_debug: grub tap FORCE
+.PHONY: qemu-grub-debug
+qemu-grub-debug: grub tap FORCE
 	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_DEBUG)
 
-.PHONY: qemu_grub
-qemu_grub: grub tap FORCE
+.PHONY: qemu-grub
+qemu-grub: grub tap FORCE
 	$(QEMU) -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK)
+
+.PHONY: qmemu-nox
+qemu-nox: grub tap FORCE
+	$(QEMU) -boot d -drive file=disk.img,format=raw -m $(MEMORY) $(QEMU_NETWORK) -nographic -serial mon:stdio
 
 vbox: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
 
 .PHONY: clean
 clean:
-	rm -rf ./build ./bin ./rootfs/boot/AegrOS.bin ./rootfs/bin/* ./disk.img ./disk.vd
+	rm -rf ./build ./rootfs/boot/AegrOS.bin ./rootfs/bin/* ./disk.img ./disk.vd
 
 # Force rebuild of all files
 .PHONY: FORCE
