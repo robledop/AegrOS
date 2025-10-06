@@ -34,7 +34,6 @@ FLAGS = -ffreestanding \
 	-falign-loops \
 	-fstrength-reduce \
 	-fno-omit-frame-pointer \
-	-msse2 -mfpmath=sse \
 	-mstackrealign \
 	-Wno-unused-function \
 	-Wno-unused-variable \
@@ -46,11 +45,14 @@ FLAGS = -ffreestanding \
 	-nostartfiles \
 	-nodefaultlibs \
 	-std=gnu23 \
-	-fstack-protector \
-	-fsanitize=undefined \
 	-pedantic \
 	-Wextra \
 	-Wall
+
+FLAGS += -D__KERNEL__
+FLAGS += -fsanitize=undefined
+FLAGS += -fstack-protector
+#FLAGS += -msse2 -mfpmath=sse
 
 .PHONY: .asm_headers
 .asm_headers: FORCE
