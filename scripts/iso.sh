@@ -1,3 +1,3 @@
 #!/bin/sh
 make grub
-grub-mkrescue -o myos.iso ./rootfs
+grub-mkrescue -o AegrOS.iso ./rootfs

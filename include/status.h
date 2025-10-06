@@ -77,6 +77,12 @@ static inline char *strerror(const int error)
         return "Invalid memory address";
     case -ENOTSUP:
         return "Operation not supported";
+    case -EBUFFULL:
+        return "Buffer full";
+    case -ENOTTY:
+        return "Not a typewriter";
+    case -ENOSPC:
+        return "No space left on device";
     default:
         return "Unknown error";
     }

@@ -37,7 +37,6 @@ FLAGS = -ffreestanding \
 	-mstackrealign \
 	-Wno-unused-function \
 	-Wno-unused-variable \
-	-fno-inline-functions \
 	-fno-builtin \
 	-Wno-unused-label \
 	-Wno-cpp \
@@ -66,11 +65,11 @@ FLAGS += -fstack-protector
 
 ./bin/kernel-grub.bin: $(FILES) FORCE
 	$(LD) $(DEBUG_FLAGS) -relocatable $(FILES) -o ./build/kernelfull.o
-	$(CC) $(FLAGS) $(DEBUG_FLAGS) -T ./kernel/boot/linker.ld -o ./rootfs/boot/myos.bin ./build/kernelfull.o
+	$(CC) $(FLAGS) $(DEBUG_FLAGS) -T ./kernel/boot/linker.ld -o ./rootfs/boot/AegrOS.bin ./build/kernelfull.o
 
 .PHONY: grub
 grub: ./bin/kernel-grub.bin FORCE
-	grub-file --is-x86-multiboot ./rootfs/boot/myos.bin
+	grub-file --is-x86-multiboot ./rootfs/boot/AegrOS.bin
 	./scripts/create-grub-image.sh
 
 .PHONY: tap FORCE
@@ -89,7 +88,7 @@ qemu_grub: grub tap FORCE
 
 .PHONY: clean
 clean:
-	rm -rf ./build ./bin ./rootfs/boot/myos.bin ./rootfs/bin/* ./disk.img
+	rm -rf ./build ./bin ./rootfs/boot/AegrOS.bin ./rootfs/bin/* ./disk.img
 
 
 # Force rebuild of all files

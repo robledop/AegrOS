@@ -32,7 +32,7 @@
 static inline uint64_t rdmsr(uint32_t msr)
 {
     uint32_t lo, hi;
-    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
     return ((uint64_t)hi << 32) | lo;
 }
 
@@ -40,7 +40,7 @@ static inline void wrmsr(uint32_t msr, uint64_t value)
 {
     uint32_t lo = (uint32_t)value;
     uint32_t hi = (uint32_t)(value >> 32);
-    asm volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
+    __asm__ volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
 }
 
 // Interrupt flags enabled
@@ -69,100 +69,100 @@ static inline void wrmsr(uint32_t msr, uint64_t value)
 static inline uint32_t read_eflags(void)
 {
     uint32_t eflags;
-    asm volatile("pushfl; popl %0" : "=r"(eflags));
+    __asm__ volatile("pushfl; popl %0" : "=r"(eflags));
     return eflags;
 }
 
 static inline uint32_t read_cr0(void)
 {
     uint32_t val;
-    asm volatile("mov %%cr0, %0" : "=r"(val));
+    __asm__ volatile("mov %%cr0, %0" : "=r"(val));
     return val;
 }
 
 static inline void write_cr0(uint32_t val)
 {
-    asm volatile("mov %0, %%cr0" : : "r"(val) : "memory");
+    __asm__ volatile("mov %0, %%cr0" : : "r"(val) : "memory");
 }
 
 static inline uint32_t read_cr4(void)
 {
     uint32_t val;
-    asm volatile("mov %%cr4, %0" : "=r"(val));
+    __asm__ volatile("mov %%cr4, %0" : "=r"(val));
     return val;
 }
 
 static inline void write_cr4(uint32_t val)
 {
-    asm volatile("mov %0, %%cr4" : : "r"(val) : "memory");
+    __asm__ volatile("mov %0, %%cr4" : : "r"(val) : "memory");
 }
 
 static inline uint32_t read_esp(void)
 {
     uint32_t esp;
-    asm volatile("movl %%esp, %0" : "=r"(esp));
+    __asm__ volatile("movl %%esp, %0" : "=r"(esp));
     return esp;
 }
 
 static inline void load_gs(uint16_t v)
 {
-    asm volatile("movw %0, %%gs" : : "r"(v));
+    __asm__ volatile("movw %0, %%gs" : : "r"(v));
 }
 
 /// @brief Disable interrupts
 static inline void cli(void)
 {
-    asm volatile("cli");
+    __asm__ volatile("cli");
 }
 
 static inline void ltr(uint16_t sel)
 {
-    asm volatile("ltr %0" : : "r"(sel));
+    __asm__ volatile("ltr %0" : : "r"(sel));
 }
 
 /// @brief Enable interrupts
 static inline void sti(void)
 {
-    asm volatile("sti");
+    __asm__ volatile("sti");
 }
 
 static inline void hlt(void)
 {
-    asm volatile("hlt");
+    __asm__ volatile("hlt");
 }
 
 static inline void pause(void)
 {
-    asm volatile("pause");
+    __asm__ volatile("pause");
 }
 
 static inline void fninit(void)
 {
-    asm volatile("fninit");
+    __asm__ volatile("fninit");
 }
 
-static inline void fxsave(void *state)
+static inline void fxsave(void* state)
 {
-    asm volatile("fxsave (%0)" : : "r"(state) : "memory");
+    __asm__ volatile("fxsave (%0)" : : "r"(state) : "memory");
 }
 
-static inline void fxrstor(const void *state)
+static inline void fxrstor(const void* state)
 {
-    asm volatile("fxrstor (%0)" : : "r"(state) : "memory");
+    __asm__ volatile("fxrstor (%0)" : : "r"(state) : "memory");
 }
 
-static inline uint32_t xchg(volatile uint32_t *addr, uint32_t newval)
+static inline uint32_t xchg(volatile uint32_t* addr, uint32_t newval)
 {
     uint32_t result;
 
-    asm volatile("lock; xchgl %0, %1" : "+m"(*addr), "=a"(result) : "1"(newval) : "cc");
+    __asm__ volatile("lock; xchgl %0, %1" : "+m"(*addr), "=a"(result) : "1"(newval) : "cc");
     return result;
 }
 
 static inline uint32_t read_cr2(void)
 {
     uint32_t val;
-    asm volatile("movl %%cr2,%0" : "=r"(val));
+    __asm__ volatile("movl %%cr2,%0" : "=r"(val));
     return val;
 }
 
@@ -172,12 +172,12 @@ static inline void lcr3(uint32_t val)
     __asm__ volatile("movl %0,%%cr3" : : "r"(val));
 }
 
-static inline void stosb(void *addr, int data, int cnt)
+static inline void stosb(void* addr, int data, int cnt)
 {
-    asm volatile("cld; rep stosb" : "=D"(addr), "=c"(cnt) : "0"(addr), "1"(cnt), "a"(data) : "memory", "cc");
+    __asm__ volatile("cld; rep stosb" : "=D"(addr), "=c"(cnt) : "0"(addr), "1"(cnt), "a"(data) : "memory", "cc");
 }
 
-static inline void stosl(void *addr, int data, int cnt)
+static inline void stosl(void* addr, int data, int cnt)
 {
-    asm volatile("cld; rep stosl" : "=D"(addr), "=c"(cnt) : "0"(addr), "1"(cnt), "a"(data) : "memory", "cc");
+    __asm__ volatile("cld; rep stosl" : "=D"(addr), "=c"(cnt) : "0"(addr), "1"(cnt), "a"(data) : "memory", "cc");
 }
