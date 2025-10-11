@@ -70,74 +70,88 @@ uint8_t mouse_read()
  */
 void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
-    uint8_t status                 = inb(MOUSE_STATUS);
-    struct ps2_mouse_packet packet = {};
+    uint8_t status = inb(MOUSE_STATUS);
     while (status & MOUSE_B_BIT) {
-        int8_t mouse_data = (int8_t)inb(MOUSE_PORT);
-        if (status & MOUSE_F_BIT) {
-            // The mouse data comes in three packets:
-            switch (mouse_device.cycle) {
-            case 0: // The first one sends the flags.
-                {
-                    packet.flags = mouse_data;
-                    if (!(mouse_data & MOUSE_V_BIT)) {
-                        return;
-                    }
-                    ++mouse_device.cycle;
-                }
-                break;
-            case 1: // The second one sends the x position.
-                {
-                    packet.x = mouse_data;
-                    ++mouse_device.cycle;
-                }
-                break;
-            case 2: // The third one sends the y position.
-                {
-                    packet.y = mouse_data;
+        const int8_t byte = (int8_t)inb(MOUSE_PORT);
 
-                    mouse_device.prev_x = mouse_device.x;
-                    mouse_device.prev_y = mouse_device.y;
-
-                    mouse_device.x += packet.x;
-                    mouse_device.y -= packet.y;
-                    mouse_device.prev_flags = mouse_device.flags;
-                    mouse_device.flags      = packet.flags;
-
-                    // Clamp to screen bounds
-                    if (mouse_device.x < 0) {
-                        mouse_device.x = 0;
-                    }
-                    if (mouse_device.y < 0) {
-                        mouse_device.y = 0;
-                    }
-
-                    if (mouse_device.x > vbe_info->width) {
-                        mouse_device.x = vbe_info->width;
-                    }
-                    if (mouse_device.y > vbe_info->height) {
-                        mouse_device.y = vbe_info->height;
-                    }
-
-                    // Start over
-                    mouse_device.received = 0;
-                    mouse_device.cycle    = 0;
-                }
-                break;
-            default:
-                panic("This should never happen");
-            }
+        // Only consider bytes coming from the AUX (mouse) device
+        if ((status & MOUSE_F_BIT) == 0) {
+            status = inb(MOUSE_STATUS);
+            continue;
         }
+
+        switch (mouse_device.cycle) {
+        case 0: {
+            // First byte: flags. Bit 3 must be set for a valid packet.
+            mouse_device.packet.flags = (uint8_t)byte;
+            if ((mouse_device.packet.flags & MOUSE_V_BIT) == 0) {
+                // Desynchronized: reset and look for a proper first byte.
+                mouse_device.cycle = 0;
+                status             = inb(MOUSE_STATUS);
+                continue;
+            }
+            mouse_device.cycle = 1;
+            break;
+        }
+        case 1: {
+            // Second byte: X movement
+            mouse_device.packet.x = byte;
+            mouse_device.cycle    = 2;
+            break;
+        }
+        case 2: {
+            // Third byte: Y movement
+            mouse_device.packet.y = byte;
+
+            mouse_device.prev_x = mouse_device.x;
+            mouse_device.prev_y = mouse_device.y;
+
+            mouse_device.x += mouse_device.packet.x;
+            mouse_device.y -= mouse_device.packet.y; // PS/2 Y is up-negative
+
+            mouse_device.prev_flags = mouse_device.flags;
+            // Only expose button bits to consumers
+            mouse_device.flags = mouse_device.packet.flags & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE);
+
+            // Clamp to screen bounds (inclusive minimum, exclusive maximum)
+            if (mouse_device.x < 0) {
+                mouse_device.x = 0;
+            }
+            if (mouse_device.y < 0) {
+                mouse_device.y = 0;
+            }
+            if (vbe_info) {
+                if (mouse_device.x >= (int)vbe_info->width) {
+                    mouse_device.x = (int)vbe_info->width - 1;
+                }
+                if (mouse_device.y >= (int)vbe_info->height) {
+                    mouse_device.y = (int)vbe_info->height - 1;
+                }
+            }
+
+            // Packet complete
+            mouse_device.received = 0;
+            mouse_device.cycle    = 0;
+            break;
+        }
+        default:
+            // Should never happen; resync
+            mouse_device.cycle = 0;
+            break;
+        }
+
         status = inb(MOUSE_STATUS);
     }
 
-    // mouse_draw_mouse_cursor();
-    mouse_device.callback((mouse_t){
-        .x          = mouse_device.x,
-        .y          = mouse_device.y,
-        .flags      = mouse_device.flags,
-        .prev_flags = mouse_device.prev_flags,
-    });
+    // Deliver event after processing available bytes
+    if (mouse_device.callback) {
+        mouse_device.callback((mouse_t){
+            .x          = mouse_device.x,
+            .y          = mouse_device.y,
+            .flags      = mouse_device.flags,
+            .prev_flags = mouse_device.prev_flags,
+        });
+    }
 }
 
 /**
@@ -157,9 +171,12 @@ void mouse_init(mouse_callback callback)
     outb(MOUSE_STATUS, 0x60);
     mouse_wait(1);
     outb(MOUSE_PORT, status);
-    mouse_write(0xF6);
+    // Set defaults and put mouse in stream mode, then enable data reporting
+    mouse_write(MOUSE_SET_DEFAULTS); // 0xF6
     mouse_read();
-    mouse_write(0xF4);
+    mouse_write(MOUSE_SET_STREAM_MODE); // 0xEA
+    mouse_read();
+    mouse_write(MOUSE_ENABLE_DATA_REPORTING); // 0xF4
     mouse_read();
 
     int result = idt_register_interrupt_callback(ISR_PS2_MOUSE, mouse_handler);
