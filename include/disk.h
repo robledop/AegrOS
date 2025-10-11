@@ -21,7 +21,7 @@ struct disk {
 void disk_init(void);
 struct disk *disk_get(int index);
 int disk_read_block(uint32_t lba, int total, void *buffer);
-int disk_read_sector(uint32_t sector, uint8_t *buffer);
+int disk_read_sector(uint32_t sector, void *buffer);
 NON_NULL int disk_write_block(uint32_t lba, int total, void *buffer);
 NON_NULL int disk_write_sector(uint32_t sector, uint8_t *buffer);
 NON_NULL int disk_write_sector_offset(const void *data, int size, int offset, int sector);

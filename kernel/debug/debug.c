@@ -107,7 +107,10 @@ void init_symbols(const multiboot_info_t *mbd)
 
 void print_registers()
 {
-    struct thread *current_task   = get_current_thread();
+    struct thread *current_task = get_current_thread();
+    if (!current_task || !current_task->trap_frame) {
+        return;
+    }
     struct interrupt_frame *frame = current_task->trap_frame;
     printf(KBWHT "Registers:\n" KWHT);
     printf("\tEAX: %#010lx", frame->eax);

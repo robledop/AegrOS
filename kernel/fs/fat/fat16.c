@@ -10,6 +10,7 @@
 #include <hash_table.h>
 #include <kernel.h>
 #include <kernel_heap.h>
+#include <mbr.h>
 #include <memfs.h>
 #include <memory.h>
 #include <path_parser.h>
@@ -139,6 +140,7 @@ struct fat_item {
  */
 struct fat_private {
     struct fat_h header;
+    uint32_t starting_sector; // Sector where the partition starts on disk
     struct fat_directory root_directory;
     struct disk_stream cluster_read_stream;
     struct disk_stream cluster_write_stream;
@@ -236,7 +238,8 @@ struct file_system *fat16_init()
  */
 bool fat16_is_root_directory(const struct fat_directory *directory, const struct fat_private *fat_private)
 {
-    return directory->sector_position == fat_private->root_directory.sector_position;
+    return directory->sector_position ==
+        fat_private->root_directory.sector_position + (int)fat_private->starting_sector;
 }
 
 /**
@@ -247,7 +250,7 @@ bool fat16_is_root_directory(const struct fat_directory *directory, const struct
  */
 static uint16_t get_fat_start_sector(const struct fat_private *fat_private)
 {
-    return fat_private->header.primary_header.reserved_sectors;
+    return fat_private->header.primary_header.reserved_sectors + fat_private->starting_sector;
 }
 
 /**
@@ -260,11 +263,21 @@ static void fat16_init_private(const struct disk *disk, struct fat_private *fat_
 {
     memset(&fat_private->header, 0, sizeof(struct fat_h));
 
+    int partition                = disk->fs->partition;
+    auto mbr                     = mbr_get();
+    fat_private->starting_sector = mbr->part[partition].lba_start;
+
     fat_private->cluster_read_stream  = disk_stream_create(disk->id);
     fat_private->cluster_write_stream = disk_stream_create(disk->id);
     fat_private->fat_read_stream      = disk_stream_create(disk->id);
     fat_private->fat_write_stream     = disk_stream_create(disk->id);
     fat_private->directory_stream     = disk_stream_create(disk->id);
+
+    fat_private->cluster_read_stream.position  = fat_private->starting_sector * disk->sector_size;
+    fat_private->cluster_write_stream.position = fat_private->starting_sector * disk->sector_size;
+    fat_private->fat_read_stream.position      = fat_private->starting_sector * disk->sector_size;
+    fat_private->fat_write_stream.position     = fat_private->starting_sector * disk->sector_size;
+    fat_private->directory_stream.position     = fat_private->starting_sector * disk->sector_size;
 }
 
 /**
@@ -300,7 +313,7 @@ static uint16_t fat16_sector_to_cluster(const struct fat_private *fat_private, c
  * @param sector Sector number to convert.
  * @return Absolute byte address suitable for stream seeking.
  */
-static int fat16_sector_to_absolute(const struct disk *disk, const int sector)
+static uint32_t fat16_sector_to_absolute(const struct disk *disk, const uint32_t sector)
 {
     return sector * disk->sector_size;
 }
@@ -322,9 +335,10 @@ int fat16_load_table(const struct fat_private *fat_private)
         }
     }
 
-    const uint16_t first_fat_start_sector = fat_private->header.primary_header.reserved_sectors;
-    const uint16_t sector_size            = fat_private->header.primary_header.bytes_per_sector;
-    const uint16_t fat_sectors            = fat_private->header.primary_header.sectors_per_fat;
+    const uint16_t first_fat_start_sector =
+        fat_private->header.primary_header.reserved_sectors + fat_private->starting_sector;
+    const uint16_t sector_size = fat_private->header.primary_header.bytes_per_sector;
+    const uint16_t fat_sectors = fat_private->header.primary_header.sectors_per_fat;
 
     acquire(&fat16_table_lock);
 
@@ -348,7 +362,7 @@ void fat16_flush_table(const struct fat_private *fat_private)
 {
     ASSERT(fat_table);
 
-    const uint16_t start_sector = fat_private->header.primary_header.reserved_sectors;
+    const uint16_t start_sector = fat_private->header.primary_header.reserved_sectors + fat_private->starting_sector;
     const uint16_t sector_size  = fat_private->header.primary_header.bytes_per_sector;
     const uint16_t fat_sectors  = fat_private->header.primary_header.sectors_per_fat;
 
@@ -469,8 +483,8 @@ int fat16_load_root_directory(const struct disk *disk)
     struct fat_directory *directory = &fat_private->root_directory;
 
     const struct fat_header *primary_header = &fat_private->header.primary_header;
-    const int root_dir_sector_pos =
-        (primary_header->fat_copies * primary_header->sectors_per_fat) + primary_header->reserved_sectors;
+    const uint32_t root_dir_sector_pos      = (primary_header->fat_copies * primary_header->sectors_per_fat) +
+        primary_header->reserved_sectors + fat_private->starting_sector;
     const int root_dir_entries   = fat_private->header.primary_header.root_entries;
     const uint32_t root_dir_size = root_dir_entries * sizeof(struct fat_directory_entry);
 
@@ -527,12 +541,13 @@ int fat16_resolve(struct disk *disk)
         panic("Failed to allocate memory for FAT16 private data");
         return -1;
     }
+    disk->fs = fat16_fs;
     fat16_init_private(disk, fat_private);
 
     disk->fs_private = fat_private;
-    disk->fs         = fat16_fs;
 
     struct disk_stream stream = disk_stream_create(disk->id);
+    stream.position           = fat_private->starting_sector * disk->sector_size;
 
     if (disk_stream_read(&stream, &fat_private->header, sizeof(fat_private->header)) != ALL_OK) {
         panic("Failed to read FAT16 header\n");
@@ -673,7 +688,7 @@ static int fat16_get_fat_entry(const struct disk *disk, const int cluster)
     const struct fat_private *fs_private = disk->fs_private;
 
     const uint32_t fat_offset = cluster * 2;
-    const uint32_t fat_sector = fs_private->header.primary_header.reserved_sectors +
+    const uint32_t fat_sector = fs_private->header.primary_header.reserved_sectors + fs_private->starting_sector +
         (fat_offset / fs_private->header.primary_header.bytes_per_sector);
     const uint32_t fat_entry_offset = fat_offset % fs_private->header.primary_header.bytes_per_sector;
 

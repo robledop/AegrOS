@@ -4,6 +4,7 @@
 #include <fat16.h>
 #include <kernel.h>
 #include <kernel_heap.h>
+#include <mbr.h>
 #include <memfs.h>
 #include <memory.h>
 #include <path_parser.h>
@@ -78,13 +79,14 @@ struct file *sys_get_file_descriptor(const uint32_t index)
     return file_descriptors[index];
 }
 
-void vfs_insert_file_system(struct file_system *filesystem)
+void vfs_insert_file_system(int partition, struct file_system *filesystem)
 {
     struct file_system **fs = fs_get_free_file_system();
     if (!fs) {
         panic("Problem inserting filesystem");
         return;
     }
+    filesystem->partition = partition;
 
     *fs = filesystem;
 }
@@ -92,7 +94,7 @@ void vfs_insert_file_system(struct file_system *filesystem)
 void fs_load()
 {
     memset(file_systems, 0, sizeof(file_systems));
-    vfs_insert_file_system(fat16_init());
+    mbr_load();
 }
 
 void vfs_init()

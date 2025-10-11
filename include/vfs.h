@@ -49,6 +49,7 @@ struct file_system {
 
     char name[20];
     enum FS_TYPE type;
+    int partition;
 };
 
 struct file {
@@ -138,7 +139,7 @@ int vfs_write(struct process *current_process, int fd, const char *buffer, size_
 int vfs_seek(struct process *current_process, int fd, int offset, enum FILE_SEEK_MODE whence);
 int vfs_stat(struct process *current_process, int fd, struct stat *stat);
 int vfs_close(struct process *process, int fd);
-NON_NULL void vfs_insert_file_system(struct file_system *filesystem);
+NON_NULL void vfs_insert_file_system(int partition, struct file_system *filesystem);
 NON_NULL struct file_system *vfs_resolve(struct disk *disk);
 int vfs_getdents(uint32_t fd, void *buffer, int count);
 int vfs_get_non_root_mount_point_count();

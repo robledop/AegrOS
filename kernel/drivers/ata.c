@@ -1,20 +1,25 @@
 #include <ata.h>
 #include <io.h>
 #include <kernel.h>
+#include <printf.h>
 #include <spinlock.h>
 #include <status.h>
+#include <stdbool.h>
 
-#define ATA_PRIMARY_IO 0x1F0                    // Primary IO port
-#define ATA_REG_DEVSEL 0x1F6                    // Device/Head register
-#define ATA_REG_STATUS 0x1F7                    // Status register
-#define ATA_REG_CMD 0x1F7                       // Status register
-#define ATA_REG_SEC_COUNT 0x1F2                 // Sector count register
-#define ATA_REG_LBA0 0x1F3                      // LBA low register
-#define ATA_REG_LBA1 0x1F4                      // LBA mid register
-#define ATA_REG_LBA2 0x1F5                      // LBA high register
-#define ATA_REG_FEATURES 0x1F1                  // Features register
-#define ATA_REG_CONTROL (ATA_PRIMARY_IO + 0x0C) // Control register
-#define ATA_REG_DATA ATA_PRIMARY_IO             // Data register
+#define ATA_PRIMARY_CMD_BASE 0x1F0
+#define ATA_PRIMARY_CTL_BASE 0x3F6
+#define ATA_SECONDARY_CMD_BASE 0x170
+#define ATA_SECONDARY_CTL_BASE 0x376
+
+#define ATA_REG_DATA 0x00
+#define ATA_REG_FEATURES 0x01
+#define ATA_REG_SEC_COUNT 0x02
+#define ATA_REG_LBA0 0x03
+#define ATA_REG_LBA1 0x04
+#define ATA_REG_LBA2 0x05
+#define ATA_REG_DEVSEL 0x06
+#define ATA_REG_STATUS 0x07
+#define ATA_REG_CMD ATA_REG_STATUS
 
 #define ATA_CMD_IDENTIFY 0xEC    // Identify drive
 #define ATA_CMD_CACHE_FLUSH 0xE7 // Flush cache
@@ -27,152 +32,237 @@
 #define ATA_STATUS_FAULT 0x20 // Drive fault bit
 
 #define ATA_MASTER 0xE0 // Select master drive
-#define ATA_SLAVE 0xF0  // Select slave drive
+
+#define ATA_IO_TIMEOUT 1000000
 
 struct spinlock disk_lock;
 
+struct ata_channel_config {
+    uint16_t cmd_base;
+    uint16_t ctrl_base;
+    const char *name;
+};
+
+static uint16_t ata_cmd_base   = ATA_PRIMARY_CMD_BASE;
+static uint16_t ata_ctrl_base  = ATA_PRIMARY_CTL_BASE;
+static const char *ata_channel = "primary";
+
+static inline uint8_t ata_read_status(void)
+{
+    return inb(ata_cmd_base + ATA_REG_STATUS);
+}
+
+static inline uint16_t ata_read_data(void)
+{
+    return inw(ata_cmd_base + ATA_REG_DATA);
+}
+
+static inline void ata_write_data(uint16_t value)
+{
+    outw(ata_cmd_base + ATA_REG_DATA, value);
+}
+
+static inline void ata_write_reg(uint16_t offset, uint8_t value)
+{
+    outb(ata_cmd_base + offset, value);
+}
+
+static inline void ata_write_control(uint8_t value)
+{
+    outb(ata_ctrl_base, value);
+}
+
+static inline void ata_delay_400ns(void)
+{
+    inb(ata_ctrl_base);
+    inb(ata_ctrl_base);
+    inb(ata_ctrl_base);
+    inb(ata_ctrl_base);
+}
+
+static int ata_poll(const bool require_drq, const char *ctx)
+{
+    unsigned int attempts = ATA_IO_TIMEOUT;
+
+    while (attempts--) {
+        const uint8_t status = ata_read_status();
+
+        if (status & ATA_STATUS_ERR) {
+            printf("[ATA] %s(%s): status=0x%02X (ERR)\n", ctx, ata_channel, status);
+            return -EIO;
+        }
+
+        if (status & ATA_STATUS_FAULT) {
+            printf("[ATA] %s(%s): status=0x%02X (FAULT)\n", ctx, ata_channel, status);
+            return -EIO;
+        }
+
+        if (!(status & ATA_STATUS_BUSY)) {
+            if (!require_drq) {
+                return ALL_OK;
+            }
+
+            if (status & ATA_STATUS_DRQ) {
+                return ALL_OK;
+            }
+        }
+    }
+
+    const uint8_t status = ata_read_status();
+    printf("[ATA] %s(%s): timeout, final status=0x%02X require_drq=%d\n", ctx, ata_channel, status, require_drq);
+
+    return -EIO;
+}
+
+static int ata_select_drive(const uint32_t lba)
+{
+    ata_write_reg(ATA_REG_DEVSEL, (uint8_t)((lba >> 24) & 0x0F) | ATA_MASTER);
+    ata_delay_400ns();
+    return ata_poll(false, "select");
+}
+
+static bool ata_try_channel(const struct ata_channel_config *cfg)
+{
+    ata_cmd_base  = cfg->cmd_base;
+    ata_ctrl_base = cfg->ctrl_base;
+    ata_channel   = cfg->name;
+
+    ata_write_reg(ATA_REG_DEVSEL, ATA_MASTER);
+    ata_delay_400ns();
+
+    const uint8_t status = ata_read_status();
+    if (status == 0xFF || status == 0x00) {
+        return false;
+    }
+
+    printf("[ATA] using %s channel (cmd=0x%X ctrl=0x%X status=0x%02X)\n", ata_channel, ata_cmd_base, ata_ctrl_base, status);
+    return true;
+}
+
 /**
- * @brief Initialise the ATA driver and its lock state.
+ * @brief Initialise the ATA driver and its lock state and pick a legacy channel.
  */
 void ata_init()
 {
     initlock(&disk_lock, "ata");
+
+    const struct ata_channel_config channels[] = {
+        {ATA_PRIMARY_CMD_BASE, ATA_PRIMARY_CTL_BASE, "primary"},
+        {ATA_SECONDARY_CMD_BASE, ATA_SECONDARY_CTL_BASE, "secondary"},
+    };
+
+    bool found = false;
+    for (unsigned int i = 0; i < sizeof(channels) / sizeof(channels[0]); i++) {
+        if (ata_try_channel(&channels[i])) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("[ATA] no legacy channel responded; reads will fail (need AHCI driver)\n");
+    }
 }
 
-/**
- * @brief Retrieve the logical sector size used by the ATA device.
- *
- * @return Size of a sector in bytes.
- */
 int ata_get_sector_size()
 {
     return 512;
 }
 
-/**
- * @brief Poll the drive until the data request bit is set or an error occurs.
- *
- * @return ALL_OK on success, negative errno-style value on failure.
- */
-int ata_wait_for_ready()
-{
-    // Ignore the first four status reads
-    inb(ATA_REG_STATUS);
-    inb(ATA_REG_STATUS);
-    inb(ATA_REG_STATUS);
-    inb(ATA_REG_STATUS);
-
-    uint8_t status = inb(ATA_REG_STATUS);
-
-    // Wait for the BUSY bit to clear or the DRQ bit to be set
-    while ((status & ATA_STATUS_BUSY) && !(status & ATA_STATUS_DRQ)) {
-        if (status & ATA_STATUS_ERR || status & ATA_STATUS_FAULT) {
-            panic("Error: Drive fault\n");
-            return -EIO;
-        }
-
-        status = inb(ATA_REG_STATUS);
-    }
-    return ALL_OK;
-}
-
-/**
- * @brief Read one or more sectors from disk using PIO mode.
- *
- * @param lba Starting logical block address.
- * @param total Number of sectors to read.
- * @param buffer Destination buffer (must hold total * sector_size bytes).
- * @return ALL_OK on success, negative errno-style value on failure.
- */
 int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
 {
-    // acquire(&disk_lock);
-    outb(ATA_REG_CONTROL, 0x02); // Disable interrupts. We are polling.
+    ata_write_control(0x02); // Polling, disable interrupts
 
-    outb(ATA_REG_DEVSEL, (lba >> 24 & 0x0F) | ATA_MASTER);
-    outb(ATA_REG_SEC_COUNT, total); // Number of sectors to read
-    outb(ATA_REG_LBA0, lba & 0xFF);
-    outb(ATA_REG_LBA1, lba >> 8);
-    outb(ATA_REG_LBA2, lba >> 16);
-    outb(ATA_REG_CMD, ATA_CMD_READ_PIO);
-
-    auto ptr = (uint16_t *)buffer;
-    for (int b = 0; b < total; b++) {
-        const int result = ata_wait_for_ready();
-        if (result != ALL_OK) {
-            outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
-            return result;
-        }
-        // Read sector
-        for (int i = 0; i < 256; i++) {
-            ptr[i] = inw(ATA_PRIMARY_IO);
-        }
-        ptr += 256; // Advance the buffer 256 words (512 bytes)
+    int result = ata_select_drive(lba);
+    if (result != ALL_OK) {
+        ata_write_control(0x00);
+        return result;
     }
 
-    // release(&disk_lock);
+    ata_write_reg(ATA_REG_SEC_COUNT, total);
+    ata_write_reg(ATA_REG_LBA0, lba & 0xFF);
+    ata_write_reg(ATA_REG_LBA1, (lba >> 8) & 0xFF);
+    ata_write_reg(ATA_REG_LBA2, (lba >> 16) & 0xFF);
+    ata_write_reg(ATA_REG_CMD, ATA_CMD_READ_PIO);
 
-    outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
+    uint16_t *ptr = (uint16_t *)buffer;
+    for (int sector = 0; sector < total; sector++) {
+        ata_delay_400ns();
+        result = ata_poll(true, "read");
+        if (result != ALL_OK) {
+            ata_write_control(0x00);
+            return result;
+        }
 
+        for (int i = 0; i < 256; i++) {
+            ptr[i] = ata_read_data();
+        }
+        ptr += 256;
+    }
+
+    ata_write_control(0x00);
     return ALL_OK;
 }
 
-/**
- * @brief Write one or more sectors to disk using PIO mode.
- *
- * @param lba Starting logical block address.
- * @param total Number of sectors to write.
- * @param buffer Source buffer containing the data to write.
- * @return ALL_OK on success, negative errno-style value on failure.
- */
 int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 {
     acquire(&disk_lock);
 
-    outb(ATA_REG_CONTROL, 0x02); // Disable interrupts. We are polling.
+    ata_write_control(0x02); // Polling, disable interrupts
 
-    int result = ata_wait_for_ready();
+    int result = ata_select_drive(lba);
     if (result != ALL_OK) {
-        outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
-        return result;
-    }
-
-    outb(ATA_REG_DEVSEL, (lba >> 24 & 0x0F) | ATA_MASTER);
-    ata_wait_for_ready();
-    outb(ATA_REG_FEATURES, 0);
-    outb(ATA_REG_SEC_COUNT, total); // Number of sectors to write
-    outb(ATA_REG_LBA0, lba & 0xFF);
-    outb(ATA_REG_LBA1, lba >> 8);
-    outb(ATA_REG_LBA2, lba >> 16);
-    outb(ATA_REG_CMD, ATA_CMD_WRITE_PIO);
-
-    result = ata_wait_for_ready();
-    if (result != ALL_OK) {
-        outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
+        ata_write_control(0x00);
         release(&disk_lock);
         return result;
     }
 
-    auto ptr = (char *)buffer;
-    for (int b = 0; b < total; b++) {
-        // Write the sector
-        for (int i = 0; i < 512; i += 2) {
-            // Handle potential unaligned access
-            uint16_t word = (uint8_t)ptr[i];
-            if (i + 1 < 512) {
-                word |= (uint16_t)(ptr[i + 1]) << 8;
-            }
-            outw(ATA_PRIMARY_IO, word);
-            // Tiny delay between writes
-            __asm__ volatile("nop; nop; nop;");
-        }
-        outb(ATA_REG_CMD, ATA_CMD_CACHE_FLUSH);
-        ata_wait_for_ready();
-        ptr += 512; // Advance the buffer 512 bytes (one sector)
+    ata_write_reg(ATA_REG_FEATURES, 0);
+    ata_write_reg(ATA_REG_SEC_COUNT, total);
+    ata_write_reg(ATA_REG_LBA0, lba & 0xFF);
+    ata_write_reg(ATA_REG_LBA1, (lba >> 8) & 0xFF);
+    ata_write_reg(ATA_REG_LBA2, (lba >> 16) & 0xFF);
+    ata_write_reg(ATA_REG_CMD, ATA_CMD_WRITE_PIO);
+
+    ata_delay_400ns();
+    result = ata_poll(true, "write setup");
+    if (result != ALL_OK) {
+        ata_write_control(0x00);
+        release(&disk_lock);
+        return result;
     }
 
-    outb(ATA_REG_CONTROL, 0x00); // Enable interrupts
-    release(&disk_lock);
+    uint8_t *ptr = (uint8_t *)buffer;
+    for (int sector = 0; sector < total; sector++) {
+        for (int i = 0; i < 512; i += 2) {
+            uint16_t word = ptr[i];
+            word |= (uint16_t)ptr[i + 1] << 8;
+            ata_write_data(word);
+        }
 
-    return 0;
+        if (sector + 1 < total) {
+            ata_delay_400ns();
+            result = ata_poll(true, "write next");
+            if (result != ALL_OK) {
+                ata_write_control(0x00);
+                release(&disk_lock);
+                return result;
+            }
+        }
+
+        ptr += 512;
+    }
+
+    ata_write_reg(ATA_REG_CMD, ATA_CMD_CACHE_FLUSH);
+    ata_delay_400ns();
+    result = ata_poll(false, "write flush");
+    if (result != ALL_OK) {
+        ata_write_control(0x00);
+        release(&disk_lock);
+        return result;
+    }
+
+    ata_write_control(0x00);
+    release(&disk_lock);
+    return ALL_OK;
 }

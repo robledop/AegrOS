@@ -9,6 +9,8 @@ QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=of
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 QEMU_ACCEL=
 QEMU_DEBUG=#-serial file:serial.log  -d int -D qemu.log
+DISK ?= /dev/sdb
+DISK_MOUNT ?= /mnt/aegr
 CC=i686-elf-gcc
 AS=nasm
 LD=i686-elf-ld
@@ -97,6 +99,9 @@ qemu_grub_debug_pixel: FLAGS += -DPIXEL_RENDERING -DGRUB
 qemu_grub_debug_pixel: AS_FLAGS += -DPIXEL_RENDERING
 qemu_grub_debug_pixel: QEMU_ACCEL += #-accel kvm # accel may interfere with debugging
 
+disk: FLAGS += -DPIXEL_RENDERING -DGRUB
+disk: AS_FLAGS += -DPIXEL_RENDERING
+
 .PHONY: all
 # Build that uses my own 2-stage bootloader
 all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
@@ -142,6 +147,7 @@ all: ./bin/boot.bin ./bin/kernel.bin apps FORCE
 	$(CC) $(INCLUDES) $(FLAGS) $(DEBUG_FLAGS) -c $< -o $@
 
 
+
 .PHONY: grub
 grub: ./bin/kernel-grub.bin apps FORCE
 	grub-file --is-x86-multiboot ./rootfs/boot/myos.bin
@@ -165,6 +171,12 @@ grub: ./bin/kernel-grub.bin apps FORCE
 iso: grub FORCE
 	rm -rf ./myos.iso
 	grub-mkrescue -o ./myos.iso ./rootfs
+
+# THIS WILL WIPE $(DISK)
+.PHONY: disk
+disk: grub FORCE
+	grub-file --is-x86-multiboot ./rootfs/boot/myos.bin
+	DISK="$(DISK)" MOUNT_POINT="$(DISK_MOUNT)" ./scripts/install-on-disk.sh
 
 .PHONY: qemu_debug
 qemu_debug: all FORCE

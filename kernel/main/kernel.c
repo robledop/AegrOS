@@ -162,7 +162,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     timer_init(1000);
     threads_init();
     vfs_init();
-    pci_scan();
+    // pci_scan();
     disk_init();
     root_inode_init();
     register_syscalls();
@@ -170,7 +170,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
     struct thread *idle_task = thread_allocate(idle, TASK_READY, "idle", KERNEL_MODE);
     set_idle_thread(idle_task);
-    wait_for_network();
+    // wait_for_network();
 
 #ifdef PIXEL_RENDERING
 
@@ -199,6 +199,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
 
 
     window_paint((window_t *)desktop, nullptr, 1);
+    spawn_terminal(term, 0, 0);
 #else
     start_shell();
 #endif
@@ -255,7 +256,8 @@ void display_grub_info(const multiboot_info_t *mbd, const unsigned int magic)
             if (mmmt->len > 0x100000) {
                 printf("[ " KBGRN "OK" KWHT " ] ");
                 printf("Available memory: %u MiB\n", (uint16_t)(mmmt->len / 1024 / 1024));
-                kernel_heap_init((int)mmmt->len);
+                // kernel_heap_init((int)mmmt->len);
+                kernel_heap_init(512 * 1024 * 1024);
             }
         }
     }

@@ -3,6 +3,7 @@
 #include <attributes.h>
 #include <disk.h>
 #include <kernel.h>
+#include <mbr.h>
 #include <memory.h>
 
 NON_NULL struct file_system *vfs_resolve(struct disk *disk);
@@ -40,7 +41,7 @@ int disk_read_block(const uint32_t lba, const int total, void *buffer)
     return ata_read_sectors(lba, total, buffer);
 }
 
-int disk_read_sector(const uint32_t sector, uint8_t *buffer)
+int disk_read_sector(const uint32_t sector, void *buffer)
 {
     return ata_read_sectors(sector, 1, buffer);
 }
