@@ -49,11 +49,11 @@ void mbr_load()
 {
     disk_read_sector(0, &mbr);
     printf("MBR signature: 0x%X\n", mbr.signature);
-    // if (mbr.signature != 0xAA55) {
-    //     printf("Invalid MBR signature: 0x%X\n", mbr.signature);
-    //     panic("Invalid MBR signature");
-    //     return;
-    // }
+    if (mbr.signature != 0xAA55) {
+        printf("Invalid MBR signature: 0x%X\n", mbr.signature);
+        panic("Invalid MBR signature");
+        return;
+    }
     mbr_init_fs();
 }
 

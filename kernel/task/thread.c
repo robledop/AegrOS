@@ -13,6 +13,7 @@
 #include <status.h>
 #include <string.h>
 #include <thread.h>
+#include <tty.h>
 #include <timer.h>
 #include <tss.h>
 #include <x86.h>
@@ -187,8 +188,8 @@ struct cpu *get_cpu()
 }
 
 // Wake up all processes sleeping on chan.
-// The process_list lock must be held.
-static void wakeup1(const void *chan)
+// The caller must hold process_list.lock.
+void wakeup_locked(const void *chan)
 {
     kernel_page();
     for (int i = 0; i < MAX_PROCESSES; i++) {
@@ -209,7 +210,7 @@ static void wakeup1(const void *chan)
 void wakeup(const void *chan)
 {
     acquire(&process_list.lock);
-    wakeup1(chan);
+    wakeup_locked(chan);
     release(&process_list.lock);
 }
 
@@ -229,7 +230,7 @@ void exit(void)
 
     // Parent might be sleeping in wait().
     if (curproc->parent && curproc->parent->thread && curproc->parent->thread->state == TASK_SLEEPING) {
-        wakeup1(curproc->parent);
+        wakeup_locked(curproc->parent);
     }
 
     // TODO: Pass abandoned children to init.
@@ -330,7 +331,7 @@ int wait(void)
 
         warningf("Have kids\n");
 
-        // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+        // Wait for children to exit.  (See wakeup_locked call in proc_exit.)
         sleep(curproc, &process_list.lock);
     }
 }
@@ -366,6 +367,7 @@ void yield(void)
     // I believe this happens when there are more than 2 threads running. It switches threads twice (or more) and
     // so the lock remains active.
     acquire(&process_list.lock);
+    tty_process_pending_wakeup_locked();
     get_current_thread()->state     = TASK_READY;
     get_current_thread()->time_used = 0;
 
@@ -386,6 +388,8 @@ void scheduler(void)
 
         // Loop over process table looking for process to run.
         acquire(&process_list.lock);
+        tty_process_pending_wakeup_locked();
+        tty_process_pending_wakeup_locked();
         for (int i = 0; i < MAX_PROCESSES; i++) {
             struct process *p = process_list.processes[i];
 
@@ -420,7 +424,7 @@ void scheduler(void)
                 const int pid = p->pid;
                 if (p->parent) {
                     p->parent->wait_pid = pid;
-                    wakeup1(p->parent);
+                    wakeup_locked(p->parent);
                 }
                 current_thread = nullptr;
                 process_zombify(p);

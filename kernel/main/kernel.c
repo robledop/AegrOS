@@ -161,8 +161,8 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     pit_init();
     timer_init(1000);
     threads_init();
+    pci_scan();
     vfs_init();
-    // pci_scan();
     disk_init();
     root_inode_init();
     register_syscalls();

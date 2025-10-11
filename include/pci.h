@@ -152,6 +152,8 @@ struct pci_vendor {
     const char *name;
 };
 
+#define PCI_ANY_ID 0xFFFF
+
 void pci_scan(void);
 NON_NULL void pci_enable_bus_mastering(struct pci_device device);
 NON_NULL uint32_t pci_get_bar(struct pci_device dev, uint8_t type);

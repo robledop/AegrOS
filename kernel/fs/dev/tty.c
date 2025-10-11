@@ -28,16 +28,36 @@ struct tty_input_buffer {
 struct spinlock tty_lock;
 static struct tty_input_buffer tty_input_buffer;
 static struct tty tty;
+static volatile int tty_wakeup_pending;
 
 extern struct inode_operations memfs_directory_inode_ops;
+extern struct process_list process_list;
+
+static void tty_request_wakeup(void)
+{
+    tty_wakeup_pending = 1;
+}
+
+void tty_process_pending_wakeup_locked(void)
+{
+    if (!tty_wakeup_pending) {
+        return;
+    }
+
+    tty_wakeup_pending = 0;
+    wakeup_locked(&tty);
+}
 
 void tty_input_buffer_put(char c)
 {
+    acquire(&tty_lock);
     tty_input_buffer.buffer[tty_input_buffer.head] = c;
 
     tty_input_buffer.head = (tty_input_buffer.head + 1) % sizeof(tty_input_buffer.buffer);
 
-    wakeup(&tty);
+    release(&tty_lock);
+    tty_request_wakeup();
+
 }
 
 static char tty_input_buffer_get(void)

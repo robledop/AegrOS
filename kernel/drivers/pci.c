@@ -1,8 +1,10 @@
+#include <ahci.h>
 #include <e1000.h>
 #include <io.h>
 #include <kernel_heap.h>
 #include <pci.h>
 #include <printf.h>
+#include <stdbool.h>
 #include <vga_buffer.h>
 
 // https://wiki.osdev.org/PCI
@@ -141,6 +143,7 @@ struct pci_vendor vendors[] = {
 };
 
 struct pci_driver pci_drivers[] = {
+    {.class = 0x01, .subclass = 0x06, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID, .init = &ahci_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_DEV,     .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_I217,    .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_82577LM, .init = &e1000_init},
@@ -231,11 +234,28 @@ const char *pci_find_vendor(const uint16_t vendor_id)
 /**
  * @brief Attempt to load a driver matching the given PCI header.
  */
+static void pci_log_device_info(const struct pci_header *pci, const uint8_t bus, const uint8_t device,
+                                const uint8_t function)
+{
+    printf("[PCI] %02X:%02X.%u vendor=0x%04X device=0x%04X class=0x%02X subclass=0x%02X prog_if=0x%02X\n", bus, device,
+           function, pci->vendor_id, pci->device_id, pci->class, pci->subclass, pci->prog_if);
+}
+
 void load_driver(const struct pci_header pci, const uint8_t bus, const uint8_t device, const uint8_t function)
 {
+    if (pci.class == 0x01) {
+        pci_log_device_info(&pci, bus, device, function);
+    }
+
     for (uint16_t i = 0; i < sizeof(pci_drivers) / sizeof(struct pci_driver); i++) {
-        if (pci_drivers[i].class == pci.class && pci_drivers[i].subclass == pci.subclass &&
-            pci_drivers[i].vendor_id == pci.vendor_id && pci_drivers[i].device_id == pci.device_id) {
+        const struct pci_driver *driver = &pci_drivers[i];
+
+        const bool class_match    = driver->class == pci.class;
+        const bool subclass_match = driver->subclass == pci.subclass;
+        const bool vendor_match   = driver->vendor_id == PCI_ANY_ID || driver->vendor_id == pci.vendor_id;
+        const bool device_match   = driver->device_id == PCI_ANY_ID || driver->device_id == pci.device_id;
+
+        if (class_match && subclass_match && vendor_match && device_match) {
 
             printf("[ " KBGRN "OK" KWHT " ] ");
             printf("Loading driver for %s\n", pci_find_name(pci.class, pci.subclass));
@@ -300,7 +320,7 @@ void pci_enable_bus_mastering(const struct pci_device device)
 {
     constexpr uint16_t command_register_offset = 0x04;
     uint16_t dev_command_reg = pci_config_read_word(device.bus, device.slot, device.function, command_register_offset);
-    dev_command_reg |= PCI_COMMAND_BUS_MASTER;
+    dev_command_reg |= (PCI_COMMAND_BUS_MASTER | PCI_COMMAND_MEMORY);
 
     pci_config_write_word(device.bus, device.slot, device.function, command_register_offset, dev_command_reg);
 }

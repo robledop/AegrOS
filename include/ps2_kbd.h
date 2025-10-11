@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define ISR_KEYBOARD 0x21
 
 #define KBD_STATUS_PORT 0x64
@@ -34,6 +36,7 @@
 
 // C('A') == Control-A
 #define C(x) (x - '@')
+
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 

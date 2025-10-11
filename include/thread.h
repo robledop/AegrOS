@@ -80,6 +80,7 @@ void switch_to_scheduler(void);
 int wait(void);
 void sleep(void *chan, struct spinlock *lk);
 void wakeup(const void *chan);
+void wakeup_locked(const void *chan);
 void yield(void);
 void exit(void);
 int kill(int pid);

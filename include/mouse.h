@@ -62,8 +62,9 @@ struct ps2_mouse {
     int16_t y;
     uint8_t flags;
     uint8_t prev_flags;
-    uint8_t prev_x;
-    uint8_t prev_y;
+    int16_t prev_x;
+    int16_t prev_y;
+    struct ps2_mouse_packet packet;
     bool dragging;
     uint8_t received;
     uint8_t initialized;
@@ -74,3 +75,5 @@ struct ps2_mouse {
 void mouse_init(mouse_callback callback);
 void mouse_get_position(mouse_t *mouse);
 void mouse_set_position(int16_t x, int16_t y);
+void ps2_mouse_handle_byte(uint8_t status, uint8_t data);
+void mouse_flush_pending_events(void);

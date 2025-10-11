@@ -99,6 +99,7 @@ qemu_grub_debug_pixel: FLAGS += -DPIXEL_RENDERING -DGRUB
 qemu_grub_debug_pixel: AS_FLAGS += -DPIXEL_RENDERING
 qemu_grub_debug_pixel: QEMU_ACCEL += #-accel kvm # accel may interfere with debugging
 
+#disk: FLAGS += -DGRUB
 disk: FLAGS += -DPIXEL_RENDERING -DGRUB
 disk: AS_FLAGS += -DPIXEL_RENDERING
 
