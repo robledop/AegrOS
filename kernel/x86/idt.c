@@ -62,19 +62,12 @@ struct idtr_desc idtr_descriptor;
 void no_interrupt_handler(struct interrupt_frame *frame)
 {
     warningf("No handler for interrupt: %d\n", frame->interrupt_number);
-    pic_acknowledge((int)frame->interrupt_number);
 }
 
 void interrupt_handler(struct interrupt_frame *frame)
 {
-    int interrupt = (int)frame->interrupt_number;
-    // External interrupts are special.
-    //   We only handle one at a time (so interrupts must be off)
-    //   and they need to be acknowledged on the PIC (see below).
-    //   An external interrupt handler cannot sleep.
-    if (interrupt >= 0x20 && interrupt < 0x30) {
-        pic_acknowledge(interrupt);
-    }
+    int interrupt          = (int)frame->interrupt_number;
+    const bool is_external = (interrupt >= 0x20 && interrupt < 0x30);
 
     if (interrupt_callbacks[interrupt] != nullptr) {
         kernel_page();
@@ -83,6 +76,11 @@ void interrupt_handler(struct interrupt_frame *frame)
         }
         interrupt_callbacks[interrupt](frame);
         current_thread_page();
+    }
+
+    // Acknowledge PIC after handling external IRQs
+    if (is_external) {
+        pic_acknowledge(interrupt);
     }
 }
 

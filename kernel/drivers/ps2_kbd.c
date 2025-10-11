@@ -1,15 +1,12 @@
 #include <idt.h>
 #include <io.h>
-#include <kernel.h>
-#include <kernel_heap.h>
 #include <keyboard.h>
 #include <mouse.h>
-#include <pic.h>
 #include <printf.h>
-#include <ps2_controller.h>
 #include <ps2_kbd.h>
 #include <spinlock.h>
-#include <string.h>
+
+#include "kernel.h"
 
 struct spinlock keyboard_lock         = {};
 struct spinlock keyboard_getchar_lock = {};
@@ -24,11 +21,6 @@ void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame);
  */
 void kbd_ack(void)
 {
-    bool acquired_here = false;
-    if (!holding(&ps2_controller_lock)) {
-        acquire(&ps2_controller_lock);
-        acquired_here = true;
-    }
     unsigned int timeout = 1000000;
     while (timeout--) {
         const uint8_t status = inb(KBD_STATUS_PORT);
@@ -38,22 +30,16 @@ void kbd_ack(void)
 
         const uint8_t data = inb(KBD_DATA_PORT);
         if (status & 0x20) {
-            ps2_mouse_handle_byte(status, data);
+            panic("Mouse data in keyboard ack");
             continue;
         }
 
         if (data == 0xFA) {
-            if (acquired_here) {
-                release(&ps2_controller_lock);
-            }
             return;
         }
     }
 
     printf("[KBD] Warning: timeout waiting for ACK\n");
-    if (acquired_here) {
-        release(&ps2_controller_lock);
-    }
 }
 
 /**
@@ -61,17 +47,9 @@ void kbd_ack(void)
  */
 void kbd_led_handling(const unsigned char ledstatus)
 {
-    bool acquired_here = false;
-    if (!holding(&ps2_controller_lock)) {
-        acquire(&ps2_controller_lock);
-        acquired_here = true;
-    }
     outb(0x60, 0xed);
     kbd_ack();
     outb(0x60, ledstatus);
-    if (acquired_here) {
-        release(&ps2_controller_lock);
-    }
 }
 
 // Taken from xv6
@@ -82,13 +60,10 @@ void kbd_led_handling(const unsigned char ledstatus)
  */
 uint8_t keyboard_get_char()
 {
-    acquire(&keyboard_getchar_lock);
-    acquire(&ps2_controller_lock);
-
     static unsigned int shift;
     static uint8_t *charcode[4] = {normalmap, shiftmap, ctlmap, ctlmap};
 
-    unsigned int data   = 0;
+    unsigned int data       = 0;
     bool have_keyboard_data = false;
 
     for (int attempt = 0; attempt < 16; attempt++) {
@@ -100,9 +75,8 @@ uint8_t keyboard_get_char()
         const uint8_t raw = inb(KBD_DATA_PORT);
 
         if (status & 0x20) {
-            ps2_mouse_handle_byte(status, raw);
-            pic_acknowledge(0x20 + 12);
-            continue;
+            // Mouse data
+            panic("Mouse data in keyboard handler");
         }
 
         data               = raw;
@@ -111,23 +85,17 @@ uint8_t keyboard_get_char()
     }
 
     if (!have_keyboard_data) {
-        release(&ps2_controller_lock);
-        release(&keyboard_getchar_lock);
         return 0;
     }
 
     if (data == 0xE0) {
         shift |= E0ESC;
-        release(&ps2_controller_lock);
-        release(&keyboard_getchar_lock);
         return 0;
     }
 
     if (data & 0x80) {
         data = (shift & E0ESC ? data : data & 0x7F);
         shift &= ~(shiftcode[data] | E0ESC);
-        release(&ps2_controller_lock);
-        release(&keyboard_getchar_lock);
         return 0;
     }
 
@@ -148,8 +116,6 @@ uint8_t keyboard_get_char()
         }
     }
 
-    release(&ps2_controller_lock);
-    release(&keyboard_getchar_lock);
     return c;
 }
 
@@ -159,11 +125,6 @@ uint8_t keyboard_get_char()
  */
 static void keyboard_buffer_clear()
 {
-    bool acquired_here = false;
-    if (!holding(&ps2_controller_lock)) {
-        acquire(&ps2_controller_lock);
-        acquired_here = true;
-    }
     while (true) {
         const uint8_t status = inb(KBD_STATUS_PORT);
         if ((status & KBD_DATA_IN_BUFFER) == 0) {
@@ -172,11 +133,8 @@ static void keyboard_buffer_clear()
 
         const uint8_t data = inb(KBD_DATA_PORT);
         if (status & 0x20) {
-            ps2_mouse_handle_byte(status, data);
+            panic("Mouse data in keyboard buffer clear");
         }
-    }
-    if (acquired_here) {
-        release(&ps2_controller_lock);
     }
 }
 
@@ -185,12 +143,6 @@ static void keyboard_buffer_clear()
  */
 int ps2_keyboard_init()
 {
-    initlock(&keyboard_lock, "keyboard");
-    initlock(&keyboard_getchar_lock, "getchar");
-    ps2_controller_init_once();
-
-
-    acquire(&ps2_controller_lock);
     outb(KBD_STATUS_PORT, 0xAD); // Disable first ps2 port
     keyboard_buffer_clear();
     outb(KBD_STATUS_PORT, 0xAE); // keyboard enable command
@@ -205,7 +157,6 @@ int ps2_keyboard_init()
 
     kbd_led_handling(0x07);
     keyboard_buffer_clear();
-    release(&ps2_controller_lock);
 
     idt_register_interrupt_callback(ISR_KEYBOARD, ps2_keyboard_interrupt_handler);
 
@@ -217,7 +168,6 @@ int ps2_keyboard_init()
  */
 void ps2_keyboard_interrupt_handler(struct interrupt_frame *frame)
 {
-    pic_acknowledge((int)frame->interrupt_number);
     const uint8_t c = keyboard_get_char();
 
     // Delete key
