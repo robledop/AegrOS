@@ -5,7 +5,6 @@
 #include <vesa.h>
 
 extern struct vbe_mode_info *vbe_info;
-#define ISR_PS2_MOUSE (0x20 + 12)
 
 static struct ps2_mouse mouse_device = {};
 
@@ -81,59 +80,62 @@ void mouse_handler([[maybe_unused]] struct interrupt_frame *frame)
         }
 
         switch (mouse_device.cycle) {
-        case 0: {
-            // First byte: flags. Bit 3 must be set for a valid packet.
-            mouse_device.packet.flags = (uint8_t)byte;
-            if ((mouse_device.packet.flags & MOUSE_V_BIT) == 0) {
-                // Desynchronized: reset and look for a proper first byte.
-                mouse_device.cycle = 0;
-                status             = inb(MOUSE_STATUS);
-                continue;
-            }
-            mouse_device.cycle = 1;
-            break;
-        }
-        case 1: {
-            // Second byte: X movement
-            mouse_device.packet.x = byte;
-            mouse_device.cycle    = 2;
-            break;
-        }
-        case 2: {
-            // Third byte: Y movement
-            mouse_device.packet.y = byte;
-
-            mouse_device.prev_x = mouse_device.x;
-            mouse_device.prev_y = mouse_device.y;
-
-            mouse_device.x += mouse_device.packet.x;
-            mouse_device.y -= mouse_device.packet.y; // PS/2 Y is up-negative
-
-            mouse_device.prev_flags = mouse_device.flags;
-            // Only expose button bits to consumers
-            mouse_device.flags = mouse_device.packet.flags & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE);
-
-            // Clamp to screen bounds (inclusive minimum, exclusive maximum)
-            if (mouse_device.x < 0) {
-                mouse_device.x = 0;
-            }
-            if (mouse_device.y < 0) {
-                mouse_device.y = 0;
-            }
-            if (vbe_info) {
-                if (mouse_device.x >= (int)vbe_info->width) {
-                    mouse_device.x = (int)vbe_info->width - 1;
+        case 0:
+            {
+                // First byte: flags. Bit 3 must be set for a valid packet.
+                mouse_device.packet.flags = (uint8_t)byte;
+                if ((mouse_device.packet.flags & MOUSE_V_BIT) == 0) {
+                    // Desynchronized: reset and look for a proper first byte.
+                    mouse_device.cycle = 0;
+                    status             = inb(MOUSE_STATUS);
+                    continue;
                 }
-                if (mouse_device.y >= (int)vbe_info->height) {
-                    mouse_device.y = (int)vbe_info->height - 1;
-                }
+                mouse_device.cycle = 1;
+                break;
             }
+        case 1:
+            {
+                // Second byte: X movement
+                mouse_device.packet.x = byte;
+                mouse_device.cycle    = 2;
+                break;
+            }
+        case 2:
+            {
+                // Third byte: Y movement
+                mouse_device.packet.y = byte;
 
-            // Packet complete
-            mouse_device.received = 0;
-            mouse_device.cycle    = 0;
-            break;
-        }
+                mouse_device.prev_x = mouse_device.x;
+                mouse_device.prev_y = mouse_device.y;
+
+                mouse_device.x += mouse_device.packet.x;
+                mouse_device.y -= mouse_device.packet.y; // PS/2 Y is up-negative
+
+                mouse_device.prev_flags = mouse_device.flags;
+                // Only expose button bits to consumers
+                mouse_device.flags = mouse_device.packet.flags & (MOUSE_LEFT | MOUSE_RIGHT | MOUSE_MIDDLE);
+
+                // Clamp to screen bounds (inclusive minimum, exclusive maximum)
+                if (mouse_device.x < 0) {
+                    mouse_device.x = 0;
+                }
+                if (mouse_device.y < 0) {
+                    mouse_device.y = 0;
+                }
+                if (vbe_info) {
+                    if (mouse_device.x >= (int)vbe_info->width) {
+                        mouse_device.x = (int)vbe_info->width - 1;
+                    }
+                    if (mouse_device.y >= (int)vbe_info->height) {
+                        mouse_device.y = (int)vbe_info->height - 1;
+                    }
+                }
+
+                // Packet complete
+                mouse_device.received = 0;
+                mouse_device.cycle    = 0;
+                break;
+            }
         default:
             // Should never happen; resync
             mouse_device.cycle = 0;
@@ -166,17 +168,20 @@ void mouse_init(mouse_callback callback)
     mouse_wait(1);
     outb(MOUSE_STATUS, 0x20);
     mouse_wait(0);
-    uint8_t status = inb(0x60) | 2;
+    uint8_t status = inb(0x60);
+    status |= 0x03;   // Enable both keyboard (bit 0) and mouse (bit 1) interrupts
+    status |= 0x40;   // Ensure translation stays enabled (bit 6)
+    status &= ~0x20;  // Enable mouse clock (bit 5 = 0 means enabled)
     mouse_wait(1);
     outb(MOUSE_STATUS, 0x60);
     mouse_wait(1);
     outb(MOUSE_PORT, status);
     // Set defaults and put mouse in stream mode, then enable data reporting
-    mouse_write(MOUSE_SET_DEFAULTS); // 0xF6
+    mouse_write(MOUSE_SET_DEFAULTS);
     mouse_read();
-    mouse_write(MOUSE_SET_STREAM_MODE); // 0xEA
+    mouse_write(MOUSE_SET_STREAM_MODE);
     mouse_read();
-    mouse_write(MOUSE_ENABLE_DATA_REPORTING); // 0xF4
+    mouse_write(MOUSE_ENABLE_DATA_REPORTING);
     mouse_read();
 
     int result = idt_register_interrupt_callback(ISR_PS2_MOUSE, mouse_handler);

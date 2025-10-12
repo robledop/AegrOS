@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#define ISR_PS2_MOUSE (0x20 + 12)
 #define MOUSE_PORT 0x60
 #define MOUSE_STATUS 0x64
 #define MOUSE_WRITE 0xD4

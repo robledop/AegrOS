@@ -14,6 +14,9 @@
 #include <thread.h>
 #include <x86.h>
 
+#include "mouse.h"
+#include "ps2_kbd.h"
+
 // https://wiki.osdev.org/Interrupt_Descriptor_Table
 typedef void (*INTERRUPT_HANDLER_FUNCTION)(void);
 
@@ -59,7 +62,7 @@ char *exception_messages[] = {"Division By Zero",
 struct idt_desc idt_descriptors[TOTAL_INTERRUPTS];
 struct idtr_desc idtr_descriptor;
 
-void no_interrupt_handler(struct interrupt_frame *frame)
+void no_interrupt_handler([[maybe_unused]] struct interrupt_frame *frame)
 {
     warningf("No handler for interrupt: %d\n", frame->interrupt_number);
 }
@@ -108,7 +111,6 @@ void idt_set(const int interrupt, const INTERRUPT_HANDLER_FUNCTION handler, cons
     default:
         panic("Unsupported interrupt type");
     }
-    // desc->type_attr = 0b11101110; // 0xEE
 
     desc->offset_2 = (uint32_t)handler >> 16;
 }
