@@ -1,10 +1,8 @@
 #include <ata.h>
 #include <io.h>
-#include <kernel.h>
 #include <printf.h>
 #include <spinlock.h>
 #include <status.h>
-#include <stdbool.h>
 
 #define ATA_PRIMARY_CMD_BASE 0x1F0
 #define ATA_PRIMARY_CTL_BASE 0x3F6
@@ -35,7 +33,7 @@
 
 #define ATA_IO_TIMEOUT 1000000
 
-struct spinlock disk_lock;
+struct spinlock ata_lock;
 
 struct ata_channel_config {
     uint16_t cmd_base;
@@ -148,7 +146,7 @@ static bool ata_try_channel(const struct ata_channel_config *cfg)
  */
 void ata_init()
 {
-    initlock(&disk_lock, "ata");
+    initlock(&ata_lock, "ata");
 
     const struct ata_channel_config channels[] = {
         {ATA_PRIMARY_CMD_BASE,   ATA_PRIMARY_CTL_BASE,   "primary"  },
@@ -210,14 +208,14 @@ int ata_read_sectors(const uint32_t lba, const int total, void *buffer)
 
 int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
 {
-    acquire(&disk_lock);
+    acquire(&ata_lock);
 
     ata_write_control(0x02); // Polling, disable interrupts
 
     int result = ata_select_drive(lba);
     if (result != ALL_OK) {
         ata_write_control(0x00);
-        release(&disk_lock);
+        release(&ata_lock);
         return result;
     }
 
@@ -232,7 +230,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
     result = ata_poll(true, "write setup");
     if (result != ALL_OK) {
         ata_write_control(0x00);
-        release(&disk_lock);
+        release(&ata_lock);
         return result;
     }
 
@@ -249,7 +247,7 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
             result = ata_poll(true, "write next");
             if (result != ALL_OK) {
                 ata_write_control(0x00);
-                release(&disk_lock);
+                release(&ata_lock);
                 return result;
             }
         }
@@ -262,11 +260,11 @@ int ata_write_sectors(const uint32_t lba, const int total, void *buffer)
     result = ata_poll(false, "write flush");
     if (result != ALL_OK) {
         ata_write_control(0x00);
-        release(&disk_lock);
+        release(&ata_lock);
         return result;
     }
 
     ata_write_control(0x00);
-    release(&disk_lock);
+    release(&ata_lock);
     return ALL_OK;
 }

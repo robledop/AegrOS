@@ -1,10 +1,8 @@
 #include <ahci.h>
 #include <e1000.h>
 #include <io.h>
-#include <kernel_heap.h>
 #include <pci.h>
 #include <printf.h>
-#include <stdbool.h>
 #include <vga_buffer.h>
 
 // https://wiki.osdev.org/PCI
@@ -143,7 +141,7 @@ struct pci_vendor vendors[] = {
 };
 
 struct pci_driver pci_drivers[] = {
-    {.class = 0x01, .subclass = 0x06, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID, .init = &ahci_init},
+    {.class = 0x01, .subclass = 0x06, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID,    .init = &ahci_init },
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_DEV,     .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_I217,    .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_82577LM, .init = &e1000_init},
@@ -237,8 +235,15 @@ const char *pci_find_vendor(const uint16_t vendor_id)
 static void pci_log_device_info(const struct pci_header *pci, const uint8_t bus, const uint8_t device,
                                 const uint8_t function)
 {
-    printf("[PCI] %02X:%02X.%u vendor=0x%04X device=0x%04X class=0x%02X subclass=0x%02X prog_if=0x%02X\n", bus, device,
-           function, pci->vendor_id, pci->device_id, pci->class, pci->subclass, pci->prog_if);
+    printf("[PCI] %02X:%02X.%u vendor=0x%04X device=0x%04X class=0x%02X subclass=0x%02X prog_if=0x%02X\n",
+           bus,
+           device,
+           function,
+           pci->vendor_id,
+           pci->device_id,
+           pci->class,
+           pci->subclass,
+           pci->prog_if);
 }
 
 void load_driver(const struct pci_header pci, const uint8_t bus, const uint8_t device, const uint8_t function)

@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <disk.h>
 #include <kernel.h>
-#include <kernel_heap.h>
 #include <memory.h>
 #include <serial.h>
 #include <stream.h>
@@ -40,14 +39,15 @@ int disk_stream_read(struct disk_stream *stream, void *out, const uint32_t size)
             chunk = remaining;
         }
 
-        uint8_t buffer[stream->disk->sector_size];
-        const int res = disk_read_sector(sector, buffer);
-        if (res < 0) {
-            panic("Failed to read block\n");
-            return res;
-        }
+        // uint8_t buffer[stream->disk->sector_size];
+        auto buf = bread(0, sector);
+        // const int res = disk_read_sector(sector, buffer);
+        // if (res < 0) {
+        //     panic("Failed to read block\n");
+        //     return res;
+        // }
 
-        memcpy(out_bytes, buffer + offset, chunk);
+        memcpy(out_bytes, buf->data + offset, chunk);
 
         out_bytes += chunk;
         stream->position += chunk;
@@ -75,20 +75,24 @@ int disk_stream_write(struct disk_stream *stream, const void *in, const uint32_t
             chunk = remaining;
         }
 
-        uint8_t buffer[stream->disk->sector_size];
-        int res = disk_read_sector(sector, buffer);
-        if (res < 0) {
-            warningf("Failed to read block\n");
-            return res;
-        }
+        // uint8_t buffer[stream->disk->sector_size];
+        auto buf = bread(0, sector);
+        // int res = disk_read_sector(sector, buffer);
+        // if (res < 0) {
+        //     warningf("Failed to read block\n");
+        //     return res;
+        // }
 
-        memcpy(buffer + offset, input, chunk);
+        memcpy(buf->data + offset, input, chunk);
 
-        res = disk_write_sector(sector, buffer);
-        if (res < 0) {
-            warningf("Failed to write block\n");
-            return res;
-        }
+
+        // res = disk_write_sector(sector, buffer);
+        // if (res < 0) {
+        //     warningf("Failed to write block\n");
+        //     return res;
+        // }
+
+        bwrite(buf);
 
         input += chunk;
         stream->position += chunk;
@@ -97,8 +101,3 @@ int disk_stream_write(struct disk_stream *stream, const void *in, const uint32_t
 
     return 0;
 }
-
-// void disk_stream_close(struct disk_stream *stream)
-// {
-//     kfree(stream);
-// }

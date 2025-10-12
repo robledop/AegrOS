@@ -1,0 +1,25 @@
+#pragma once
+#include <sleeplock.h>
+#include <stdint.h>
+
+#define BSIZE 512 // block size
+
+struct buf {
+    int flags;
+    uint32_t dev;
+    uint32_t blockno;
+    struct sleeplock lock;
+    uint32_t refcnt;
+    struct buf *prev; // LRU cache list
+    struct buf *next;
+    struct buf *qnext; // disk queue
+    uint8_t data[BSIZE];
+};
+
+#define B_VALID 0x2 // buffer has been read from disk
+#define B_DIRTY 0x4 // buffer needs to be written to disk
+
+void binit(void);
+struct buf *bread(uint32_t, uint32_t);
+void brelse(struct buf *);
+void bwrite(struct buf *);

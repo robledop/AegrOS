@@ -1,11 +1,10 @@
-#include <disk.h>
+#include <bio.h>
 #include <fat16.h>
 #include <kernel.h>
 #include <mbr.h>
 #include <memory.h>
 #include <printf.h>
 #include <vfs.h>
-
 
 // MBR Partition Types
 #define MBR_TYPE_EMPTY 0x00        // Empty or unused partition
@@ -47,7 +46,10 @@ void mbr_init_fs()
  */
 void mbr_load()
 {
-    disk_read_sector(0, &mbr);
+    // disk_read_sector(0, &mbr);
+    auto buf = bread(0, 0);
+    memcpy(&mbr, buf->data, sizeof(mbr));
+    brelse(buf);
     if (mbr.signature != 0xAA55) {
         printf("Invalid MBR signature: 0x%X\n", mbr.signature);
         panic("Invalid MBR signature");

@@ -2,17 +2,23 @@
 #include <assert.h>
 #include <ata.h>
 #include <attributes.h>
+#include <bio.h>
 #include <disk.h>
 #include <kernel.h>
-#include <mbr.h>
 #include <memory.h>
 #include <printf.h>
 #include <status.h>
-#include <stdbool.h>
+#include <thread.h>
 
+
+int disk_read_block(uint32_t lba, int total, void *buffer);
+int disk_read_sector(uint32_t sector, void *buffer);
+NON_NULL int disk_write_block(uint32_t lba, int total, void *buffer);
+NON_NULL int disk_write_sector(uint32_t sector, uint8_t *buffer);
+NON_NULL int disk_write_sector_offset(const void *data, int size, int offset, int sector);
 NON_NULL struct file_system *vfs_resolve(struct disk *disk);
 struct disk disk;
-// static bool disk_use_ahci;
+static struct spinlock disk_lock;
 
 void disk_init()
 {
@@ -21,17 +27,67 @@ void disk_init()
     disk.type = DISK_TYPE_PHYSICAL;
     disk.id   = 0;
 
-    // disk_use_ahci = ahci_port_ready();
     printf("[DISK] using %s for disk operations\n", ahci_port_ready() ? "AHCI" : "legacy ATA");
     disk.sector_size = (uint16_t)(ahci_port_ready() ? AHCI_SECTOR_SIZE : (unsigned int)ata_get_sector_size());
 
-    // Validate the sector size
-    if (disk.sector_size != 512 && disk.sector_size != 1024 && disk.sector_size != 2048 && disk.sector_size != 4096) {
-        panic("Invalid sector size detected\n");
-        return;
+    disk.fs = vfs_resolve(&disk);
+}
+
+
+/**
+ * @brief Synchronize a buffer with disk, reading or writing as required.
+ *
+ * @param b Buffer to schedule; must be locked by the caller.
+ */
+void disk_sync_buffer(struct buf *b)
+{
+    struct buf **pp;
+
+    if (!holdingsleep(&b->lock)) {
+        panic("iderw: buf not locked");
+    }
+    if ((b->flags & (B_VALID | B_DIRTY)) == B_VALID) {
+        panic("iderw: nothing to do");
+    }
+    // if (b->dev != 0 && !havedisk1) {
+    //     panic("iderw: ide disk 1 not present");
+    // }
+
+    acquire(&disk_lock);
+
+    // Append b to idequeue.
+    // b->qnext = nullptr;
+    // for (pp = &idequeue; *pp; pp = &(*pp)->qnext)
+    //     ;
+    // *pp = b;
+
+    if (b->flags & B_DIRTY) {
+        const int status = disk_write_block(b->blockno, 1, b->data);
+        if (status < 0) {
+            panic("disk_sync_buffer: write failed");
+        }
+    } else {
+        const int status = disk_read_block(b->blockno, 1, b->data);
+        if (status < 0) {
+            panic("disk_sync_buffer: read failed");
+        }
     }
 
-    disk.fs = vfs_resolve(&disk);
+    b->flags |= B_VALID;
+    b->flags &= ~B_DIRTY;
+    wakeup(b);
+
+    // Start disk if necessary.
+    // if (idequeue == b) {
+    //     idestart(b);
+    // }
+
+    // Wait for request to finish.
+    // while ((b->flags & (B_VALID | B_DIRTY)) != B_VALID) {
+    //     sleep(b, &disk_lock);
+    // }
+
+    release(&disk_lock);
 }
 
 struct disk *disk_get(const int index)

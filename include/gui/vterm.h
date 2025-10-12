@@ -1,6 +1,5 @@
 #pragma once
 #include <gui/window.h>
-#include <stdbool.h>
 #include <stddef.h>
 
 struct vterm;

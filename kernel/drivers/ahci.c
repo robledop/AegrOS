@@ -1,13 +1,11 @@
 #include <ahci.h>
 #include <kernel_heap.h>
-#include <limits.h>
 #include <memory.h>
 #include <paging.h>
 #include <pci.h>
 #include <printf.h>
 #include <spinlock.h>
 #include <status.h>
-#include <stdbool.h>
 #include <stdint.h>
 
 #define AHCI_GHC_ENABLE (1u << 31)

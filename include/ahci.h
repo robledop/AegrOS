@@ -1,7 +1,6 @@
 #pragma once
 
 #include <pci.h>
-#include <stdbool.h>
 #include <stdint.h>
 
 // AHCI register layout definitions based on the AHCI specification, section 3.3.

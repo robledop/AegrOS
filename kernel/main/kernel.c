@@ -1,3 +1,4 @@
+#include <bio.h>
 #include <config.h>
 #include <debug.h>
 #include <fpu.h>
@@ -161,6 +162,7 @@ void kernel_main(const multiboot_info_t *mbd, const uint32_t magic)
     pit_init();
     timer_init(1000);
     threads_init();
+    binit(); // buffer cache
     pci_scan();
     vfs_init();
     disk_init();

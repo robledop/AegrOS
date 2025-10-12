@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 
 /**
@@ -31,4 +30,3 @@ void lapic_timer_set_periodic(uint32_t hz);
  * @brief Signal end-of-interrupt to the Local APIC.
  */
 void lapic_eoi(void);
-
