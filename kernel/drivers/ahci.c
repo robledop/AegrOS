@@ -153,9 +153,7 @@ static inline uint32_t ahci_upper32(uintptr_t value)
 }
 #endif
 
-static uint32_t ahci_calculate_chunk(const uint8_t *buffer,
-                                     const uint32_t requested_sectors,
-                                     uintptr_t *phys_out,
+static uint32_t ahci_calculate_chunk(const uint8_t *buffer, const uint32_t requested_sectors, uintptr_t *phys_out,
                                      bool *needs_bounce)
 {
     const uintptr_t phys = ahci_virt_to_phys(buffer);
@@ -211,7 +209,7 @@ static void *ahci_alloc_aligned(const size_t size, const size_t alignment)
 
     const uintptr_t addr    = (uintptr_t)raw;
     const uintptr_t aligned = (addr + alignment - 1) & ~(alignment - 1);
-    uint8_t *const ptr = (uint8_t *)(uintptr_t)aligned;
+    uint8_t *const ptr      = (uint8_t *)(uintptr_t)aligned;
     memset(ptr, 0, size);
     return ptr;
 }
@@ -293,9 +291,9 @@ static int ahci_configure_active_port(volatile struct ahci_memory *memory, const
     memset(command_table, 0, sizeof(struct ahci_command_table));
     memset(bounce_buffer, 0, AHCI_SECTOR_SIZE);
 
-    const uintptr_t clb_phys = ahci_virt_to_phys(command_list);
-    const uintptr_t fb_phys  = ahci_virt_to_phys(fis);
-    const uintptr_t ct_phys  = ahci_virt_to_phys(command_table);
+    const uintptr_t clb_phys    = ahci_virt_to_phys(command_list);
+    const uintptr_t fb_phys     = ahci_virt_to_phys(fis);
+    const uintptr_t ct_phys     = ahci_virt_to_phys(command_table);
     const uintptr_t bounce_phys = ahci_virt_to_phys(bounce_buffer);
 
     if (clb_phys == 0 || fb_phys == 0 || ct_phys == 0 || bounce_phys == 0) {
@@ -371,16 +369,16 @@ void ahci_init(struct pci_device device)
     const uint32_t cap     = hba_memory->cap;
     const uint32_t ports   = hba_memory->pi;
 
-    const uint32_t port_count    = (cap & 0x1F) + 1;
-    const uint32_t version_major = (version >> 16) & 0xFFFF;
-    const uint32_t version_minor = version & 0xFFFF;
+    const uint32_t port_count = (cap & 0x1F) + 1;
+    // const uint32_t version_major = (version >> 16) & 0xFFFF;
+    // const uint32_t version_minor = version & 0xFFFF;
 
-    printf("[AHCI] ABAR=0x%08lX version %lu.%lu cap=0x%08lX ports mask=0x%08lX\n",
-           (unsigned long)abar,
-           (unsigned long)version_major,
-           (unsigned long)version_minor,
-           (unsigned long)cap,
-           (unsigned long)ports);
+    // printf("[AHCI] ABAR=0x%08lX version %lu.%lu cap=0x%08lX ports mask=0x%08lX\n",
+    //        (unsigned long)abar,
+    //        (unsigned long)version_major,
+    //        (unsigned long)version_minor,
+    //        (unsigned long)cap,
+    //        (unsigned long)ports);
 
     uint32_t port_mask = ports;
     if (port_mask == 0) {
@@ -390,8 +388,7 @@ void ahci_init(struct pci_device device)
         }
 
         port_mask = (port_count == 32) ? 0xFFFFFFFFu : ((1u << port_count) - 1u);
-        printf("[AHCI] controller reports empty PI; using CAP.NP derived mask=0x%08lX\n",
-               (unsigned long)port_mask);
+        printf("[AHCI] controller reports empty PI; using CAP.NP derived mask=0x%08lX\n", (unsigned long)port_mask);
     }
 
     if (port_mask == 0) {
@@ -413,8 +410,7 @@ void ahci_init(struct pci_device device)
         const uint8_t ipm                     = (uint8_t)((ssts >> 8) & 0x0F);
 
         const bool device_present = ahci_port_device_present(det);
-        const bool link_active =
-            det == AHCI_DET_DEVICE_PRESENT_ACTIVE && ipm == AHCI_IPM_ACTIVE;
+        const bool link_active    = det == AHCI_DET_DEVICE_PRESENT_ACTIVE && ipm == AHCI_IPM_ACTIVE;
 
         if (device_present) {
             device_present_found = true;
@@ -425,15 +421,17 @@ void ahci_init(struct pci_device device)
 
         const char *type = ahci_device_signature_to_string(port->sig);
 
-        printf("[AHCI] port %lu: det=%s(%u) ipm=%s(%u) sig=0x%08lX%s%s\n",
-               (unsigned long)i,
-               ahci_det_to_string(det),
-               det,
-               ahci_ipm_to_string(ipm),
-               ipm,
-               (unsigned long)port->sig,
-               link_active ? " [link-up]" : "",
-               device_present && !link_active ? " [present]" : "");
+        if (link_active) {
+            printf("[AHCI] port %lu: det=%s(%u) ipm=%s(%u) sig=0x%08lX%s%s\n",
+                   (unsigned long)i,
+                   ahci_det_to_string(det),
+                   det,
+                   ahci_ipm_to_string(ipm),
+                   ipm,
+                   (unsigned long)port->sig,
+                   link_active ? " [link-up]" : "",
+                   device_present && !link_active ? " [present]" : "");
+        }
 
         if (!active_port.configured && link_active) {
             if (ahci_configure_active_port(hba_memory, i) != ALL_OK) {

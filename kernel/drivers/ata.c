@@ -135,7 +135,11 @@ static bool ata_try_channel(const struct ata_channel_config *cfg)
         return false;
     }
 
-    printf("[ATA] using %s channel (cmd=0x%X ctrl=0x%X status=0x%02X)\n", ata_channel, ata_cmd_base, ata_ctrl_base, status);
+    printf("[ATA] using %s channel (cmd=0x%X ctrl=0x%X status=0x%02X)\n",
+           ata_channel,
+           ata_cmd_base,
+           ata_ctrl_base,
+           status);
     return true;
 }
 
@@ -147,7 +151,7 @@ void ata_init()
     initlock(&disk_lock, "ata");
 
     const struct ata_channel_config channels[] = {
-        {ATA_PRIMARY_CMD_BASE, ATA_PRIMARY_CTL_BASE, "primary"},
+        {ATA_PRIMARY_CMD_BASE,   ATA_PRIMARY_CTL_BASE,   "primary"  },
         {ATA_SECONDARY_CMD_BASE, ATA_SECONDARY_CTL_BASE, "secondary"},
     };
 
@@ -160,7 +164,7 @@ void ata_init()
     }
 
     if (!found) {
-        printf("[ATA] no legacy channel responded; reads will fail (need AHCI driver)\n");
+        printf("[ATA] no ATA channels found\n");
     }
 }
 

@@ -7,6 +7,8 @@ QEMU=qemu-system-i386
 MEMORY=128 # Be careful not to allocate too much memory as the page table may overlap with the heap
 QEMU_DISPLAY=-display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off -device VGA,vgamem_mb=16
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
+QEMU_DISK=-drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+#QEMU_DISK=-drive file=disk.img,format=raw
 QEMU_ACCEL=
 QEMU_DEBUG=#-serial file:serial.log  -d int -D qemu.log
 DISK ?= /dev/sdb
@@ -191,7 +193,7 @@ qemu: all FORCE
 .PHONY: qemu_grub_debug
 qemu_grub_debug: grub FORCE
 	./scripts/create_tap.sh
-	$(QEMU) -S -gdb tcp::1234 -boot d -drive file=disk.img,format=raw -m $(MEMORY) -daemonize $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_ACCEL) $(QEMU_DEBUG)
+	$(QEMU) -S -gdb tcp::1234 -boot d -daemonize $(QEMU_DISK) -m $(MEMORY)  $(QEMU_DISPLAY) $(QEMU_NETWORK) $(QEMU_ACCEL) $(QEMU_DEBUG)
 
 .PHONY: qemu_grub_debug_pixel
 qemu_grub_debug_pixel: qemu_grub_debug FORCE
