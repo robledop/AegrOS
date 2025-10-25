@@ -84,7 +84,7 @@ grub: build/kernel apps
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
 
-CPUS := 2
+CPUS := 8
 MEMORY := 512
 QEMUEXTRA := -display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off
 QEMUGDB = -S -gdb tcp::1234 -d int -D qemu.log
@@ -107,6 +107,9 @@ qemu-nox-gdb: grub
 
 vbox: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
+
+qemu-nobuild:
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA)
 
 .PHONY: clean
 clean:

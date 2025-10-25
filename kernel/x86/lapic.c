@@ -146,9 +146,12 @@ void lapicstartap(u8 apicid, u32 addr)
     // the AP startup code prior to the [universal startup algorithm]."
     outb(CMOS_PORT, 0xF); // offset 0xF is shutdown code
     outb(CMOS_PORT + 1, 0x0A);
-    u16 *wrv = (u16 *)P2V((0x40 << 4 | 0x67)); // Warm reset vector
-    wrv[0]   = 0;
-    wrv[1]   = addr >> 4;
+    volatile u8 *wrv = (u8 *)P2V((0x40 << 4) | 0x67); // Warm reset vector (unaligned)
+    wrv[0]           = 0;
+    wrv[1]           = 0;
+    u16 segment      = (addr >> 4) & 0xFFFF;
+    wrv[2]           = segment & 0xFF;
+    wrv[3]           = (segment >> 8) & 0xFF;
 
     // "Universal startup algorithm."
     // Send INIT (level-triggered) interrupt to reset other CPU.

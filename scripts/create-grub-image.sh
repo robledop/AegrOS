@@ -2,28 +2,48 @@
 
 set -euo pipefail
 
-MOUNT_POINT="${MOUNT_POINT:-/mnt/xv6}"
+readonly IMG_PATH="./disk.img"
+readonly MOUNT_POINT="${MOUNT_POINT:-/mnt/aegr}"
 
-#sudo -S mkdir -p "$MOUNT_POINT"
+sudo mkdir -p "$MOUNT_POINT"
 
-rm -rf ./disk.img
+loopdev=""
+cleanup() {
+    set +e
+    if mountpoint -q "$MOUNT_POINT"; then
+        sudo umount "$MOUNT_POINT" >/dev/null 2>&1 || true;
+    fi
+    if [[ -n "${loopdev}" ]]; then
+        sudo losetup -d "$loopdev" >/dev/null 2>&1 || true;
+    fi
+    set -e
+}
+trap cleanup EXIT
 
-dd if=/dev/zero of=./disk.img bs=512 count=65536
+rm -f "${IMG_PATH}"
+dd if=/dev/zero of="${IMG_PATH}" bs=512 count=131072 status=none
 
 # Create MBR partition table and a single bootable partition
-parted -s ./disk.img mklabel msdos
-parted -s ./disk.img mkpart primary ext2 1MiB 100%
-parted -s ./disk.img set 1 boot on
+parted -s "${IMG_PATH}" mklabel msdos
+parted -s "${IMG_PATH}" mkpart primary ext2 1MiB 100%
+parted -s "${IMG_PATH}" set 1 boot on
 
 # Set up loop device with partition scanning
-ld=$(sudo losetup -fP --show ./disk.img)
+loopdev=$(sudo losetup -fP --show "${IMG_PATH}")
 
-sudo mkfs.ext2 "${ld}p1" -L xv6 -b 1024
-sudo mount -t ext2 "${ld}p1" "$MOUNT_POINT"
+sudo mkfs.ext2 "${loopdev}p1" -L AegrOS -b 1024
+sudo mount -t ext2 "${loopdev}p1" "$MOUNT_POINT"
 
-sudo grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="normal part_msdos ext2 multiboot" "$ld"
+sudo grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="normal part_msdos ext2 multiboot" "$loopdev"
 
 sudo cp -r ./rootfs/. "$MOUNT_POINT/"
+sync
 
 sudo umount "$MOUNT_POINT"
-sudo losetup -d "$ld"
+
+# Validate the filesystem before committing the image.
+sudo e2fsck -f -n "${loopdev}p1"
+
+sudo losetup -d "$loopdev"
+loopdev=""
+trap - EXIT

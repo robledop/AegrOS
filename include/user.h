@@ -5,8 +5,7 @@ struct rtcdate;
 
 // system calls
 int fork(void);
-int exit(void) __attribute__
-((noreturn));
+int exit(void) __attribute__ ((noreturn));
 #define wait wait_
 int wait_(void);
 int pipe(int *);

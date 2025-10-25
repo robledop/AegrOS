@@ -95,7 +95,7 @@ struct acpi_madt_x2apic
 } __attribute__((packed));
 
 static u8
-sum(u8* addr, int len)
+sum(u8 *addr, int len)
 {
     int sum = 0;
     for (int i = 0; i < len; i++)
@@ -104,14 +104,14 @@ sum(u8* addr, int len)
 }
 
 // Look for an MP structure in the len bytes at addr.
-static struct mp*
+static struct mp *
 mpsearch1(u32 a, int len)
 {
-    u8* addr = P2V(a);
-    u8* e = addr + len;
-    for (u8* p = addr; p < e; p += sizeof(struct mp))
+    u8 *addr = P2V(a);
+    u8 *e    = addr + len;
+    for (u8 *p = addr; p < e; p += sizeof(struct mp))
         if (memcmp(p, "_MP_", 4) == 0 && sum(p, sizeof(struct mp)) == 0)
-            return (struct mp*)p;
+            return (struct mp *)p;
     return nullptr;
 }
 
@@ -120,19 +120,16 @@ mpsearch1(u32 a, int len)
 // 1) in the first KB of the EBDA;
 // 2) in the last KB of system base memory;
 // 3) in the BIOS ROM between 0xE0000 and 0xFFFFF.
-static struct mp* mpsearch(void)
+static struct mp *mpsearch(void)
 {
     u32 p;
-    struct mp* mp;
+    struct mp *mp;
 
-    u8* bda = (u8*)P2V(0x400);
-    if ((p = ((bda[0x0F] << 8) | bda[0x0E]) << 4))
-    {
+    u8 *bda = (u8 *)P2V(0x400);
+    if ((p = ((bda[0x0F] << 8) | bda[0x0E]) << 4)) {
         if ((mp = mpsearch1(p, 1024)))
             return mp;
-    }
-    else
-    {
+    } else {
         p = ((bda[0x14] << 8) | bda[0x13]) * 1024;
         if ((mp = mpsearch1(p - 1024, 1024)))
             return mp;
@@ -155,18 +152,18 @@ static void record_cpu_apicid(u32 apicid)
         cpus[ncpu++].apicid = apicid;
 }
 
-static struct mpconf* mpconfig(struct mp** pmp)
+static struct mpconf *mpconfig(struct mp **pmp)
 {
-    struct mp* mp;
+    struct mp *mp;
 
     if ((mp = mpsearch()) == nullptr || mp->physaddr == nullptr)
         return nullptr;
-    struct mpconf* conf = (struct mpconf*)P2V((u32)mp->physaddr);
+    struct mpconf *conf = (struct mpconf *)P2V((u32)mp->physaddr);
     if (memcmp(conf, "PCMP", 4) != 0)
         return nullptr;
     if (conf->version != 1 && conf->version != 4)
         return nullptr;
-    if (sum((u8*)conf, conf->length) != 0)
+    if (sum((u8 *)conf, conf->length) != 0)
         return nullptr;
     *pmp = mp;
     return conf;
@@ -175,32 +172,28 @@ static struct mpconf* mpconfig(struct mp** pmp)
 static int mpinit_legacy(void)
 {
     u8 *p, *e;
-    struct mp* mp;
-    struct mpconf* conf;
+    struct mp *mp;
+    struct mpconf *conf;
 
     if ((conf = mpconfig(&mp)) == nullptr)
         return 0;
 
     int ismp_ = 1;
-    lapic = (u32*)conf->lapicaddr;
-    for (p = (u8*)(conf + 1), e = (u8*)conf + conf->length; p < e;)
-    {
-        switch (*p)
-        {
-        case MPPROC:
-            {
-                struct mpproc* proc = (struct mpproc*)p;
-                record_cpu_apicid(proc->apicid); // apicid may differ from ncpu
-                p += sizeof(struct mpproc);
-                continue;
-            }
-        case MPIOAPIC:
-            {
-                struct mpioapic* ioapic = (struct mpioapic*)p;
-                ioapicid = ioapic->apicno;
-                p += sizeof(struct mpioapic);
-                continue;
-            }
+    lapic     = (u32 *)conf->lapicaddr;
+    for (p = (u8 *)(conf + 1), e = (u8 *)conf + conf->length; p < e;) {
+        switch (*p) {
+        case MPPROC: {
+            struct mpproc *proc = (struct mpproc *)p;
+            record_cpu_apicid(proc->apicid); // apicid may differ from ncpu
+            p += sizeof(struct mpproc);
+            continue;
+        }
+        case MPIOAPIC: {
+            struct mpioapic *ioapic = (struct mpioapic *)p;
+            ioapicid                = ioapic->apicno;
+            p += sizeof(struct mpioapic);
+            continue;
+        }
         case MPBUS:
         case MPIOINTR:
         case MPLINTR:
@@ -215,29 +208,26 @@ static int mpinit_legacy(void)
     if (!ismp_)
         return 0;
 
-    if (mp->imcrp)
-    {
+    if (mp->imcrp) {
         // Bochs doesn't support IMCR, so this doesn't run on Bochs.
         // But it would on real hardware.
-        outb(0x22, 0x70); // Select IMCR
+        outb(0x22, 0x70);          // Select IMCR
         outb(0x23, inb(0x23) | 1); // Mask external interrupts.
     }
 
     return ncpu > 0;
 }
 
-static struct acpi_rsdp* acpi_rsdp_search(u32 phys_addr, int len)
+static struct acpi_rsdp *acpi_rsdp_search(u32 phys_addr, int len)
 {
-    u8* addr = P2V(phys_addr);
-    u8* end = addr + len;
-    for (u8* p = addr; p < end; p += 16)
-        if (memcmp(p, "RSD PTR ", 8) == 0)
-        {
-            struct acpi_rsdp* rsdp = (struct acpi_rsdp*)p;
-            u32 length = sizeof(struct acpi_rsdp);
-            if (rsdp->revision >= 2)
-            {
-                struct acpi_rsdp_v2* rsdp2 = (struct acpi_rsdp_v2*)p;
+    u8 *addr = P2V(phys_addr);
+    u8 *end  = addr + len;
+    for (u8 *p = addr; p < end; p += 16)
+        if (memcmp(p, "RSD PTR ", 8) == 0) {
+            struct acpi_rsdp *rsdp = (struct acpi_rsdp *)p;
+            u32 length             = sizeof(struct acpi_rsdp);
+            if (rsdp->revision >= 2) {
+                struct acpi_rsdp_v2 *rsdp2 = (struct acpi_rsdp_v2 *)p;
                 if (rsdp2->length >= sizeof(struct acpi_rsdp))
                     length = rsdp2->length;
             }
@@ -247,21 +237,19 @@ static struct acpi_rsdp* acpi_rsdp_search(u32 phys_addr, int len)
     return nullptr;
 }
 
-static struct acpi_rsdp* acpi_find_rsdp(void)
+static struct acpi_rsdp *acpi_find_rsdp(void)
 {
-    u8* bda = (u8*)P2V(0x400);
+    u8 *bda          = (u8 *)P2V(0x400);
     u32 ebda_segment = (bda[0x0F] << 8) | bda[0x0E];
-    if (ebda_segment)
-    {
-        struct acpi_rsdp* rsdp = acpi_rsdp_search(ebda_segment << 4, 1024);
+    if (ebda_segment) {
+        struct acpi_rsdp *rsdp = acpi_rsdp_search(ebda_segment << 4, 1024);
         if (rsdp)
             return rsdp;
     }
 
     u32 base_mem_kb = (bda[0x14] << 8) | bda[0x13];
-    if (base_mem_kb >= 1024)
-    {
-        struct acpi_rsdp* rsdp = acpi_rsdp_search(base_mem_kb * 1024 - 1024, 1024);
+    if (base_mem_kb >= 1024) {
+        struct acpi_rsdp *rsdp = acpi_rsdp_search(base_mem_kb * 1024 - 1024, 1024);
         if (rsdp)
             return rsdp;
     }
@@ -269,49 +257,47 @@ static struct acpi_rsdp* acpi_find_rsdp(void)
     return acpi_rsdp_search(0xE0000, 0x20000);
 }
 
-static int acpi_parse_madt(struct acpi_madt* madt)
+static int acpi_parse_madt(struct acpi_madt *madt)
 {
     if (!madt || madt->header.length < sizeof(struct acpi_madt))
         return 0;
 
-    lapic = (u32*)madt->lapic_addr;
+    lapic = (u32 *)madt->lapic_addr;
 
-    u8* p = (u8*)madt + sizeof(struct acpi_madt);
-    u8* end = (u8*)madt + madt->header.length;
-    while (p + sizeof(struct acpi_madt_entry) <= end)
-    {
-        struct acpi_madt_entry* entry = (struct acpi_madt_entry*)p;
+    u8 *p   = (u8 *)madt + sizeof(struct acpi_madt);
+    u8 *end = (u8 *)madt + madt->header.length;
+    while (p + sizeof(struct acpi_madt_entry) <= end) {
+        struct acpi_madt_entry *entry = (struct acpi_madt_entry *)p;
         if (entry->length < sizeof(struct acpi_madt_entry) || p + entry->length > end)
             break;
 
-        switch (entry->type)
-        {
+        switch (entry->type) {
         case 0: // Processor Local APIC
-            {
-                struct acpi_madt_lapic* lapic_entry = (struct acpi_madt_lapic*)p;
-                if (lapic_entry->flags & 0x01)
-                    record_cpu_apicid(lapic_entry->apic_id);
-                break;
-            }
+        {
+            struct acpi_madt_lapic *lapic_entry = (struct acpi_madt_lapic *)p;
+            if (lapic_entry->flags & 0x01)
+                record_cpu_apicid(lapic_entry->apic_id);
+            break;
+        }
         case 1: // I/O APIC
-            {
-                struct acpi_madt_ioapic* ioapic_entry = (struct acpi_madt_ioapic*)p;
-                ioapicid = ioapic_entry->ioapic_id;
-                break;
-            }
+        {
+            struct acpi_madt_ioapic *ioapic_entry = (struct acpi_madt_ioapic *)p;
+            ioapicid                              = ioapic_entry->ioapic_id;
+            break;
+        }
         case 5: // Local APIC address override
-            {
-                struct acpi_madt_lapic_override* override_entry = (struct acpi_madt_lapic_override*)p;
-                lapic = (u32*)(u32)override_entry->lapic_addr;
-                break;
-            }
+        {
+            struct acpi_madt_lapic_override *override_entry = (struct acpi_madt_lapic_override *)p;
+            lapic                                           = (u32 *)(u32)override_entry->lapic_addr;
+            break;
+        }
         case 9: // Processor Local x2APIC
-            {
-                struct acpi_madt_x2apic* x2apic_entry = (struct acpi_madt_x2apic*)p;
-                if (x2apic_entry->flags & 0x01)
-                    record_cpu_apicid(x2apic_entry->x2apic_id);
-                break;
-            }
+        {
+            struct acpi_madt_x2apic *x2apic_entry = (struct acpi_madt_x2apic *)p;
+            if (x2apic_entry->flags & 0x01)
+                record_cpu_apicid(x2apic_entry->x2apic_id);
+            break;
+        }
         default:
             break;
         }
@@ -322,21 +308,25 @@ static int acpi_parse_madt(struct acpi_madt* madt)
     return ncpu > 0 && lapic != nullptr;
 }
 
-static int acpi_visit_sdt(struct acpi_sdt_header* table, int entry_size)
+static int acpi_visit_sdt(struct acpi_sdt_header *table, int entry_size)
 {
     if (!table || table->length < sizeof(struct acpi_sdt_header))
         return 0;
-    if (sum((u8*)table, table->length) != 0)
+    if (sum((u8 *)table, table->length) != 0)
         return 0;
 
-    int count = (table->length - sizeof(struct acpi_sdt_header)) / entry_size;
-    u8* entries = (u8*)table + sizeof(struct acpi_sdt_header);
+    int count   = (table->length - sizeof(struct acpi_sdt_header)) / entry_size;
+    u8 *entries = (u8 *)table + sizeof(struct acpi_sdt_header);
 
-    for (int i = 0; i < count; i++)
-    {
-        unsigned long long addr = entry_size == 8
-                                      ? ((unsigned long long*)entries)[i]
-                                      : ((u32*)entries)[i];
+    for (int i = 0; i < count; i++) {
+        unsigned long long addr = 0;
+        if (entry_size == 8) {
+            memmove(&addr, entries + (u32)i * entry_size, sizeof(addr));
+        } else {
+            u32 addr32 = 0;
+            memmove(&addr32, entries + (u32)i * entry_size, sizeof(addr32));
+            addr = addr32;
+        }
         if (addr == 0)
             continue;
         if (entry_size == 8 && (addr >> 32) != 0)
@@ -344,12 +334,11 @@ static int acpi_visit_sdt(struct acpi_sdt_header* table, int entry_size)
         if (addr >= PHYSTOP)
             continue; // Ignore tables beyond mapped physical memory.
 
-        struct acpi_sdt_header* entry = (struct acpi_sdt_header*)P2V((u32)addr);
-        if (memcmp(entry->signature, "APIC", 4) == 0)
-        {
-            if (sum((u8*)entry, entry->length) != 0)
+        struct acpi_sdt_header *entry = (struct acpi_sdt_header *)P2V((u32)addr);
+        if (memcmp(entry->signature, "APIC", 4) == 0) {
+            if (sum((u8 *)entry, entry->length) != 0)
                 continue;
-            if (acpi_parse_madt((struct acpi_madt*)entry))
+            if (acpi_parse_madt((struct acpi_madt *)entry))
                 return 1;
         }
     }
@@ -357,30 +346,25 @@ static int acpi_visit_sdt(struct acpi_sdt_header* table, int entry_size)
     return 0;
 }
 
-[[maybe_unused]]static int acpi_init(void)
+[[maybe_unused]] static int acpi_init(void)
 {
-    struct acpi_rsdp* rsdp = acpi_find_rsdp();
+    struct acpi_rsdp *rsdp = acpi_find_rsdp();
     if (!rsdp)
         return 0;
 
-    if (rsdp->rsdt_addr)
-    {
-        if (rsdp->rsdt_addr < PHYSTOP)
-        {
-            struct acpi_sdt_header* rsdt = (struct acpi_sdt_header*)P2V(rsdp->rsdt_addr);
+    if (rsdp->rsdt_addr) {
+        if (rsdp->rsdt_addr < PHYSTOP) {
+            struct acpi_sdt_header *rsdt = (struct acpi_sdt_header *)P2V(rsdp->rsdt_addr);
             if (memcmp(rsdt->signature, "RSDT", 4) == 0 && acpi_visit_sdt(rsdt, 4))
                 return lapic != nullptr && ncpu > 0;
         }
     }
 
-    if (rsdp->revision >= 2)
-    {
-        struct acpi_rsdp_v2* rsdp2 = (struct acpi_rsdp_v2*)rsdp;
-        if (rsdp2->xsdt_addr && (rsdp2->xsdt_addr >> 32) == 0)
-        {
-            if ((u32)rsdp2->xsdt_addr < PHYSTOP)
-            {
-                struct acpi_sdt_header* xsdt = (struct acpi_sdt_header*)P2V((u32)rsdp2->xsdt_addr);
+    if (rsdp->revision >= 2) {
+        struct acpi_rsdp_v2 *rsdp2 = (struct acpi_rsdp_v2 *)rsdp;
+        if (rsdp2->xsdt_addr && (rsdp2->xsdt_addr >> 32) == 0) {
+            if ((u32)rsdp2->xsdt_addr < PHYSTOP) {
+                struct acpi_sdt_header *xsdt = (struct acpi_sdt_header *)P2V((u32)rsdp2->xsdt_addr);
                 if (memcmp(xsdt->signature, "XSDT", 4) == 0 && acpi_visit_sdt(xsdt, 8))
                     return lapic != nullptr && ncpu > 0;
             }
@@ -392,13 +376,12 @@ static int acpi_visit_sdt(struct acpi_sdt_header* table, int entry_size)
 
 void mpinit(void)
 {
-    ncpu = 0;
-    lapic = nullptr;
+    ncpu     = 0;
+    lapic    = nullptr;
     ioapicid = 0;
 
     int legacy = mpinit_legacy();
-    // int acpi = acpi_init();
-    int acpi = 0; // ACPI is disabled for now.
+    int acpi   = acpi_init();
 
     if (!legacy && !acpi)
         panic("Expect to run on an SMP");

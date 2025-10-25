@@ -5,8 +5,10 @@
 #include "stat.h"
 #include "proc.h"
 #include "fs.h"
+#include <assert.h>
 #include "file.h"
 #include "icache.h"
+#include "assert.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 struct icache icache;
@@ -60,6 +62,9 @@ struct inode *iget(u32 dev, u32 inum)
     ext2fs_addrs[i].busy = 1;
 
     release(&icache.lock);
+
+    ASSERT(ip != nullptr, "ip is null in iget");
+    ASSERT(ip->addrs != nullptr, "ip->addrs is null in iget");
 
     return ip;
 }

@@ -43,7 +43,7 @@ int fetchstr(u32 addr, char **pp)
     *pp      = (char *)addr;
     char *ep = (char *)curproc->size;
     for (char *s = *pp; s < ep; s++) {
-        if (*s == 0)
+        if (s == nullptr || *s == 0)
             return s - *pp;
     }
     return -1;

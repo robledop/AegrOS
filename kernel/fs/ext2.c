@@ -4,6 +4,8 @@
 #include "stat.h"
 #include "fs.h"
 #include "ext2.h"
+
+#include "assert.h"
 #include "buf.h"
 #include "file.h"
 #include "icache.h"
@@ -161,8 +163,9 @@ struct inode *ext2fs_ialloc(u32 dev, short type)
         }
 
         int inodes_per_block = EXT2_BSIZE / ext2_sb.s_inode_size;
-        if (inodes_per_block == 0)
+        if (inodes_per_block == 0) {
             panic("ext2fs_ialloc: invalid inode size");
+        }
 
         int bno                 = bgdesc.bg_inode_table + fbit / inodes_per_block + first_partition_block;
         int iindex              = fbit % inodes_per_block;
@@ -170,7 +173,7 @@ struct inode *ext2fs_ialloc(u32 dev, short type)
         u8 *slot                = dinode_buff->data + (iindex * ext2_sb.s_inode_size);
 
         memset(slot, 0, ext2_sb.s_inode_size);
-        struct ext2_inode *din = (struct ext2_inode *)slot;
+        auto din = (struct ext2_inode *)slot;
         if (type == T_DIR) {
             din->i_mode = S_IFDIR;
         } else if (type == T_FILE) {
@@ -240,10 +243,13 @@ void ext2fs_iupdate(struct inode *ip)
 void ext2fs_ilock(struct inode *ip)
 {
     struct ext2_group_desc bgdesc;
-    if (ip == nullptr || ip->ref < 1)
+    if (ip == nullptr || ip->ref < 1) {
         panic("ext2fs_ilock");
+    }
 
+    ASSERT(ip->addrs != nullptr, "ip->addrs is null in ext2fs_ilock before lock");
     acquiresleep(&ip->lock);
+    ASSERT(ip->addrs != nullptr, "ip->addrs is null in ext2fs_ilock");
     const auto ad  = (struct ext2fs_addrs *)ip->addrs;
     u32 desc_block = first_partition_block + 2; // Group descriptor at ext2 block 2 = sector 4
 
@@ -320,6 +326,8 @@ void ext2fs_iput(struct inode *ip)
 {
     acquiresleep(&ip->lock);
     struct ext2fs_addrs *ad = (struct ext2fs_addrs *)ip->addrs;
+    ASSERT(ad != nullptr, "ip->addrs is null in ext2fs_iput");
+
     if (ip->valid && ip->nlink == 0) {
         acquire(&icache.lock);
         int r = ip->ref;
@@ -331,8 +339,6 @@ void ext2fs_iput(struct inode *ip)
             ip->type = 0;
             ip->iops->iupdate(ip);
             ip->valid = 0;
-            ip->iops  = nullptr;
-            ip->addrs = nullptr;
         }
     }
     releasesleep(&ip->lock);
@@ -341,6 +347,7 @@ void ext2fs_iput(struct inode *ip)
     ip->ref--;
     if (ip->ref == 0) {
         ad->busy  = 0;
+        ip->iops  = nullptr;
         ip->addrs = nullptr;
     }
     release(&icache.lock);

@@ -4,6 +4,7 @@
 // user code, and calls into file.c and fs.c.
 //
 
+#include "assert.h"
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -139,16 +140,13 @@ int sys_link(void)
     if (argstr(0, &old) < 0 || argstr(1, &new) < 0)
         return -1;
 
-    // begin_op();
     if ((ip = namei(old)) == nullptr) {
-        // end_op();
         return -1;
     }
 
     ip->iops->ilock(ip);
     if (ip->type == T_DIR) {
         ip->iops->iunlockput(ip);
-        // end_op();
         return -1;
     }
 
@@ -166,7 +164,6 @@ int sys_link(void)
     ip->iops->iunlockput(dp);
     ip->iops->iput(ip);
 
-    // end_op();
 
     return 0;
 
@@ -175,7 +172,6 @@ bad:
     ip->nlink--;
     ip->iops->iupdate(ip);
     ip->iops->iunlockput(ip);
-    // end_op();
     return -1;
 }
 
@@ -300,9 +296,11 @@ static struct inode *create(char *path, short type, short major, short minor)
         return nullptr;
     }
 
-    if ((ip = dp->iops->ialloc(dp->dev, type)) == nullptr)
+    if ((ip = dp->iops->ialloc(dp->dev, type)) == nullptr) {
         panic("create: ialloc");
+    }
 
+    ASSERT(ip->addrs != nullptr, "ip->addrs is null in create");
     ip->iops->ilock(ip);
     ip->major = major;
     ip->minor = minor;
