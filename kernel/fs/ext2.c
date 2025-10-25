@@ -4,12 +4,12 @@
 #include "stat.h"
 #include "fs.h"
 #include "ext2.h"
-
 #include "assert.h"
 #include "buf.h"
 #include "file.h"
 #include "icache.h"
 #include "mbr.h"
+#include "string.h"
 
 extern struct inode *devtab[NDEV];
 struct inode_operations ext2fs_inode_ops = {

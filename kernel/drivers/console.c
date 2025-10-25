@@ -3,6 +3,7 @@
 // Output is written to the screen and serial port.
 
 #include "types.h"
+#include "string.h"
 #include "defs.h"
 #include "traps.h"
 #include "spinlock.h"
@@ -108,7 +109,7 @@ void panic(char *s)
 
     cli();
     cons.locking = 0;
-    // use lapiccpunum so that we can call panic from mycpu()
+    // use lapiccpunum so that we can call panic from current_cpu()
     cprintf("lapicid %d: panic: %s\n", lapicid(), s);
     // getcallerpcs(&s, pcs);
     // for (int i = 0; i < 10; i++)
@@ -256,7 +257,7 @@ int consoleread(struct inode *ip, char *dst, int n)
     acquire(&cons.lock);
     while (n > 0) {
         while (input.r == input.w) {
-            if (myproc()->killed) {
+            if (current_process()->killed) {
                 release(&cons.lock);
                 ip->iops->ilock(ip);
                 return -1;

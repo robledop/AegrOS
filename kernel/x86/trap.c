@@ -63,13 +63,13 @@ void idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION 
 
 void syscall_handler(struct trapframe* tf)
 {
-    if (myproc()->killed)
+    if (current_process()->killed)
     {
         exit();
     }
-    myproc()->trap_frame = tf;
+    current_process()->trap_frame = tf;
     syscall();
-    if (myproc()->killed)
+    if (current_process()->killed)
     {
         exit();
     }
@@ -83,17 +83,17 @@ void exception_handler(struct trapframe* tf)
         u32 faulting_address = rcr2();
         // Handle page fault (for example, by terminating the process).
         cprintf("Page fault at address 0x%x, eip 0x%x\n", faulting_address, tf->eip);
-        myproc()->killed = 1;
+        current_process()->killed = 1;
         return;
     }
 
     if ((tf->cs & DPL_USER) == DPL_USER)
     {
-        cprintf("Process %d USER MODE EXCEPTION: %s\n", myproc()->pid, exception_messages[tf->trapno]);
+        cprintf("Process %d USER MODE EXCEPTION: %s\n", current_process()->pid, exception_messages[tf->trapno]);
         cprintf("EIP: 0x%x\n", tf->eip);
         cprintf("CS: 0x%x\n", tf->cs);
         cprintf("EFLAGS: 0x%x\n", tf->eflags);
-        myproc()->killed = 1;
+        current_process()->killed = 1;
         return;
     }
 
@@ -195,7 +195,7 @@ void trap(struct trapframe* tf)
     }
     else
     {
-        if (myproc() == nullptr || (tf->cs & 3) == 0)
+        if (current_process() == nullptr || (tf->cs & 3) == 0)
         {
             // In kernel, it must be our mistake.
             cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
@@ -205,24 +205,24 @@ void trap(struct trapframe* tf)
         // In user space, assume the process misbehaved.
         cprintf("pid %d %s: trap %d err %d on cpu %d "
                 "eip 0x%x addr 0x%x--kill proc\n",
-                myproc()->pid, myproc()->name, tf->trapno,
+                current_process()->pid, current_process()->name, tf->trapno,
                 tf->err, cpuid(), tf->eip, rcr2());
-        myproc()->killed = 1;
+        current_process()->killed = 1;
     }
 
     // Force process exit if it has been killed and is in user space.
     // (If it is still executing in the kernel, let it keep running
     // until it gets to the regular system call return.)
-    if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
+    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER)
         exit();
 
     // Force the process to give up CPU on clock tick.
     // If interrupts were on while locks held, would need to check nlock.
-    if (myproc() && myproc()->state == RUNNING &&
+    if (current_process() && current_process()->state == RUNNING &&
         tf->trapno == T_IRQ0 + IRQ_TIMER)
         yield();
 
     // Check if the process has been killed since we yielded
-    if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
+    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER)
         exit();
 }

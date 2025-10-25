@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "defs.h"
+#include "string.h"
 #include "param.h"
 #include "memlayout.h"
 #include "mp.h"
@@ -104,8 +105,7 @@ sum(u8 *addr, int len)
 }
 
 // Look for an MP structure in the len bytes at addr.
-static struct mp *
-mpsearch1(u32 a, int len)
+static struct mp * mpsearch1(u32 a, int len)
 {
     u8 *addr = P2V(a);
     u8 *e    = addr + len;
@@ -178,13 +178,13 @@ static int mpinit_legacy(void)
     if ((conf = mpconfig(&mp)) == nullptr)
         return 0;
 
-    int ismp_ = 1;
-    lapic     = (u32 *)conf->lapicaddr;
+    lapic = (u32 *)conf->lapicaddr;
+
     for (p = (u8 *)(conf + 1), e = (u8 *)conf + conf->length; p < e;) {
         switch (*p) {
         case MPPROC: {
             struct mpproc *proc = (struct mpproc *)p;
-            record_cpu_apicid(proc->apicid); // apicid may differ from ncpu
+            record_cpu_apicid(proc->apicid);
             p += sizeof(struct mpproc);
             continue;
         }
@@ -200,19 +200,13 @@ static int mpinit_legacy(void)
             p += 8;
             continue;
         default:
-            ismp_ = 0;
-            break;
+            return 0;
         }
     }
 
-    if (!ismp_)
-        return 0;
-
     if (mp->imcrp) {
-        // Bochs doesn't support IMCR, so this doesn't run on Bochs.
-        // But it would on real hardware.
-        outb(0x22, 0x70);          // Select IMCR
-        outb(0x23, inb(0x23) | 1); // Mask external interrupts.
+        outb(0x22, 0x70);
+        outb(0x23, inb(0x23) | 1);
     }
 
     return ncpu > 0;
@@ -346,7 +340,7 @@ static int acpi_visit_sdt(struct acpi_sdt_header *table, int entry_size)
     return 0;
 }
 
-[[maybe_unused]] static int acpi_init(void)
+static int acpi_init(void)
 {
     struct acpi_rsdp *rsdp = acpi_find_rsdp();
     if (!rsdp)
@@ -380,9 +374,12 @@ void mpinit(void)
     lapic    = nullptr;
     ioapicid = 0;
 
-    int legacy = mpinit_legacy();
-    int acpi   = acpi_init();
+    int acpi = acpi_init();
+    if (!acpi) {
+        int legacy = mpinit_legacy();
 
-    if (!legacy && !acpi)
-        panic("Expect to run on an SMP");
+        if (!legacy) {
+            panic("Failed to initialize multiprocessor support");
+        }
+    }
 }

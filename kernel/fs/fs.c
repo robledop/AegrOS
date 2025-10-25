@@ -9,6 +9,7 @@
 #include "file.h"
 #include "icache.h"
 #include "assert.h"
+#include "string.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 struct icache icache;
@@ -145,7 +146,7 @@ static struct inode *namex(char *path, int nameiparent, char *name)
     if (*path == '/') {
         ip = iget(ROOTDEV, EXT2INO);
     } else {
-        ip = idup(myproc()->cwd);
+        ip = idup(current_process()->cwd);
     }
 
     while (true) {

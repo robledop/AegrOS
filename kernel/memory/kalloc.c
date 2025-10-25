@@ -7,6 +7,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "spinlock.h"
+#include "string.h"
 
 void freerange(void* vstart, void* vend);
 /** @brief First address after kernel loaded from ELF file */

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.h"
-#include "stat.h"
 
 #define EXT2_DIRENT_NAME_MAX 255
 

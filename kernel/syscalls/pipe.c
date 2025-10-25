@@ -106,7 +106,7 @@ int pipewrite(struct pipe* p, char* addr, int n)
     {
         while (p->nwrite == p->nread + PIPESIZE)
         {
-            if (p->readopen == 0 || myproc()->killed)
+            if (p->readopen == 0 || current_process()->killed)
             {
                 release(&p->lock);
                 return -1;
@@ -137,7 +137,7 @@ int piperead(struct pipe* p, char* addr, int n)
     while (p->nread == p->nwrite && p->writeopen)
     {
         // DOC: pipe-empty
-        if (myproc()->killed)
+        if (current_process()->killed)
         {
             release(&p->lock);
             return -1;

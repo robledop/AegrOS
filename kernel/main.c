@@ -1,4 +1,5 @@
 #include "types.h"
+#include "string.h"
 #include "defs.h"
 #include "param.h"
 #include "memlayout.h"
@@ -35,7 +36,7 @@ int main(multiboot_info_t* mbinfo, [[maybe_unused]]unsigned int magic)
 {
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
-    kvmalloc(); // kernel page table
+    kernel_page_directory_init(); // kernel page table
     mpinit(); // detect other processors
     lapicinit(); // interrupt controller
     seginit(); // segment descriptors
@@ -62,7 +63,7 @@ int main(multiboot_info_t* mbinfo, [[maybe_unused]]unsigned int magic)
  */
 static void mpenter(void)
 {
-    switch_kvm();
+    switch_kernel_page_directory();
     seginit();
     lapicinit();
     mpmain();
@@ -75,7 +76,7 @@ static void mpmain(void)
 {
     cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
     idtinit(); // load idt register
-    xchg(&(mycpu()->started), 1); // tell startothers() we're up
+    xchg(&(current_cpu()->started), 1); // tell startothers() we're up
     scheduler(); // start running processes
 }
 
@@ -104,7 +105,7 @@ static void startothers(void)
 
     for (struct cpu* c = cpus; c < cpus + ncpu; c++)
     {
-        if (c == mycpu()) // We've started already.
+        if (c == current_cpu()) // We've started already.
             continue;
 
 

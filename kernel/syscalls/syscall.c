@@ -4,6 +4,8 @@
 #include "x86.h"
 #include "syscall.h"
 
+#include "../../include/defs.h"
+
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
 // Arguments on the stack, from the user call to the C
@@ -19,7 +21,7 @@
  */
 int fetchint(u32 addr, int *ip)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     if (addr >= curproc->size || addr + 4 > curproc->size)
         return -1;
@@ -36,7 +38,7 @@ int fetchint(u32 addr, int *ip)
  */
 int fetchstr(u32 addr, char **pp)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     if (addr >= curproc->size)
         return -1;
@@ -58,7 +60,7 @@ int fetchstr(u32 addr, char **pp)
  */
 int argint(int n, int *ip)
 {
-    return fetchint((myproc()->trap_frame->esp) + 4 + 4 * n, ip);
+    return fetchint((current_process()->trap_frame->esp) + 4 + 4 * n, ip);
 }
 
 /**
@@ -72,7 +74,7 @@ int argint(int n, int *ip)
 int argptr(int n, char **pp, int size)
 {
     int i;
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     if (argint(n, &i) < 0)
         return -1;
@@ -149,7 +151,7 @@ static int (*syscalls[])(void) = {
  */
 void syscall(void)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     int num = curproc->trap_frame->eax;
     if (num > 0 && num < (int)NELEM(syscalls) && syscalls[num]) {

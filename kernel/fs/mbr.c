@@ -1,4 +1,5 @@
 #include "defs.h"
+#include "string.h"
 #include "mbr.h"
 #include "buf.h"
 

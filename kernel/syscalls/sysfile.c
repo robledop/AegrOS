@@ -14,6 +14,7 @@
 #include "file.h"
 #include "fcntl.h"
 #include "printf.h"
+#include "string.h"
 
 extern struct inode *devtab[NDEV];
 bool devtab_parsed = false;
@@ -34,7 +35,7 @@ static int argfd(int n, int *pfd, struct file **pf)
 
     if (argint(n, &fd) < 0)
         return -1;
-    if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == nullptr)
+    if (fd < 0 || fd >= NOFILE || (f = current_process()->ofile[fd]) == nullptr)
         return -1;
     if (pfd)
         *pfd = fd;
@@ -53,7 +54,7 @@ static int argfd(int n, int *pfd, struct file **pf)
  */
 static int fdalloc(struct file *f)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     for (int fd = 0; fd < NOFILE; fd++) {
         if (curproc->ofile[fd] == nullptr) {
@@ -110,7 +111,7 @@ int sys_close(void)
 
     if (argfd(0, &fd, &f) < 0)
         return -1;
-    myproc()->ofile[fd] = nullptr;
+    current_process()->ofile[fd] = nullptr;
     fileclose(f);
     return 0;
 }
@@ -323,7 +324,7 @@ static struct inode *create(char *path, short type, short major, short minor)
 
     if (ip->type == T_DEV && (major != 0 || minor != 0)) {
         const int fd      = open_file("/etc/devtab", O_RDWR);
-        struct file *file = myproc()->ofile[fd];
+        struct file *file = current_process()->ofile[fd];
         char buf[64];
         const int n = snprintf(buf, sizeof(buf), "%d\tchar\t%d\t%d\t#%s\n", ip->inum, major, minor, path);
 
@@ -355,7 +356,7 @@ static struct inode *create(char *path, short type, short major, short minor)
 void parse_devtab()
 {
     const int fd      = open_file("/etc/devtab", O_RDWR);
-    struct file *file = myproc()->ofile[fd];
+    struct file *file = current_process()->ofile[fd];
     char buf[512];
     struct stat st;
     filestat(file, &st);
@@ -496,7 +497,7 @@ int sys_chdir(void)
 {
     char *path;
     struct inode *ip;
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     // begin_op();
     if (argstr(0, &path) < 0 || (ip = namei(path)) == nullptr) {
@@ -563,7 +564,7 @@ int sys_pipe(void)
     int fd0 = -1;
     if ((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0) {
         if (fd0 >= 0)
-            myproc()->ofile[fd0] = nullptr;
+            current_process()->ofile[fd0] = nullptr;
         fileclose(rf);
         fileclose(wf);
         return -1;

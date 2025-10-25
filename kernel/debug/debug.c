@@ -1,4 +1,5 @@
 #include "memlayout.h"
+#include "string.h"
 #include "types.h"
 #include "defs.h"
 #include "elf.h"

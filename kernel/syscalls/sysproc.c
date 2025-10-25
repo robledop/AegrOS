@@ -34,7 +34,7 @@ int sys_kill(void)
 /** @brief Return the current process ID. */
 int sys_getpid(void)
 {
-    return myproc()->pid;
+    return current_process()->pid;
 }
 
 /**
@@ -48,7 +48,7 @@ int sys_sbrk(void)
 
     if (argint(0, &n) < 0)
         return -1;
-    int addr = myproc()->size;
+    int addr = current_process()->size;
     if (growproc(n) < 0)
         return -1;
     return addr;
@@ -69,7 +69,7 @@ int sys_sleep(void)
     acquire(&tickslock);
     u32 ticks0 = ticks;
     while (ticks - ticks0 < (u32)n) {
-        if (myproc()->killed) {
+        if (current_process()->killed) {
             release(&tickslock);
             return -1;
         }

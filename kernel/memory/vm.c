@@ -6,6 +6,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "file.h"
+#include "string.h"
 
 /** @brief End of kernel text; defined in linker script. */
 extern char data[]; // defined by kernel.ld
@@ -130,7 +131,7 @@ static struct kmap
  *
  * @return Pointer to the initialized page directory or 0 on failure.
  */
-pde_t *setupkvm(void)
+pde_t *setup_kernel_page_directory(void)
 {
     pde_t *pgdir;
 
@@ -155,14 +156,14 @@ pde_t *setupkvm(void)
 }
 
 /** @brief Allocate the kernel page directory and activate it. */
-void kvmalloc(void)
+void kernel_page_directory_init(void)
 {
-    kpgdir = setupkvm();
-    switch_kvm();
+    kpgdir = setup_kernel_page_directory();
+    switch_kernel_page_directory();
 }
 
 /** @brief Switch to the kernel-only page table for the idle CPU. */
-void switch_kvm(void)
+void switch_kernel_page_directory(void)
 {
     lcr3(V2P(kpgdir)); // switch to the kernel page table
 }
@@ -172,23 +173,23 @@ void switch_kvm(void)
  *
  * @param p Process whose page table and TSS should become active.
  */
-void switch_uvm(struct proc *p)
+void activate_process(struct proc *p)
 {
     if (p == nullptr)
-        panic("switchuvm: no process");
+        panic("activate_process: no process");
     if (p->kstack == nullptr)
-        panic("switchuvm: no kstack");
+        panic("activate_process: no kstack");
     if (p->page_directory == nullptr)
-        panic("switchuvm: no pgdir");
+        panic("activate_process: no pgdir");
 
     pushcli();
-    mycpu()->gdt[SEG_TSS]    = SEG16(STS_T32A, &mycpu()->task_state, sizeof(mycpu()->task_state) - 1, 0);
-    mycpu()->gdt[SEG_TSS].s  = 0;
-    mycpu()->task_state.ss0  = SEG_KDATA << 3;
-    mycpu()->task_state.esp0 = (u32)p->kstack + KSTACKSIZE;
+    current_cpu()->gdt[SEG_TSS] = SEG16(STS_T32A, &current_cpu()->task_state, sizeof(current_cpu()->task_state) - 1, 0);
+    current_cpu()->gdt[SEG_TSS].s = 0;
+    current_cpu()->task_state.ss0 = SEG_KDATA << 3;
+    current_cpu()->task_state.esp0 = (u32)p->kstack + KSTACKSIZE;
     // setting IOPL=0 in eflags *and* iomb beyond the tss segment limit
     // forbids I/O instructions (e.g., inb and outb) from user space
-    mycpu()->task_state.iomb = (u16)0xFFFF;
+    current_cpu()->task_state.iomb = (u16)0xFFFF;
     ltr(SEG_TSS << 3);
     lcr3(V2P(p->page_directory)); // switch to the process's address space
     popcli();
@@ -258,7 +259,7 @@ int allocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
     if (newsz >= KERNBASE)
         return 0;
     if (newsz < oldsz)
-        return oldsz;
+        return (int)oldsz;
 
     for (u32 a = PGROUNDUP(oldsz); a < newsz; a += PGSIZE) {
         char *mem = kalloc();
@@ -275,7 +276,7 @@ int allocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
             return 0;
         }
     }
-    return newsz;
+    return (int)newsz;
 }
 
 /**
@@ -349,21 +350,26 @@ void clearpteu(pde_t *pgdir, const char *uva)
 pde_t *copyuvm(pde_t *pgdir, u32 sz)
 {
     pde_t *d;
-    pte_t *pte;
-    u32 pa, flags;
-    char *mem;
-
-    if ((d = setupkvm()) == nullptr)
+    if ((d = setup_kernel_page_directory()) == nullptr) {
         return nullptr;
+    }
+
     for (u32 i = 0; i < sz; i += PGSIZE) {
-        if ((pte = walkpgdir(pgdir, (void *)i, 0)) == nullptr)
+        pte_t *pte;
+        if ((pte = walkpgdir(pgdir, (void *)i, 0)) == nullptr) {
             panic("copyuvm: pte should exist");
-        if (!(*pte & PTE_P))
+        }
+        if (!(*pte & PTE_P)) {
             panic("copyuvm: page not present");
-        pa    = PTE_ADDR(*pte);
-        flags = PTE_FLAGS(*pte);
-        if ((mem = kalloc()) == nullptr)
+        }
+
+        char *mem;
+        if ((mem = kalloc()) == nullptr) {
             goto bad;
+        }
+
+        u32 pa    = PTE_ADDR(*pte);
+        int flags = PTE_FLAGS(*pte);
         memmove(mem, (char *)P2V(pa), PGSIZE);
         if (mappages(d, (void *)i, PGSIZE, V2P(mem), flags) < 0) {
             kfree(mem);
@@ -407,7 +413,7 @@ int copyout(pde_t *pgdir, u32 va, void *p, u32 len)
 {
     char *buf = (char *)p;
     while (len > 0) {
-        u32 va0  = (u32)PGROUNDDOWN(va);
+        u32 va0   = (u32)PGROUNDDOWN(va);
         char *pa0 = uva2ka(pgdir, (char *)va0);
         if (pa0 == nullptr)
             return -1;

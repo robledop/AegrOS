@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "string.h"
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -54,7 +55,7 @@ void pinit(void)
  */
 int cpuid()
 {
-    return mycpu() - cpus;
+    return current_cpu() - cpus;
 }
 
 /**
@@ -62,17 +63,19 @@ int cpuid()
  *
  * Interrupts must be disabled to prevent migration during lookup.
  */
-struct cpu *mycpu(void)
+struct cpu *current_cpu(void)
 {
-    if (read_eflags() & FL_IF)
-        panic("mycpu called with interrupts enabled\n");
+    if (read_eflags() & FL_IF) {
+        panic("current_cpu called with interrupts enabled\n");
+    }
 
     int apicid = lapicid();
     // APIC IDs are not guaranteed to be contiguous. Maybe we should have
     // a reverse map, or reserve a register to store &cpus[i].
     for (int i = 0; i < ncpu; ++i) {
-        if (cpus[i].apicid == apicid)
+        if (cpus[i].apicid == apicid) {
             return &cpus[i];
+        }
     }
     panic("unknown apicid\n");
 }
@@ -82,10 +85,10 @@ struct cpu *mycpu(void)
  *
  * Interrupts are temporarily disabled to avoid rescheduling during the read.
  */
-struct proc *myproc(void)
+struct proc *current_process(void)
 {
     pushcli();
-    struct cpu *c  = mycpu();
+    struct cpu *c  = current_cpu();
     struct proc *p = c->proc;
     popcli();
     return p;
@@ -175,7 +178,7 @@ void user_init(void)
     struct proc *p = alloc_proc();
 
     initproc = p;
-    if ((p->page_directory = setupkvm()) == nullptr) {
+    if ((p->page_directory = setup_kernel_page_directory()) == nullptr) {
         panic("user_init: out of memory?");
     }
     inituvm(p->page_directory, _binary_build_initcode_start, (int)_binary_build_initcode_size);
@@ -211,7 +214,7 @@ void user_init(void)
  */
 int growproc(int n)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     u32 sz = curproc->size;
     if (n > 0) {
@@ -222,7 +225,7 @@ int growproc(int n)
             return -1;
     }
     curproc->size = sz;
-    switch_uvm(curproc);
+    activate_process(curproc);
     return 0;
 }
 
@@ -236,7 +239,7 @@ int growproc(int n)
 int fork(void)
 {
     struct proc *np;
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     // Allocate process.
     if ((np = alloc_proc()) == nullptr) {
@@ -283,7 +286,7 @@ int fork(void)
  */
 void exit(void)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     if (curproc == initproc)
         panic("init exiting");
@@ -328,7 +331,7 @@ void exit(void)
  */
 int wait(void)
 {
-    struct proc *curproc = myproc();
+    struct proc *curproc = current_process();
 
     acquire(&ptable.lock);
     for (;;) {
@@ -372,8 +375,8 @@ int wait(void)
  */
 void scheduler(void)
 {
-    struct cpu *current_cpu = mycpu();
-    current_cpu->proc       = nullptr;
+    struct cpu *cpu = current_cpu();
+    cpu->proc       = nullptr;
 
     for (;;) {
         // Enable interrupts on this processor.
@@ -391,16 +394,16 @@ void scheduler(void)
             // Switch to the chosen process.  It is the process's job
             // to release ptable.lock and then reacquire it
             // before jumping back to us.
-            current_cpu->proc = p;
-            switch_uvm(p);
+            cpu->proc = p;
+            activate_process(p);
             p->state = RUNNING;
 
-            switch_context(&(current_cpu->scheduler), p->context);
-            switch_kvm();
+            switch_context(&(cpu->scheduler), p->context);
+            switch_kernel_page_directory();
 
             // Process is done running for now.
             // It should have changed its p->state before coming back.
-            current_cpu->proc = nullptr;
+            cpu->proc = nullptr;
         }
 
         release(&ptable.lock);
@@ -421,27 +424,27 @@ void scheduler(void)
  */
 void sched(void)
 {
-    struct proc *p = myproc();
+    struct proc *p = current_process();
 
     if (!holding(&ptable.lock))
         panic("sched ptable.lock");
-    if (mycpu()->ncli != 1)
+    if (current_cpu()->ncli != 1)
         panic("sched locks");
     if (p->state == RUNNING)
         panic("sched running");
     if (read_eflags() & FL_IF)
         panic("sched interruptible");
 
-    const int interrupts_enabled = mycpu()->interrupts_enabled;
-    switch_context(&p->context, mycpu()->scheduler);
-    mycpu()->interrupts_enabled = interrupts_enabled;
+    const int interrupts_enabled = current_cpu()->interrupts_enabled;
+    switch_context(&p->context, current_cpu()->scheduler);
+    current_cpu()->interrupts_enabled = interrupts_enabled;
 }
 
 /** @brief Give up the CPU for one scheduling round. */
 void yield(void)
 {
     acquire(&ptable.lock);
-    myproc()->state = RUNNABLE;
+    current_process()->state = RUNNABLE;
     sched();
     release(&ptable.lock);
 }
@@ -479,7 +482,7 @@ void forkret(void)
  */
 void sleep(void *chan, struct spinlock *lk)
 {
-    struct proc *p = myproc();
+    struct proc *p = current_process();
 
     if (p == nullptr) {
         sti();
