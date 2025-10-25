@@ -1,5 +1,3 @@
-#pragma once
-
 /**
  * @author (c) Eyal Rozenberg <eyalroz1@gmx.com>
  *             2021-2023, Haifa, Palestine/Israel
@@ -38,7 +36,10 @@
  * THE SOFTWARE.
  */
 
-#include <termcolors.h>
+#ifndef PRINTF_H_
+#define PRINTF_H_
+
+//#include <termcolors.h>
 #ifdef __cplusplus
 // #include <cstdarg>
 // #include <cstddef>
@@ -207,3 +208,6 @@ int vfctprintf(void (*out)(char c, void *extra_arg), void *extra_arg, const char
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+
+#endif // PRINTF_H_

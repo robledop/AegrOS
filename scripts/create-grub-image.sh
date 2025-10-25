@@ -1,12 +1,29 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
+
+MOUNT_POINT="${MOUNT_POINT:-/mnt/xv6}"
+
+#sudo -S mkdir -p "$MOUNT_POINT"
+
 rm -rf ./disk.img
+
 dd if=/dev/zero of=./disk.img bs=512 count=65536
-mkfs.vfat -c -F 16 ./disk.img
-sudo mount -t vfat ./disk.img /mnt/d
-ld=$(losetup -j ./disk.img | grep -oP '/dev/loop[0-9]+') # Find a free loop device
-sudo grub-install --root-directory=/mnt/d --force --no-floppy --modules="normal part_msdos multiboot" "$ld"
-#./scripts/generate-files.sh
-sudo cp -r ./rootfs/. /mnt/d/
-sudo umount -q /mnt/d
+
+# Create MBR partition table and a single bootable partition
+parted -s ./disk.img mklabel msdos
+parted -s ./disk.img mkpart primary ext2 1MiB 100%
+parted -s ./disk.img set 1 boot on
+
+# Set up loop device with partition scanning
+ld=$(sudo losetup -fP --show ./disk.img)
+
+sudo mkfs.ext2 "${ld}p1" -L xv6 -b 1024
+sudo mount -t ext2 "${ld}p1" "$MOUNT_POINT"
+
+sudo grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="normal part_msdos ext2 multiboot" "$ld"
+
+sudo cp -r ./rootfs/. "$MOUNT_POINT/"
+
+sudo umount "$MOUNT_POINT"
+sudo losetup -d "$ld"

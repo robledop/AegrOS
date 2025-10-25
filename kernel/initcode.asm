@@ -1,12 +1,10 @@
 ; Initial process execs /init.
 ; This code runs in user space.
 
-[BITS 32]
-
 %include "syscall.asm"
 %include "traps.asm"
 
-; exec(init, argv)
+;# exec(init, argv)
 global start
 start:
   push argv
@@ -15,17 +13,18 @@ start:
   mov eax, SYS_exec
   int T_SYSCALL
 
-; for(;;) exit();
+;# for(;;) exit();
 exit:
   mov eax, SYS_exit
   int T_SYSCALL
   jmp exit
 
-; char init[] = "/init\0";
+;# char init[] = "/bin/init\0";
 init:
-  db "/init", 0
+  db "/bin/init", 0
 
-; char *argv[] = { init, 0 };
+;# char *argv[] = { init, 0 };
+;.p2align 2
 align 4
 argv:
   dd init

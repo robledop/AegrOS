@@ -1,18 +1,16 @@
 #pragma once
-#include <mmu.h>
-#include <config.h>
-#include <stdint.h>
-#include <x86.h>
-#include <spinlock.h>
+#include "types.h"
+#include "mmu.h"
+#include "param.h"
 
 // Per-CPU state
 struct cpu
 {
-    uint8_t apicid; // Local APIC ID
+    u8 apicid; // Local APIC ID
     struct context* scheduler; // swtch() here to enter scheduler
     struct task_state task_state; // Used by x86 to find stack for interrupt
     struct segdesc gdt[NSEGS]; // x86 global descriptor table
-    volatile uint32_t started; // Has the CPU started?
+    volatile u32 started; // Has the CPU started?
     int ncli; // Depth of pushcli nesting.
 
     // intena
@@ -35,11 +33,11 @@ extern int ncpu;
 // but it is on the stack and allocproc() manipulates it.
 struct context
 {
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebx;
-    uint32_t ebp;
-    uint32_t eip;
+    u32 edi;
+    u32 esi;
+    u32 ebx;
+    u32 ebp;
+    u32 eip;
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
@@ -47,8 +45,8 @@ enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 // Per-process state
 struct proc
 {
-    uint32_t size; // Size of process memory (bytes)
-    uintptr_t * page_directory; // Page table
+    u32 size; // Size of process memory (bytes)
+    pde_t* page_directory; // Page table
     char* kstack; // Bottom of the kernel stack for this process
     enum procstate state; // Process state
     int pid; // Process ID
@@ -67,26 +65,3 @@ struct proc
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
-
-int cpuid(void);
-void exit(void);
-int fork(void);
-int growproc(int);
-int kill(int);
-struct cpu* mycpu(void);
-struct proc* myproc();
-void pinit(void);
-void procdump(void);
-void scheduler(void) __attribute__((noreturn));
-void sched(void);
-void setproc(struct proc*);
-void sleep(void*, struct spinlock*);
-void user_init(void);
-int wait(void);
-void wakeup(void*);
-void yield(void);
-
-
-// swtch.S
-// was swtch()
-void switch_context(struct context**, struct context*);

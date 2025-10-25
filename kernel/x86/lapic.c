@@ -1,15 +1,14 @@
 // The local APIC manages internal (non-I/O) interrupts.
 // See Chapter 8 & Appendix C of Intel processor manual volume 3.
 
-#include <stdint.h>
-#include <x86.h>
-#include <memlayout.h>
-#include <traps.h>
-#include <io.h>
-#include <date.h>
-#include <string.h>
+#include "types.h"
+#include "defs.h"
+#include "date.h"
+#include "memlayout.h"
+#include "traps.h"
+#include "x86.h"
 
-// Local APIC registers, divided by 4 for use as uint32_t[] indices.
+// Local APIC registers, divided by 4 for use as u32[] indices.
 #define ID (0x0020 / 4)    // ID
 #define VER (0x0030 / 4)   // Version
 #define TPR (0x0080 / 4)   // Task Priority
@@ -41,7 +40,7 @@
 #define TDCR (0x03E0 / 4)   // Timer Divide Configuration
 
 /** @brief Memory-mapped base address of the local APIC. */
-volatile uint32_t* lapic; // Initialized in mp.c
+volatile u32 *lapic; // Initialized in mp.c
 
 /**
  * @brief Write a value to a local APIC register.
@@ -49,11 +48,11 @@ volatile uint32_t* lapic; // Initialized in mp.c
  * @param index Register index (pre-divided by four).
  * @param value Value to write.
  */
-static void
-lapicw(int index, int value)
+static void lapicw(int index, int value)
 {
     lapic[index] = value;
-    lapic[ID]; // wait for write to finish, by reading
+    // ReSharper disable once CppExpressionWithoutSideEffects
+    lapic[ID]; // wait for write to finish by reading
 }
 
 /** @brief Initialize and enable the local APIC on the current CPU. */
@@ -95,7 +94,7 @@ void lapicinit(void)
     // Send an Init Level De-Assert to synchronise arbitration ID's.
     lapicw(ICRHI, 0);
     lapicw(ICRLO, BCAST | INIT | LEVEL);
-    while (lapic[ICRLO] & DELIVS);
+    while (lapic[ICRLO] & DELIVS) {}
 
     // Enable interrupts on the APIC (but not on the processor).
     lapicw(TPR, 0);
@@ -140,16 +139,16 @@ void microdelay([[maybe_unused]] int us)
  * @param apicid Target processor's APIC ID.
  * @param addr Physical address of the bootstrap code.
  */
-void lapicstartap(uint8_t apicid, uint32_t addr)
+void lapicstartap(u8 apicid, u32 addr)
 {
     // "The BSP must initialize CMOS shutdown code to 0AH
     // and the warm reset vector (DWORD based at 40:67) to point at
     // the AP startup code prior to the [universal startup algorithm]."
     outb(CMOS_PORT, 0xF); // offset 0xF is shutdown code
     outb(CMOS_PORT + 1, 0x0A);
-    uint16_t* wrv = (uint16_t*)P2V((0x40 << 4 | 0x67)); // Warm reset vector
-    wrv[0] = 0;
-    wrv[1] = addr >> 4;
+    u16 *wrv = (u16 *)P2V((0x40 << 4 | 0x67)); // Warm reset vector
+    wrv[0]   = 0;
+    wrv[1]   = addr >> 4;
 
     // "Universal startup algorithm."
     // Send INIT (level-triggered) interrupt to reset other CPU.
@@ -164,8 +163,7 @@ void lapicstartap(uint8_t apicid, uint32_t addr)
     // when it is in the halted state due to an INIT.  So the second
     // should be ignored, but it is part of the official Intel algorithm.
     // Bochs complains about the second one.  Too bad for Bochs.
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         lapicw(ICRHI, apicid << 24);
         lapicw(ICRLO, STARTUP | (addr >> 12));
         microdelay(200);
@@ -189,8 +187,7 @@ void lapicstartap(uint8_t apicid, uint32_t addr)
  * @param reg Register index to access.
  * @return Register contents.
  */
-static uint32_t
-cmos_read(uint32_t reg)
+static u32 cmos_read(u32 reg)
 {
     outb(CMOS_PORT, reg);
     microdelay(200);
@@ -203,15 +200,14 @@ cmos_read(uint32_t reg)
  *
  * @param r Output date structure.
  */
-static void
-fill_rtcdate(struct rtcdate* r)
+static void fill_rtcdate(struct rtcdate *r)
 {
     r->second = cmos_read(SECS);
     r->minute = cmos_read(MINS);
-    r->hour = cmos_read(HOURS);
-    r->day = cmos_read(DAY);
-    r->month = cmos_read(MONTH);
-    r->year = cmos_read(YEAR);
+    r->hour   = cmos_read(HOURS);
+    r->day    = cmos_read(DAY);
+    r->month  = cmos_read(MONTH);
+    r->year   = cmos_read(YEAR);
 }
 
 /**
@@ -221,7 +217,7 @@ fill_rtcdate(struct rtcdate* r)
  *
  * @param r Output structure receiving the current date and time.
  */
-void cmostime(struct rtcdate* r)
+void cmostime(struct rtcdate *r)
 {
     struct rtcdate t1, t2;
 
@@ -230,8 +226,7 @@ void cmostime(struct rtcdate* r)
     int bcd = (sb & (1 << 2)) == 0;
 
     // make sure CMOS doesn't modify time while we read it
-    for (;;)
-    {
+    for (;;) {
         fill_rtcdate(&t1);
         if (cmos_read(CMOS_STATA) & CMOS_UIP)
             continue;
@@ -241,8 +236,7 @@ void cmostime(struct rtcdate* r)
     }
 
     // convert
-    if (bcd)
-    {
+    if (bcd) {
 #define CONV(x) (t1.x = ((t1.x >> 4) * 10) + (t1.x & 0xf))
         CONV(second);
         CONV(minute);
