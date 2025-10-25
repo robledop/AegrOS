@@ -135,8 +135,7 @@ void ext2fs_iinit(int dev)
 {
     mbr_load();
     ext2fs_readsb(dev, &ext2_sb);
-    cprintf("ext2_sb: magic_number %x size %d nblocks %d ninodes %d inodes_per_group %d inode_size %d\n",
-            ext2_sb.s_magic,
+    cprintf("ext2: size %d nblocks %d ninodes %d inodes_per_group %d inode_size %d\n",
             1024 << ext2_sb.s_log_block_size,
             ext2_sb.s_blocks_count,
             ext2_sb.s_inodes_count,

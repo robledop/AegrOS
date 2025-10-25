@@ -169,7 +169,7 @@ found:
  */
 void user_init(void)
 {
-    // This name depends on the path of the initcode file. I moved it to the user/build folder
+    // This name depends on the path where initcode.asm is built.
     extern char _binary_build_initcode_start[], _binary_build_initcode_size[];
 
     struct proc *p = alloc_proc();
@@ -188,14 +188,6 @@ void user_init(void)
     p->trap_frame->eflags = FL_IF;
     p->trap_frame->esp    = PGSIZE;
     p->trap_frame->eip    = 0; // beginning of initcode.S
-
-    cprintf("cs: %x\n", p->trap_frame->cs);
-    cprintf("ds: %x\n", p->trap_frame->ds);
-    cprintf("es: %x\n", p->trap_frame->es);
-    cprintf("ss: %x\n", p->trap_frame->ss);
-    cprintf("eflags: %x\n", p->trap_frame->eflags);
-    cprintf("esp: %x\n", p->trap_frame->esp);
-    cprintf("eip: %x\n", p->trap_frame->eip);
 
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");
