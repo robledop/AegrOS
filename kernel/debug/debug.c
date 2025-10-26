@@ -1,5 +1,6 @@
 #include "memlayout.h"
 #include "string.h"
+#include "termcolors.h"
 #include "types.h"
 #include "defs.h"
 #include "elf.h"
@@ -27,15 +28,15 @@ void stack_trace(void)
     int max                    = 10;
     while (stack && stack->eip != 0 && max-- > 0) {
         auto const symbol = debug_function_symbol_lookup(stack->eip);
-        cprintf("    0x%x [%s + 0x%x]\n",
+        cprintf("\t" KBCYN "0x%x" KBLU " [" KBWHT "%s" KWHT " + 0x%x" KBLU "]\n" KWHT,
                 stack->eip,
                 (symbol.name == nullptr) ? "[unknown]" : symbol.name,
                 stack->eip - symbol.address);
         stack = stack->ebp;
     }
 
-    cprintf("run \"addr2line -e build/kernel <address>\" to get line numbers\n");
-    cprintf("run \"objdump -d build/kernel | grep <address> -A 40 -B 40\" to see more.\n");
+    cprintf(KWHT "run " KBBLU "addr2line -e build/kernel <address>" KWHT " to get line numbers\n");
+    cprintf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
 }
 
 char *debug_reserved_end(void)
@@ -121,7 +122,7 @@ void init_symbols(const multiboot_info_t *mbd)
         return;
     }
 
-    const u32 num      = mbd->u.elf_sec.num;
+    const u32 num       = mbd->u.elf_sec.num;
     elf_section_headers =
         (struct elf32_shdr *)P2V(mbd->u.elf_sec.addr);
     const auto sh_strtab = (const char *)P2V(elf_section_headers[mbd->u.elf_sec.shndx].sh_addr);

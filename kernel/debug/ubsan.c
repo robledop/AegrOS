@@ -18,10 +18,13 @@
  */
 
 #include "defs.h"
+#include "termcolors.h"
 #include "types.h"
 
 #define UNDEFINED_BEHAVIOR 3
-struct undefined_behavior {
+
+struct undefined_behavior
+{
     const char *filename;
     unsigned long line;
     unsigned long column;
@@ -34,25 +37,27 @@ void scram(const int event, const struct undefined_behavior *info)
 {
     //struct thread *current_task = get_current_thread();
     //if (current_task && current_process()) {
-   //     printf(KYEL "\nCurrent thread:" KWHT " %s (%d)\n", current_task->name, current_process()->pid);
-   // }
-    cprintf("Event: %d\n", event);
-    cprintf("File: %s\n", info->filename);
-    cprintf("Line: %lu\n", info->line);
-    cprintf("Column: %lu\n", info->column);
-    cprintf( "Violation: %s\n", info->violation);
+    //     printf(KYEL "\nCurrent thread:" KWHT " %s (%d)\n", current_task->name, current_process()->pid);
+    // }
+    cprintf(KBWHT "Event:" KWHT " %d\n", event);
+    cprintf(KBWHT "File:" KWHT " %s\n", info->filename);
+    cprintf(KBWHT "Line:" KWHT " %d\n", info->line);
+    cprintf(KBWHT "Column:" KWHT " %d\n", info->column);
+    cprintf(KBWHT "Violation:" KWHT " %s\n", info->violation);
     panic("Undefined behavior detected");
 
     __builtin_unreachable();
 }
 
-struct ubsan_source_location {
+struct ubsan_source_location
+{
     const char *filename;
     u32 line;
     u32 column;
 };
 
-struct ubsan_type_descriptor {
+struct ubsan_type_descriptor
+{
     u16 type_kind;
     u16 type_info;
     char type_name[];
@@ -95,7 +100,8 @@ static const struct ubsan_source_location unknown_location = {
 #define ABORT_VARIANT_VP_VP_VP_VP(name) ABORT_VARIANT(name, (void *a, void *b, void *c, void *d), (a, b, c, d))
 #define ABORT_VARIANT_VP_VP_UP_VP(name) ABORT_VARIANT(name, (void *a, void *b, u32 c, void *d), (a, b, c, d))
 
-struct ubsan_type_mismatch_v1_data {
+struct ubsan_type_mismatch_v1_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
     unsigned char log_alignment;
@@ -106,7 +112,7 @@ void __ubsan_handle_type_mismatch_v1(void *data_raw, void *pointer_raw)
 {
     struct ubsan_type_mismatch_v1_data *data = (struct ubsan_type_mismatch_v1_data *)data_raw;
     ubsan_value_handle_t pointer             = (ubsan_value_handle_t)pointer_raw;
-    u32 alignment                      = (u32)1UL << data->log_alignment;
+    u32 alignment                            = (u32)1UL << data->log_alignment;
     const char *violation                    = "type mismatch";
     if (!pointer) {
         violation = "null pointer access";
@@ -118,7 +124,8 @@ void __ubsan_handle_type_mismatch_v1(void *data_raw, void *pointer_raw)
 
 ABORT_VARIANT_VP_VP(type_mismatch_v1)
 
-struct ubsan_alignment_assumption_data {
+struct ubsan_alignment_assumption_data
+{
     struct ubsan_source_location location;
     struct ubsan_source_location assumption_location;
     struct ubsan_type_descriptor *type;
@@ -139,7 +146,8 @@ void __ubsan_handle_alignment_assumption(void *data_raw, void *pointer_raw, void
 
 ABORT_VARIANT_VP_VP_VP_VP(alignment_assumption)
 
-struct ubsan_overflow_data {
+struct ubsan_overflow_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -202,7 +210,8 @@ void __ubsan_handle_divrem_overflow(void *data_raw, void *lhs_raw, void *rhs_raw
 
 ABORT_VARIANT_VP_VP_VP(divrem_overflow)
 
-struct ubsan_shift_out_of_bounds_data {
+struct ubsan_shift_out_of_bounds_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *lhs_type;
     struct ubsan_type_descriptor *rhs_type;
@@ -220,7 +229,8 @@ void __ubsan_handle_shift_out_of_bounds(void *data_raw, void *lhs_raw, void *rhs
 
 ABORT_VARIANT_VP_VP_VP(shift_out_of_bounds)
 
-struct ubsan_out_of_bounds_data {
+struct ubsan_out_of_bounds_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *array_type;
     struct ubsan_type_descriptor *index_type;
@@ -236,7 +246,8 @@ void __ubsan_handle_out_of_bounds(void *data_raw, void *index_raw)
 
 ABORT_VARIANT_VP_VP(out_of_bounds)
 
-struct ubsan_unreachable_data {
+struct ubsan_unreachable_data
+{
     struct ubsan_source_location location;
 };
 
@@ -252,7 +263,8 @@ struct ubsan_unreachable_data {
     ubsan_abort(&data->location, "missing return");
 }
 
-struct ubsan_vla_bound_data {
+struct ubsan_vla_bound_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -267,7 +279,8 @@ void __ubsan_handle_vla_bound_not_positive(void *data_raw, void *bound_raw)
 
 ABORT_VARIANT_VP_VP(vla_bound_not_positive)
 
-struct ubsan_float_cast_overflow_data {
+struct ubsan_float_cast_overflow_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *from_type;
     struct ubsan_type_descriptor *to_type;
@@ -287,7 +300,8 @@ void __ubsan_handle_float_cast_overflow(void *data_raw, void *from_raw)
 
 ABORT_VARIANT_VP_VP(float_cast_overflow)
 
-struct ubsan_invalid_value_data {
+struct ubsan_invalid_value_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -302,7 +316,8 @@ void __ubsan_handle_load_invalid_value(void *data_raw, void *value_raw)
 
 ABORT_VARIANT_VP_VP(load_invalid_value)
 
-struct ubsan_implicit_conversion_data {
+struct ubsan_implicit_conversion_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
     struct ubsan_type_descriptor *from_type;
@@ -322,7 +337,8 @@ void __ubsan_handle_implicit_conversion(void *data_raw, void *src_raw, void *dst
 
 ABORT_VARIANT_VP_VP_VP(implicit_conversion)
 
-struct ubsan_invalid_builtin_data {
+struct ubsan_invalid_builtin_data
+{
     struct ubsan_source_location location;
     unsigned char kind;
 };
@@ -335,7 +351,8 @@ void __ubsan_handle_invalid_builtin(void *data_raw)
 
 ABORT_VARIANT_VP(invalid_builtin)
 
-struct ubsan_invalid_objc_cast_data {
+struct ubsan_invalid_objc_cast_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *expected_type;
 };
@@ -350,7 +367,8 @@ void __ubsan_handle_invalid_objc_cast(void *data_raw, void *pointer_raw)
 
 ABORT_VARIANT_VP_VP(invalid_objc_cast)
 
-struct ubsan_function_type_mismatch_data {
+struct ubsan_function_type_mismatch_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -365,7 +383,8 @@ void __ubsan_handle_function_type_mismatch(void *data_raw, void *value_raw)
 
 ABORT_VARIANT_VP_VP(function_type_mismatch)
 
-struct ubsan_nonnull_return_v1_data {
+struct ubsan_nonnull_return_v1_data
+{
     struct ubsan_source_location attr_location;
 };
 
@@ -388,7 +407,8 @@ void __ubsan_handle_nullability_return_v1(void *data_raw, void *location_raw)
 ABORT_VARIANT_VP_VP(nonnull_return_v1)
 ABORT_VARIANT_VP_VP(nullability_return_v1)
 
-struct ubsan_nonnull_arg_data {
+struct ubsan_nonnull_arg_data
+{
     struct ubsan_source_location location;
     struct ubsan_source_location attr_location;
     int arg_index;
@@ -414,7 +434,8 @@ void __ubsan_handle_nullability_arg(void *data_raw)
 ABORT_VARIANT_VP(nonnull_arg)
 ABORT_VARIANT_VP(nullability_arg)
 
-struct ubsan_pointer_overflow_data {
+struct ubsan_pointer_overflow_data
+{
     struct ubsan_source_location location;
 };
 
@@ -430,7 +451,8 @@ void __ubsan_handle_pointer_overflow(void *data_raw, void *base_raw, void *resul
 
 ABORT_VARIANT_VP_VP_VP(pointer_overflow)
 
-struct ubsan_cfi_bad_icall_data {
+struct ubsan_cfi_bad_icall_data
+{
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;
 };
@@ -445,7 +467,8 @@ void __ubsan_handle_cfi_bad_icall(void *data_raw, void *value_raw)
 
 ABORT_VARIANT_VP_VP(cfi_bad_icall)
 
-struct ubsan_cfi_check_fail_data {
+struct ubsan_cfi_check_fail_data
+{
     unsigned char check_kind;
     struct ubsan_source_location location;
     struct ubsan_type_descriptor *type;

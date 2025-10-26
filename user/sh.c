@@ -1,8 +1,10 @@
 // Shell.
 
+#include "param.h"
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
+#include "termcolors.h"
 
 // Parsed command representation
 #define EXEC  1
@@ -69,8 +71,9 @@ struct cmd *parsecmd(char *);
     struct pipecmd *pcmd;
     struct redircmd *rcmd;
 
-    if (cmd == nullptr)
+    if (cmd == nullptr) {
         exit();
+    }
 
     switch (cmd->type) {
     default:
@@ -137,7 +140,9 @@ struct cmd *parsecmd(char *);
 
 int getcmd(char *buf, int nbuf)
 {
-    printf(2, "$ ");
+    char cwd[MAX_FILE_PATH];
+    getcwd(cwd, sizeof(cwd));
+    printf(2, "%s" KGRN "> " KWHT, cwd);
     memset(buf, 0, nbuf);
     gets(buf, nbuf);
     if (buf[0] == 0) // EOF
@@ -175,18 +180,18 @@ int main(void)
             exit();
         }
 
-        if (!starts_with("/bin", buf)) {
-            char buf2[100];
-            strcat(buf2, "/bin/");
-            strcat(buf2, buf);
-            if (fork1() == 0) {
-                runcmd(parsecmd(buf2));
-            }
-            memset(buf2, 0, sizeof(buf));
-        } else {
-            if (fork1() == 0) {
-                runcmd(parsecmd(buf));
-            }
+        if (strncmp("cls", buf, 3) == 0 && input_len == 4) {
+            // Clear the screen
+            printf(1, "\033[2J\033[H");
+            continue;
+        }
+
+        if (strncmp("reboot", buf, 6) == 0 && input_len == 7) {
+            reboot();
+        }
+
+        if (fork1() == 0) {
+            runcmd(parsecmd(buf));
         }
 
         wait();

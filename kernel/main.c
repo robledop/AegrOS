@@ -1,3 +1,4 @@
+#include "termcolors.h"
 #include "types.h"
 #include "string.h"
 #include "defs.h"
@@ -16,7 +17,7 @@ static void startothers(void);
 static void mpmain(void) __attribute__
 ((noreturn));
 /** @brief Kernel page directory */
-extern pde_t* kpgdir;
+extern pde_t *kpgdir;
 /** @brief First address after kernel loaded from ELF file */
 extern char end[]; // first address after kernel loaded from ELF file
 
@@ -32,27 +33,27 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
  *
  * @return This function does not return; it hands control to the scheduler.
  */
-int main(multiboot_info_t* mbinfo, [[maybe_unused]]unsigned int magic)
+int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
-    kernel_page_directory_init(); // kernel page table
-    mpinit(); // detect other processors
-    lapicinit(); // interrupt controller
-    seginit(); // segment descriptors
-    picinit(); // disable pic
-    ioapicinit(); // another interrupt controller
-    consoleinit(); // console hardware
-    uartinit(); // serial port
-    pinit(); // process table
-    tvinit(); // trap vectors
-    binit(); // buffer cache
-    fileinit(); // file table
-    ideinit(); // disk
-    startothers(); // start other processors
-    kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
-    user_init(); // first user process
-    mpmain(); // finish this processor's setup
+    kernel_page_directory_init();                       // kernel page table
+    mpinit();                                           // detect other processors
+    lapicinit();                                        // interrupt controller
+    seginit();                                          // segment descriptors
+    picinit();                                          // disable pic
+    ioapicinit();                                       // another interrupt controller
+    consoleinit();                                      // console hardware
+    uartinit();                                         // serial port
+    pinit();                                            // process table
+    tvinit();                                           // trap vectors
+    binit();                                            // buffer cache
+    fileinit();                                         // file table
+    ideinit();                                          // disk
+    startothers();                                      // start other processors
+    kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP));         // must come after startothers()
+    user_init();                                        // first user process
+    mpmain();                                           // finish this processor's setup
 }
 
 /**
@@ -75,9 +76,9 @@ static void mpenter(void)
 static void mpmain(void)
 {
     cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
-    idtinit(); // load idt register
+    idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
-    scheduler(); // start running processes
+    scheduler();                        // start running processes
 }
 
 /** @brief Boot-time page directory referenced from assembly. */
@@ -98,13 +99,12 @@ static void startothers(void)
     // Write entry code to unused memory at 0x7000.
     // The linker has placed the image of entryother.S in
     // _binary_entryother_start.
-    u8* code = P2V(0x7000);
+    u8 *code = P2V(0x7000);
     memmove(code, _binary_build_x86_entryother_start, (u32)_binary_build_x86_entryother_size);
 
     cprintf("%d cpu%s\n", ncpu, ncpu == 1 ? "" : "s");
 
-    for (struct cpu* c = cpus; c < cpus + ncpu; c++)
-    {
+    for (struct cpu *c = cpus; c < cpus + ncpu; c++) {
         if (c == current_cpu()) // We've started already.
             continue;
 
@@ -112,10 +112,10 @@ static void startothers(void)
         // Tell entryother.S what stack to use, where to enter, and what
         // pgdir to use. We cannot use kpgdir yet, because the AP processor
         // is running in low  memory, so we use entrypgdir for the APs too.
-        char* stack = kalloc();
-        *(void**)(code - 4) = stack + KSTACKSIZE;
+        char *stack                  = kalloc();
+        *(void **)(code - 4)         = stack + KSTACKSIZE;
         *(void (**)(void))(code - 8) = mpenter;
-        *(int**)(code - 12) = (void*)V2P(entrypgdir);
+        *(int **)(code - 12)         = (void *)V2P(entrypgdir);
 
         lapicstartap(c->apicid, V2P(code));
 
@@ -151,8 +151,8 @@ static void startothers(void)
  * execute from its linked virtual addresses (0x80100000 and above).
  */
 __attribute__((aligned(PGSIZE))) u32 entrypgdir[NPDENTRIES] = {
-    [0]                          = PTE_P | PTE_W | PTE_PS,                   // maps 0x0000_0000 → 0x0000_0000
-    [1]                          = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS, // maps 0x0040_0000 → 0x0040_0000
-    [KERNBASE >> PDXSHIFT]       = PTE_P | PTE_W | PTE_PS,                   // maps 0x8000_0000 → phys 0
+    [0] = PTE_P | PTE_W | PTE_PS,                    // maps 0x0000_0000 → 0x0000_0000
+    [1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS,  // maps 0x0040_0000 → 0x0040_0000
+    [KERNBASE >> PDXSHIFT] = PTE_P | PTE_W | PTE_PS, // maps 0x8000_0000 → phys 0
     [(KERNBASE >> PDXSHIFT) + 1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS,
 };

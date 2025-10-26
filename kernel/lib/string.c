@@ -66,7 +66,8 @@ int strncmp(const char *p, const char *q, u32 n)
 char *strncpy(char *s, const char *t, int n)
 {
     char *os = s;
-    while (n-- > 0 && (*s++ = *t++) != 0) {}
+    while (n-- > 0 && (*s++ = *t++) != 0) {
+    }
     while (n-- > 0)
         *s++ = 0;
     return os;
@@ -79,7 +80,8 @@ char *safestrcpy(char *s, const char *t, int n)
     char *os = s;
     if (n <= 0)
         return os;
-    while (--n > 0 && (*s++ = *t++) != 0) {}
+    while (--n > 0 && (*s++ = *t++) != 0) {
+    }
     *s = 0;
     return os;
 }
@@ -89,8 +91,21 @@ int strlen(const char *s)
 {
     int n;
 
-    for (n = 0; s[n]; n++) {}
+    for (n = 0; s[n]; n++) {
+    }
     return n;
+}
+
+int strnlen(const char *s, int maxlen)
+{
+    int len = 0;
+    while (len < maxlen) {
+        if (s[len] == '\0') {
+            return len;
+        }
+        len++;
+    }
+    return -1;
 }
 
 

@@ -1,6 +1,11 @@
+#include "param.h"
 #include "types.h"
 #include "defs.h"
+#include "ext2.h"
+#include "file.h"
 #include "proc.h"
+#include "string.h"
+#include "x86.h"
 
 /** @brief System call wrapper for fork. */
 int sys_fork(void)
@@ -35,6 +40,20 @@ int sys_kill(void)
 int sys_getpid(void)
 {
     return current_process()->pid;
+}
+
+int sys_getcwd(void)
+{
+    int n;
+    char *p;
+
+    if (argint(1, &n) < 0 || argptr(0, &p, n) < 0) {
+        return -1;
+    }
+
+    safestrcpy(p, current_process()->cwd_path, n);
+
+    return 0;
 }
 
 /**
@@ -88,4 +107,13 @@ int sys_uptime(void)
     u32 xticks = ticks;
     release(&tickslock);
     return xticks;
+}
+
+int sys_reboot(void)
+{
+    u8 good = 0x02;
+    while (good & 0x02)
+        good = inb(0x64);
+    outb(0x64, 0xFE);
+    return 0;
 }

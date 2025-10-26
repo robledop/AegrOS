@@ -6,9 +6,11 @@
 #include "proc.h"
 #include "fs.h"
 #include <assert.h>
+#include <string.h>
 #include "file.h"
 #include "icache.h"
 #include "assert.h"
+#include "printf.h"
 #include "string.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -39,13 +41,16 @@ struct inode *iget(u32 dev, u32 inum)
             return ip;
         }
         if (empty == nullptr && ip->ref == 0) // Remember the empty slot.
+        {
             empty = ip;
+        }
     }
 
     int i;
     for (i = 0; i < NINODE; i++) {
-        if (ext2fs_addrs[i].busy == 0)
+        if (ext2fs_addrs[i].busy == 0) {
             break;
+        }
     }
 
     // Recycle an inode cache entry.
@@ -63,9 +68,6 @@ struct inode *iget(u32 dev, u32 inum)
     ext2fs_addrs[i].busy = 1;
 
     release(&icache.lock);
-
-    ASSERT(ip != nullptr, "ip is null in iget");
-    ASSERT(ip->addrs != nullptr, "ip->addrs is null in iget");
 
     return ip;
 }
@@ -180,6 +182,7 @@ static struct inode *namex(char *path, int nameiparent, char *name)
         ip->iops->iput(ip);
         return nullptr;
     }
+    strncpy(ip->path, path, MAX_FILE_PATH);
     return ip;
 }
 

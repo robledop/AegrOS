@@ -194,6 +194,7 @@ void user_init(void)
 
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");
+    strncpy(p->cwd_path, "/", MAX_FILE_PATH);
 
     // this assignment to p->state lets other cores
     // run this process. the acquire forces the above
@@ -264,6 +265,8 @@ int fork(void)
         if (curproc->ofile[i])
             np->ofile[i] = filedup(curproc->ofile[i]);
     np->cwd = idup(curproc->cwd);
+    memset(np->cwd_path, 0, MAX_FILE_PATH);
+    strncpy(np->cwd_path, curproc->cwd_path, MAX_FILE_PATH);
 
     safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
@@ -303,6 +306,7 @@ void exit(void)
     curproc->cwd->iops->iput(curproc->cwd);
     // end_op();
     curproc->cwd = nullptr;
+    memset(curproc->cwd_path, 0, MAX_FILE_PATH);
 
     acquire(&ptable.lock);
 

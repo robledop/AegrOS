@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
             exit();
         }
         cat(fd);
+        printf(1, "\n");
         close(fd);
     }
     exit();

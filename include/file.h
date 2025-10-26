@@ -1,4 +1,5 @@
 #pragma once
+#include "param.h"
 #include "types.h"
 #include "fs.h"
 #include "sleeplock.h"
@@ -17,19 +18,20 @@ struct file
 };
 
 
-struct inode_operations {
-    int             (*dirlink)(struct inode*, char*, u32);
-    struct inode*   (*dirlookup)(struct inode*, char*, u32*);
-    struct inode*   (*ialloc)(u32, short);
-    void            (*iinit)(int dev);
-    void            (*ilock)(struct inode*);
-    void            (*iput)(struct inode*);
-    void            (*iunlock)(struct inode*);
-    void            (*iunlockput)(struct inode*);
-    void            (*iupdate)(struct inode*);
-    int             (*readi)(struct inode*, char*, u32, u32);
-    void            (*stati)(struct inode*, struct stat*);
-    int             (*writei)(struct inode*, char*, u32, u32);
+struct inode_operations
+{
+    int (*dirlink)(struct inode *, char *, u32);
+    struct inode * (*dirlookup)(struct inode *, char *, u32 *);
+    struct inode * (*ialloc)(u32, short);
+    void (*iinit)(int dev);
+    void (*ilock)(struct inode *);
+    void (*iput)(struct inode *);
+    void (*iunlock)(struct inode *);
+    void (*iunlockput)(struct inode *);
+    void (*iupdate)(struct inode *);
+    int (*readi)(struct inode *, char *, u32, u32);
+    void (*stati)(struct inode *, struct stat *);
+    int (*writei)(struct inode *, char *, u32, u32);
 };
 
 
@@ -43,6 +45,7 @@ struct inode
     int valid;             // inode has been read from disk?
     struct inode_operations *iops;
 
+    char path[MAX_FILE_PATH];
     short type; // copy of disk inode
     short major;
     short minor;

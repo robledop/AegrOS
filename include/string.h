@@ -7,6 +7,7 @@ void *memmove(void *, const void *, u32);
 void *memset(void *, int, u32);
 char *safestrcpy(char *, const char *, int);
 int strlen(const char *);
+int strnlen(const char *s, int maxlen);
 int strncmp(const char *, const char *, u32);
 char *strncpy(char *, const char *, int);
 bool starts_with(const char pre[static 1], const char str[static 1]);

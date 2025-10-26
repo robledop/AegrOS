@@ -21,6 +21,153 @@ bool devtab_parsed = false;
 void parse_devtab();
 
 /**
+ * @brief Normalize an absolute path by collapsing '.', '..', and duplicate '/'.
+ *
+ * @param path Absolute path to normalize.
+ * @param output Destination buffer.
+ * @param outsz Size of destination buffer.
+ * @return 0 on success, -1 if the path cannot be normalized.
+ */
+static int canonicalize_absolute_path(const char *path, char *output, int outsz)
+{
+    if (path == nullptr || output == nullptr || outsz <= 1) {
+        return -1;
+    }
+    if (*path != '/') {
+        return -1;
+    }
+
+    int stack_depth      = 0;
+    int stack[MAX_FILE_PATH];
+    int len = 1;
+    output[0] = '/';
+    output[1] = '\0';
+
+    const char *p = path;
+    while (*p == '/') {
+        p++;
+    }
+
+    while (*p != '\0') {
+        const char *start = p;
+        while (*p != '/' && *p != '\0') {
+            p++;
+        }
+        const int segment_len = p - start;
+        if (segment_len == 0) {
+            while (*p == '/') {
+                p++;
+            }
+            continue;
+        }
+        if (segment_len == 1 && start[0] == '.') {
+            while (*p == '/') {
+                p++;
+            }
+            continue;
+        }
+        if (segment_len == 2 && start[0] == '.' && start[1] == '.') {
+            if (stack_depth > 0) {
+                len = stack[--stack_depth];
+                output[len] = '\0';
+            }
+            while (*p == '/') {
+                p++;
+            }
+            continue;
+        }
+        if (segment_len > EXT2_NAME_LEN) {
+            return -1;
+        }
+        if (stack_depth >= MAX_FILE_PATH) {
+            return -1;
+        }
+
+        const int prev_len = len;
+        if (len > 1) {
+            if (len + 1 >= outsz) {
+                return -1;
+            }
+            output[len++] = '/';
+        }
+        if (len + segment_len >= outsz) {
+            return -1;
+        }
+        memmove(output + len, start, segment_len);
+        len += segment_len;
+        output[len] = '\0';
+        stack[stack_depth++] = prev_len;
+
+        while (*p == '/') {
+            p++;
+        }
+    }
+
+    if (len == 0) {
+        output[0] = '/';
+        output[1] = '\0';
+    }
+    return 0;
+}
+
+/**
+ * @brief Build an absolute, canonical path for the requested directory change.
+ *
+ * @param proc Current process (provides cwd fallback).
+ * @param request User-supplied path (absolute or relative).
+ * @param resolved Output buffer receiving canonical absolute path.
+ * @return 0 on success, -1 on failure.
+ */
+static int resolve_cwd_path(struct proc *proc, const char *request, char *resolved)
+{
+    if (request == nullptr || request[0] == '\0') {
+        return -1;
+    }
+
+    char combined[MAX_FILE_PATH];
+    if (request[0] == '/') {
+        const int req_len = strnlen(request, MAX_FILE_PATH);
+        if (req_len < 0) {
+            return -1;
+        }
+        safestrcpy(combined, request, MAX_FILE_PATH);
+    } else {
+        const char *base   = proc->cwd_path;
+        if (base[0] != '/') {
+            base = "/";
+        }
+        const int base_len = strnlen(base, MAX_FILE_PATH);
+        const int req_len  = strnlen(request, MAX_FILE_PATH);
+        if (base_len < 0 || req_len < 0) {
+            return -1;
+        }
+
+        safestrcpy(combined, base, MAX_FILE_PATH);
+        int len = base_len;
+        if (len == 0) {
+            combined[0] = '/';
+            combined[1] = '\0';
+            len         = 1;
+        }
+        if (len > 1 && combined[len - 1] != '/') {
+            if (len + 1 >= MAX_FILE_PATH) {
+                return -1;
+            }
+            combined[len++] = '/';
+            combined[len]   = '\0';
+        }
+        if (len + req_len >= MAX_FILE_PATH) {
+            return -1;
+        }
+        memmove(combined + len, request, req_len);
+        len += req_len;
+        combined[len] = '\0';
+    }
+
+    return canonicalize_absolute_path(combined, resolved, MAX_FILE_PATH);
+}
+
+/**
  * @brief Fetch a file descriptor argument and return its struct file.
  *
  * @param n Argument index.
@@ -33,14 +180,18 @@ static int argfd(int n, int *pfd, struct file **pf)
     int fd;
     struct file *f;
 
-    if (argint(n, &fd) < 0)
+    if (argint(n, &fd) < 0) {
         return -1;
-    if (fd < 0 || fd >= NOFILE || (f = current_process()->ofile[fd]) == nullptr)
+    }
+    if (fd < 0 || fd >= NOFILE || (f = current_process()->ofile[fd]) == nullptr) {
         return -1;
-    if (pfd)
+    }
+    if (pfd) {
         *pfd = fd;
-    if (pf)
+    }
+    if (pf) {
         *pf = f;
+    }
     return 0;
 }
 
@@ -71,10 +222,12 @@ int sys_dup(void)
     struct file *f;
     int fd;
 
-    if (argfd(0, nullptr, &f) < 0)
+    if (argfd(0, nullptr, &f) < 0) {
         return -1;
-    if ((fd = fdalloc(f)) < 0)
+    }
+    if ((fd = fdalloc(f)) < 0) {
         return -1;
+    }
     filedup(f);
     return fd;
 }
@@ -86,8 +239,9 @@ int sys_read(void)
     int n;
     char *p;
 
-    if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+    if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
         return -1;
+    }
     return fileread(f, p, n);
 }
 
@@ -98,8 +252,9 @@ int sys_write(void)
     int n;
     char *p;
 
-    if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+    if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
         return -1;
+    }
     return filewrite(f, p, n);
 }
 
@@ -109,8 +264,9 @@ int sys_close(void)
     int fd;
     struct file *f;
 
-    if (argfd(0, &fd, &f) < 0)
+    if (argfd(0, &fd, &f) < 0) {
         return -1;
+    }
     current_process()->ofile[fd] = nullptr;
     fileclose(f);
     return 0;
@@ -122,8 +278,9 @@ int sys_fstat(void)
     struct file *f;
     struct stat *st;
 
-    if (argfd(0, nullptr, &f) < 0 || argptr(1, (void *)&st, sizeof(*st)) < 0)
+    if (argfd(0, nullptr, &f) < 0 || argptr(1, (void *)&st, sizeof(*st)) < 0) {
         return -1;
+    }
     return filestat(f, st);
 }
 
@@ -138,8 +295,9 @@ int sys_link(void)
          new, *old;
     struct inode *dp, *ip;
 
-    if (argstr(0, &old) < 0 || argstr(1, &new) < 0)
+    if (argstr(0, &old) < 0 || argstr(1, &new) < 0) {
         return -1;
+    }
 
     if ((ip = namei(old)) == nullptr) {
         return -1;
@@ -498,29 +656,32 @@ int sys_chdir(void)
     char *path;
     struct inode *ip;
     struct proc *curproc = current_process();
+    char resolved[MAX_FILE_PATH];
 
-    // begin_op();
     if (argstr(0, &path) < 0 || (ip = namei(path)) == nullptr) {
-        // end_op();
+        return -1;
+    }
+    if (resolve_cwd_path(curproc, path, resolved) < 0) {
+        ip->iops->iput(ip);
         return -1;
     }
     ip->iops->ilock(ip);
     if (ip->type != T_DIR) {
         ip->iops->iunlockput(ip);
-        // end_op();
         return -1;
     }
     ip->iops->iunlock(ip);
     ip->iops->iput(curproc->cwd);
-    // end_op();
     curproc->cwd = ip;
+    safestrcpy(ip->path, resolved, MAX_FILE_PATH);
+    safestrcpy(curproc->cwd_path, resolved, MAX_FILE_PATH);
     return 0;
 }
 
 /**
  * @brief Replace the current process image with a new program.
  *
- * @return Does not return on success; ::-1 if loading the program fails.
+ * @return Does not return on success; -1 if loading the program fails.
  */
 int sys_exec(void)
 {

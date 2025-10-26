@@ -15,7 +15,7 @@ $(shell touch rootfs/etc/devtab)
 ifeq ("$(wildcard rootfs/boot/grub/grub.cfg)","")
     $(shell echo 'set timeout=0' > rootfs/boot/grub/grub.cfg && \
             echo '' >> rootfs/boot/grub/grub.cfg && \
-            echo 'menuentry "xv6" {' >> rootfs/boot/grub/grub.cfg && \
+            echo 'menuentry "AegrOS" {' >> rootfs/boot/grub/grub.cfg && \
             echo '	multiboot /boot/kernel' >> rootfs/boot/grub/grub.cfg && \
             echo '}' >> rootfs/boot/grub/grub.cfg)
 endif

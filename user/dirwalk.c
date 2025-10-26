@@ -22,10 +22,11 @@ int dirwalk(int fd, dirwalk_cb cb, void *arg)
     if (st.type != T_DIR)
         return -1;
 
-    int bufsz = st.size > 0 ? st.size : 1;
+    int bufsz  = st.size > 0 ? st.size : 1;
     char *data = malloc(bufsz);
-    if (data == 0)
+    if (data == 0) {
         return -1;
+    }
 
     u32 total = 0;
     while (total < st.size) {
@@ -58,7 +59,7 @@ int dirwalk(int fd, dirwalk_cb cb, void *arg)
                 name_len = EXT2_DIRENT_NAME_MAX;
             memmove(view.name, data + off + sizeof(struct ext2_dirent_raw), name_len);
             view.name[name_len] = 0;
-            result = cb(&view, arg);
+            result              = cb(&view, arg);
             if (result != 0)
                 break;
         }

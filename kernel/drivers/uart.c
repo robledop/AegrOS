@@ -37,7 +37,7 @@ void uartinit(void)
     ioapicenable(IRQ_COM1, 0);
 
     // Announce that we're here.
-    for (char *p = "xv6...\n"; *p; p++) {
+    for (char *p = "AegrOS...\n"; *p; p++) {
         uartputc(*p);
     }
 }

@@ -4,12 +4,13 @@
 #include "stat.h"
 #include "fs.h"
 #include "ext2.h"
+#include <string.h>
+#include "string.h"
 #include "assert.h"
 #include "buf.h"
 #include "file.h"
 #include "icache.h"
 #include "mbr.h"
-#include "string.h"
 
 extern struct inode *devtab[NDEV];
 struct inode_operations ext2fs_inode_ops = {
@@ -325,7 +326,6 @@ void ext2fs_iput(struct inode *ip)
 {
     acquiresleep(&ip->lock);
     struct ext2fs_addrs *ad = (struct ext2fs_addrs *)ip->addrs;
-    ASSERT(ad != nullptr, "ip->addrs is null in ext2fs_iput");
 
     if (ip->valid && ip->nlink == 0) {
         acquire(&icache.lock);
@@ -673,16 +673,20 @@ struct inode *ext2fs_dirlookup(struct inode *dp, char *name, u32 *poff)
     char file_name[EXT2_NAME_LEN + 1];
     for (u32 off = 0; off < dp->size;) {
         memset(&de, 0, sizeof(de));
-        if (dp->iops->readi(dp, (char *)&de, off, 8) != 8)
+        if (dp->iops->readi(dp, (char *)&de, off, 8) != 8) {
             panic("ext2fs_dirlookup: header read");
-        if (de.rec_len < 8 || de.rec_len > EXT2_BSIZE)
+        }
+        if (de.rec_len < 8 || de.rec_len > EXT2_BSIZE) {
             panic("ext2fs_dirlookup: bad rec_len");
+        }
         if (de.name_len > 0) {
             int to_copy = de.name_len;
-            if (to_copy > EXT2_NAME_LEN)
+            if (to_copy > EXT2_NAME_LEN) {
                 to_copy = EXT2_NAME_LEN;
-            if (dp->iops->readi(dp, (char *)de.name, off + 8, to_copy) != to_copy)
+            }
+            if (dp->iops->readi(dp, (char *)de.name, off + 8, to_copy) != to_copy) {
                 panic("ext2fs_dirlookup: name read");
+            }
         }
         if (de.inode == 0) {
             off += de.rec_len;
@@ -693,8 +697,9 @@ struct inode *ext2fs_dirlookup(struct inode *dp, char *name, u32 *poff)
         memmove(file_name, de.name, de.name_len);
         file_name[de.name_len] = '\0';
         if (ext2fs_namecmp(name, file_name) == 0) {
-            if (poff)
+            if (poff) {
                 *poff = off;
+            }
             return iget(dp->dev, de.inode);
         }
         off += de.rec_len;
@@ -704,12 +709,14 @@ struct inode *ext2fs_dirlookup(struct inode *dp, char *name, u32 *poff)
 
 int ext2fs_dirlink(struct inode *dp, char *name, u32 inum)
 {
-    if (name == nullptr)
+    if (name == nullptr) {
         return -1;
+    }
 
     int name_len = strlen(name);
-    if (name_len <= 0 || name_len > EXT2_NAME_LEN)
+    if (name_len <= 0 || name_len > EXT2_NAME_LEN) {
         return -1;
+    }
 
     struct ext2_dir_entry_2 de;
     struct inode *ip;

@@ -1,6 +1,7 @@
 #include "stat.h"
 #include "user.h"
 #include "dirwalk.h"
+#include "termcolors.h"
 
 #define FMTNAME_WIDTH 14
 #define PATHBUF_SZ 512
@@ -48,7 +49,7 @@ static int ls_visit(const struct dirent_view *entry, void *arg)
         return -1;
     }
 
-    printf(1, "%s %d %d %d\n", fmtname(ctx->path), st.type, st.ino, st.size);
+    printf(1, KCYN "%s" KRESET " %d %d %d\n" , fmtname(ctx->path), st.type, st.ino, st.size);
     return 0;
 }
 
@@ -70,7 +71,7 @@ void ls(char *path)
 
     switch (st.type) {
     case T_FILE:
-        printf(1, "%s %d %d %d\n", fmtname(path), st.type, st.ino, st.size);
+        printf(1, KCYN "%s" KRESET " %d %d %d\n" , fmtname(path), st.type, st.ino, st.size);
         break;
 
     case T_DIR: {
