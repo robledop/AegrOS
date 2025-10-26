@@ -11,10 +11,12 @@ ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
 CFLAGS += -fno-pie -no-pie
 
-ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o
+ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o build/crt0.o build/crt1.o
 
 $(ULIB):
 	$(AS) $(ASFLAGS) -f elf usys.asm -o build/usys.o
+	$(AS) $(ASFLAGS) -f elf crt0.asm -o build/crt0.o
+	$(CC) $(CFLAGS) -c -o build/crt1.o crt1.c
 	$(CC) $(CFLAGS) -c -o build/ulib.o ulib.c
 	$(CC) $(CFLAGS) -c -o build/printf.o printf.c
 	$(CC) $(CFLAGS) -c -o build/umalloc.o umalloc.c
@@ -24,12 +26,12 @@ build/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 build/%: build/%.o $(ULIB)
-	$(LD) $(LDFLAGS) -e main -Ttext 0 -o $@ $^
+	$(LD) $(LDFLAGS) -Ttext 0 -o $@ $^
 
 build/forktest: build/forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -e main -Ttext 0 -o build/forktest build/forktest.o build/ulib.o build/usys.o
+	$(LD) $(LDFLAGS) -Ttext 0 -o build/forktest build/forktest.o build/ulib.o build/usys.o build/crt0.o build/crt1.o
 
 UPROGS=\
 	build/cat\

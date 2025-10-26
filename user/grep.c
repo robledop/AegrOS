@@ -63,7 +63,6 @@ int main(int argc, char* argv[])
         grep(pattern, fd);
         close(fd);
     }
-    exit();
 }
 
 // Regexp matcher from Kernighan & Pike,

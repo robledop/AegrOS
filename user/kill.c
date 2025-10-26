@@ -10,5 +10,4 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         kill(atoi(argv[i]));
     }
-    exit();
 }

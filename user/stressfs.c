@@ -41,6 +41,4 @@ main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     close(fd);
 
     wait();
-
-    exit();
 }

@@ -53,8 +53,14 @@ int elf_validate_loaded(const struct elf_header *header)
  */
 int exec(char *path, char **argv)
 {
+    char path_buffer[MAX_FILE_PATH] = {0};
+    if (!starts_with("/bin", path)) {
+        strcat(path_buffer, "/bin/");
+    }
+    strcat(path_buffer, path);
+
     struct inode *ip;
-    if ((ip = namei(path)) == nullptr) {
+    if ((ip = namei(path_buffer)) == nullptr) {
         cprintf("exec: fail\n");
         return -1;
     }
@@ -144,7 +150,7 @@ int exec(char *path, char **argv)
 
     char *s, *last;
     // Save the program name for debugging.
-    for (last = s = path; *s; s++) {
+    for (last = s = path_buffer; *s; s++) {
         if (*s == '/') {
             last = s + 1;
         }

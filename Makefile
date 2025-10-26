@@ -58,12 +58,12 @@ asm_headers:
 
 build/x86/entryother: asm_headers
 	$(AS) $(ASFLAGS) -f elf kernel/x86/entryother.asm -o build/x86/entryother.o
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o build/x86/bootblockother.o build/x86/entryother.o
+	$(LD) $(LDFLAGS) -e start -Ttext 0x7000 -o build/x86/bootblockother.o build/x86/entryother.o
 	$(OBJCOPY) -S -O binary -j .text build/x86/bootblockother.o build/x86/entryother
 
 build/initcode: asm_headers
 	$(AS) $(ASFLAGS) -f elf kernel/initcode.asm -o build/initcode.o
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o build/initcode.out build/initcode.o
+	$(LD) $(LDFLAGS) -e start -Ttext 0 -o build/initcode.out build/initcode.o
 	$(OBJCOPY) -S -O binary build/initcode.out build/initcode
 
 build/kernel: $(OBJS) build/initcode build/x86/entryother asm_headers

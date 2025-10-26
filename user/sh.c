@@ -191,7 +191,6 @@ int main(void)
 
         wait();
     }
-    exit();
 }
 
 void panic(char *s)

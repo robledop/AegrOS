@@ -1773,6 +1773,4 @@ int main(int argc, char *argv[])
     uio();
 
     exectest();
-
-    exit();
 }

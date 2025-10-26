@@ -2,6 +2,7 @@
 #include <types.h>
 struct stat;
 struct rtcdate;
+typedef void (*atexit_function)(void);
 
 // system calls
 int fork(void);
