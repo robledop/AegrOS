@@ -24,12 +24,12 @@ build/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 build/%: build/%.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+	$(LD) $(LDFLAGS) -e main -Ttext 0 -o $@ $^
 
 build/forktest: build/forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o build/forktest build/forktest.o build/ulib.o build/usys.o
+	$(LD) $(LDFLAGS) -e main -Ttext 0 -o build/forktest build/forktest.o build/ulib.o build/usys.o
 
 UPROGS=\
 	build/cat\

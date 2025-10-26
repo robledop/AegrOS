@@ -7,6 +7,42 @@
 #include "elf.h"
 #include "string.h"
 #include "file.h"
+#include "status.h"
+
+
+constexpr char elf_signature[] = {0x7f, 'E', 'L', 'F'};
+
+static bool elf_valid_signature(const void *buffer)
+{
+    return memcmp(buffer, (void *)elf_signature, sizeof(elf_signature)) == 0;
+}
+
+static bool elf_valid_class(const struct elf_header *header)
+{
+    // We only support 32 bit binaries.
+    return header->e_ident[EI_CLASS] == ELFCLASSNONE || header->e_ident[EI_CLASS] == ELFCLASS32;
+}
+
+static bool elf_valid_encoding(const struct elf_header *header)
+{
+    return header->e_ident[EI_DATA] == ELFDATANONE || header->e_ident[EI_DATA] == ELFDATA2LSB;
+}
+
+static bool elf_has_program_header(const struct elf_header *header)
+{
+    return header->e_phoff != 0;
+}
+
+int elf_validate_loaded(const struct elf_header *header)
+{
+    if (header == nullptr) {
+        return -EINFORMAT;
+    }
+    return (elf_valid_signature(header) && elf_valid_class(header) && elf_valid_encoding(header) &&
+            elf_has_program_header(header))
+        ? ALL_OK
+        : -EINFORMAT;
+}
 
 /**
  * @brief Replace the current process image with a new program.
@@ -25,26 +61,13 @@ int exec(char *path, char **argv)
 
     ip->iops->ilock(ip);
 
-    // NOTE: All the ELF loading is done here, but it is done in a simplified way.
-    // This only works if the executables are linked with the -N flag (no paging).
-    // ld’s -N flag (aka --omagic) forces the linker to put all loadable sections into
-    // a single RWX segment that starts at virtual address 0. That gives us an ELF
-    // where the one and only PT_LOAD entry is page aligned and covers .text, .data,
-    // and .bss contiguously (readelf -l user/build/_echo shows this when -N is present).
-    // The xv6 loader leans on that simplification, it insists that
-    // every ELF loadable segment satisfy ph.vaddr % PGSIZE == 0, and the inner loop
-    // in loaduvm() copies whole pages at a time starting on page
-    // boundaries. Once you drop -N, ld emits a second PT_LOAD for .data whose
-    // p_vaddr is something like 0x1824, and the loader immediately rejects the
-    // program with the page-alignment check.
-
-    struct elfhdr elf;
+    struct elf_header elf;
     pde_t *pgdir = nullptr;
     // Check ELF header
     if (ip->iops->readi(ip, (char *)&elf, 0, sizeof(elf)) != sizeof(elf)) {
         goto bad;
     }
-    if (elf.magic != ELF_MAGIC) {
+    if (elf_validate_loaded(&elf) < 0) {
         goto bad;
     }
 
@@ -56,11 +79,11 @@ int exec(char *path, char **argv)
     int sz = 0;
     u32 i, off;
     struct proghdr ph;
-    for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
+    for (i = 0, off = elf.e_phoff; i < elf.e_phnum; i++, off += sizeof(ph)) {
         if (ip->iops->readi(ip, (char *)&ph, off, sizeof(ph)) != sizeof(ph)) {
             goto bad;
         }
-        if (ph.type != ELF_PROG_LOAD) {
+        if (ph.type != PT_LOAD) {
             continue;
         }
         if (ph.memsz < ph.filesz) {
@@ -69,10 +92,13 @@ int exec(char *path, char **argv)
         if (ph.vaddr + ph.memsz < ph.vaddr) {
             goto bad;
         }
-        if ((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0) {
+
+        u32 seg_end   = ph.vaddr + ph.memsz;
+        u32 alloc_end = PGROUNDUP(seg_end);
+        if (alloc_end < seg_end) {
             goto bad;
         }
-        if (ph.vaddr % PGSIZE != 0) {
+        if ((sz = allocuvm(pgdir, sz, alloc_end)) == 0) {
             goto bad;
         }
         if (loaduvm(pgdir, (char *)ph.vaddr, ip, ph.off, ph.filesz) < 0) {
@@ -83,7 +109,7 @@ int exec(char *path, char **argv)
     ip = nullptr;
 
     // Allocate two pages at the next page boundary.
-    // Make the first inaccessible.  Use the second as the user stack.
+    // Make the first inaccessible (stack guard page).  Use the second as the user stack.
     sz = PGROUNDUP(sz);
     if ((sz = allocuvm(pgdir, sz, sz + 2 * PGSIZE)) == 0) {
         goto bad;
@@ -132,7 +158,7 @@ int exec(char *path, char **argv)
     pde_t *oldpgdir          = curproc->page_directory;
     curproc->page_directory  = pgdir;
     curproc->size            = sz;
-    curproc->trap_frame->eip = elf.entry; // main
+    curproc->trap_frame->eip = elf.e_entry; // main
     curproc->trap_frame->esp = sp;
     activate_process(curproc);
     freevm(oldpgdir);

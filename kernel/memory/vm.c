@@ -49,8 +49,9 @@ static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
     if (*pde & PTE_P) {
         pgtab = (pte_t *)P2V(PTE_ADDR(*pde));
     } else {
-        if (!alloc || (pgtab = (pte_t *)kalloc()) == nullptr)
+        if (!alloc || (pgtab = (pte_t *)kalloc()) == nullptr) {
             return nullptr;
+        }
         // Make sure all those PTE_P bits are zero.
         memset(pgtab, 0, PGSIZE);
         // The permissions here are overly generous, but they can
@@ -225,21 +226,35 @@ void inituvm(pde_t *pgdir, const char *init, u32 sz)
  */
 int loaduvm(pde_t *pgdir, char *addr, struct inode *ip, u32 offset, u32 sz)
 {
-    int n;
-    pte_t *pte;
+    if (sz == 0) {
+        return 0;
+    }
 
-    if ((u32)addr % PGSIZE != 0)
-        panic("loaduvm: addr must be page aligned");
-    for (u32 i = 0; i < sz; i += PGSIZE) {
-        if ((pte = walkpgdir(pgdir, addr + i, 0)) == nullptr)
+    u32 va       = (u32)addr;
+    u32 pagebase = PGROUNDDOWN(va);
+    u32 pageoff  = va - pagebase;
+    u32 copied   = 0;
+
+    while (copied < sz) {
+        pte_t *pte = walkpgdir(pgdir, (char *)pagebase, 0);
+        if (pte == nullptr || (*pte & PTE_P) == 0) {
             panic("loaduvm: address should exist");
-        u32 pa = PTE_ADDR(*pte);
-        if (sz - i < PGSIZE)
-            n = sz - i;
-        else
-            n = PGSIZE;
-        if (ip->iops->readi(ip, P2V(pa), offset + i, n) != n)
+        }
+        u32 pa     = PTE_ADDR(*pte);
+        char *dest = (char *)P2V(pa) + pageoff;
+
+        u32 chunk = PGSIZE - pageoff;
+        if (chunk > sz - copied) {
+            chunk = sz - copied;
+        }
+
+        if (ip->iops->readi(ip, (char *)dest, offset + copied, chunk) != (int)chunk) {
             return -1;
+        }
+
+        copied += chunk;
+        pagebase += PGSIZE;
+        pageoff = 0;
     }
     return 0;
 }
