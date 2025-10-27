@@ -12,4 +12,13 @@ struct stat
     u32 ino; // Inode number
     short nlink; // Number of links to file
     u32 size; // Size of file in bytes
+
+    int ref;               // Reference count
+    u16 i_uid;         /* Low 16 bits of Owner Uid */
+    u32 i_atime;       /* Access time */
+    u32 i_ctime;       /* Creation time */
+    u32 i_mtime;       /* Modification time */
+    u32 i_dtime;       /* Deletion Time */
+    u16 i_gid;         /* Low 16 bits of Group Id */
+    u32 i_flags;       /* File flags */
 };

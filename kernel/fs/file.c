@@ -14,7 +14,7 @@
 #include "proc.h"
 
 struct devsw devsw[NDEV];
-struct inode *devtab[NDEV];
+struct inode devtab[NDEV];
 
 struct
 {
@@ -93,7 +93,6 @@ int filestat(struct file *f, struct stat *st)
 // Read from file f.
 int fileread(struct file *f, char *addr, int n)
 {
-
     if (f->readable == 0)
         return -1;
     if (f->type == FD_PIPE)

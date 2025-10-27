@@ -4,7 +4,7 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        printf(2, "usage: kill pid...\n");
+        printf( "usage: kill pid...\n");
         exit();
     }
     for (int i = 1; i < argc; i++) {

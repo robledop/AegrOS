@@ -12,7 +12,7 @@
 #include "icache.h"
 #include "mbr.h"
 
-extern struct inode *devtab[NDEV];
+extern struct inode devtab[NDEV];
 struct inode_operations ext2fs_inode_ops = {
     ext2fs_dirlink,
     ext2fs_dirlookup,
@@ -277,8 +277,14 @@ void ext2fs_ilock(struct inode *ip)
         } else if (S_ISCHR(din->i_mode)) {
             ip->type = T_DEV;
         }
-        // ip->major = 0;
-        // ip->minor = 0;
+        ip->i_atime = din->i_atime;
+        ip->i_ctime = din->i_ctime;
+        ip->i_mtime = din->i_mtime;
+        ip->i_dtime = din->i_dtime;
+        ip->i_uid   = din->i_uid;
+        ip->i_gid   = din->i_gid;
+        ip->i_flags = din->i_flags;
+
         ip->nlink = din->i_links_count;
         ip->size  = din->i_size;
         ip->iops  = &ext2fs_inode_ops;
@@ -309,10 +315,11 @@ static void ext2fs_ifree(struct inode *ip)
     memmove(&bgdesc, bp1->data + gno * sizeof(bgdesc), sizeof(bgdesc));
     brelse(bp1);
     struct buf *bp2 = bread(ip->dev, bgdesc.bg_inode_bitmap + first_partition_block);
-    int index       = (ip->inum - 1) % ext2_sb.s_inodes_per_group;
-    int byte_index  = index / 8;
-    if (byte_index >= EXT2_BSIZE)
+    u32 index       = (ip->inum - 1) % ext2_sb.s_inodes_per_group;
+    u32 byte_index  = index / 8;
+    if (byte_index >= EXT2_BSIZE) {
         panic("ext2fs_ifree: bitmap overflow\n");
+    }
     u8 mask = 1 << (7 - (index % 8));
 
     if ((bp2->data[byte_index] & mask) == 0)
@@ -360,11 +367,19 @@ void ext2fs_iunlockput(struct inode *ip)
 
 void ext2fs_stati(struct inode *ip, struct stat *st)
 {
-    st->dev   = ip->dev;
-    st->ino   = ip->inum;
-    st->type  = ip->type;
-    st->nlink = ip->nlink;
-    st->size  = ip->size;
+    st->dev     = (int)ip->dev;
+    st->ino     = ip->inum;
+    st->type    = ip->type;
+    st->nlink   = ip->nlink;
+    st->size    = ip->size;
+    st->ref     = ip->ref;
+    st->i_atime = ip->i_atime;
+    st->i_ctime = ip->i_ctime;
+    st->i_mtime = ip->i_mtime;
+    st->i_dtime = ip->i_dtime;
+    st->i_uid   = ip->i_uid;
+    st->i_gid   = ip->i_gid;
+    st->i_flags = ip->i_flags;
 }
 
 // Inode content
@@ -589,8 +604,8 @@ static void ext2fs_itrunc(struct inode *ip)
 static inline int devtab_get_major(u32 inum)
 {
     for (int i = 0; i < NDEV; i++) {
-        if (devtab[i]->inum == inum) {
-            return devtab[i]->major;
+        if (devtab[i].inum == inum) {
+            return devtab[i].major;
         }
     }
     return -1;
@@ -608,10 +623,12 @@ int ext2fs_readi(struct inode *ip, char *dst, u32 off, u32 n)
         return devsw[major].read(ip, dst, n);
     }
 
-    if (off > ip->size || off + n < off)
+    if (off > ip->size || off + n < off) {
         return -1;
-    if (off + n > ip->size)
+    }
+    if (off + n > ip->size) {
         n = ip->size - off;
+    }
 
     for (u32 tot = 0; tot < n; tot += m, off += m, dst += m) {
         u32 block      = ext2fs_bmap(ip, off / EXT2_BSIZE);
@@ -635,10 +652,12 @@ int ext2fs_writei(struct inode *ip, char *src, u32 off, u32 n)
         return devsw[major].write(ip, src, n);
     }
 
-    if (off > ip->size || off + n < off)
+    if (off > ip->size || off + n < off) {
         return -1;
-    if (off + n > EXT2_MAXFILE * EXT2_BSIZE)
+    }
+    if (off + n > EXT2_MAXFILE * EXT2_BSIZE) {
         return -1;
+    }
 
     for (u32 tot = 0; tot < n; tot += m, off += m, src += m) {
         u32 block      = ext2fs_bmap(ip, off / EXT2_BSIZE);

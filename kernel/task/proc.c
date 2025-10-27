@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "string.h"
+#include "termcolors.h"
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -588,11 +589,12 @@ void procdump(void)
         [EMBRYO] = "embryo",
         [SLEEPING] = "sleep ",
         [RUNNABLE] = "runnable",
-        [RUNNING] = "run   ",
+        [RUNNING] = "running",
         [ZOMBIE] = "zombie"
     };
     char *state;
     u32 pc[10];
+
 
     for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         if (p->state == UNUSED) {
@@ -603,13 +605,16 @@ void procdump(void)
         } else {
             state = "???";
         }
-        cprintf("%s, pid: %d, state: %s\n", p->name, p->pid, state);
-        cprintf("stack trace:\n");
+        cprintf("\n");
+        cprintf(KYEL "%s " KWHT "pid: %d, state: %s\n", p->name, p->pid, state);
+        cprintf("Stack trace:\n");
         if (p->state == SLEEPING) {
             getcallerpcs((u32 *)p->context->ebp + 2, pc);
             for (int i = 0; i < 10 && pc[i] != 0; i++) {
                 struct symbol symbol = debug_function_symbol_lookup(pc[i]);
-                cprintf("\t[%p] %s\n", pc[i], (symbol.name == nullptr) ? "[unknown]" : symbol.name);
+                cprintf(KBWHT " %s " KBBLU "[" KWHT "%p" KBBLU "]" KWHT,
+                        (symbol.name == nullptr) ? "[unknown]" : symbol.name,
+                        pc[i]);
             }
         }
         cprintf("\n");

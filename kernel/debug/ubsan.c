@@ -35,15 +35,11 @@ struct undefined_behavior
 
 void scram(const int event, const struct undefined_behavior *info)
 {
-    //struct thread *current_task = get_current_thread();
-    //if (current_task && current_process()) {
-    //     printf(KYEL "\nCurrent thread:" KWHT " %s (%d)\n", current_task->name, current_process()->pid);
-    // }
     cprintf(KBWHT "Event:" KWHT " %d\n", event);
     cprintf(KBWHT "File:" KWHT " %s\n", info->filename);
     cprintf(KBWHT "Line:" KWHT " %d\n", info->line);
     cprintf(KBWHT "Column:" KWHT " %d\n", info->column);
-    cprintf(KBWHT "Violation:" KWHT " %s\n", info->violation);
+    cprintf(KBWHT "Violation:" KYEL " %s\n" KWHT, info->violation);
     panic("Undefined behavior detected");
 
     __builtin_unreachable();

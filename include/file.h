@@ -41,15 +41,24 @@ struct inode
     u32 dev;               // Device number
     u32 inum;              // Inode number
     int ref;               // Reference count
+    u16 i_uid;         /* Low 16 bits of Owner Uid */
+    u32 i_size;        /* Size in bytes */
+    u32 i_atime;       /* Access time */
+    u32 i_ctime;       /* Creation time */
+    u32 i_mtime;       /* Modification time */
+    u32 i_dtime;       /* Deletion Time */
+    u16 i_gid;         /* Low 16 bits of Group Id */
+    u32 i_flags;       /* File flags */
+
     struct sleeplock lock; // protects everything below here
     int valid;             // inode has been read from disk?
     struct inode_operations *iops;
 
     char path[MAX_FILE_PATH];
     short type; // copy of disk inode
-    short major;
-    short minor;
-    short nlink;
+    u16 major;
+    u16 minor;
+    u16 nlink;
     u32 size;
     void *addrs;
 };

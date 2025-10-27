@@ -84,14 +84,14 @@ struct cmd *parsecmd(char *);
         if (ecmd->argv[0] == nullptr)
             exit();
         exec(ecmd->argv[0], ecmd->argv);
-        printf(2, "exec %s failed\n", ecmd->argv[0]);
+        printf( "exec %s failed\n", ecmd->argv[0]);
         break;
 
     case REDIR:
         rcmd = (struct redircmd *)cmd;
         close(rcmd->fd);
         if (open(rcmd->file, rcmd->mode) < 0) {
-            printf(2, "open %s failed\n", rcmd->file);
+            printf( "open %s failed\n", rcmd->file);
             exit();
         }
         runcmd(rcmd->cmd);
@@ -142,7 +142,7 @@ int getcmd(char *buf, int nbuf)
 {
     char cwd[MAX_FILE_PATH];
     getcwd(cwd, sizeof(cwd));
-    printf(2, "%s" KGRN "> " KWHT, cwd);
+    printf( "%s" KGRN "> " KWHT, cwd);
     memset(buf, 0, nbuf);
     gets(buf, nbuf);
     if (buf[0] == 0) // EOF
@@ -171,7 +171,7 @@ int main(void)
             // Chdir must be called by the parent, not the child.
             buf[strlen(buf) - 1] = 0; // chop \n
             if (chdir(buf + 3) < 0)
-                printf(2, "cannot cd %s\n", buf + 3);
+                printf( "cannot cd %s\n", buf + 3);
             continue;
         }
 
@@ -182,7 +182,7 @@ int main(void)
 
         if (strncmp("cls", buf, 3) == 0 && input_len == 4) {
             // Clear the screen
-            printf(1, "\033[2J\033[H");
+            printf( "\033[2J\033[H");
             continue;
         }
 
@@ -200,7 +200,7 @@ int main(void)
 
 void panic(char *s)
 {
-    printf(2, "%s\n", s);
+    printf( "%s\n", s);
     exit();
 }
 
@@ -330,7 +330,7 @@ struct cmd *parsecmd(char *s)
     struct cmd *cmd = parseline(&s, es);
     peek(&s, es, "");
     if (s != es) {
-        printf(2, "leftovers: %s\n", s);
+        printf("leftovers: %s\n", s);
         panic("syntax");
     }
     nulterminate(cmd);

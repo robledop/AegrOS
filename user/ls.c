@@ -2,6 +2,7 @@
 #include "user.h"
 #include "dirwalk.h"
 #include "termcolors.h"
+#include "time.h"
 
 #define FMTNAME_WIDTH 14
 #define PATHBUF_SZ 512
@@ -31,12 +32,67 @@ struct ls_ctx
     int base_len;
 };
 
+char *bytes_to_human_readable(u32 bytes, char *output, u32 output_size)
+{
+    const char *units[] = {"B", "KB", "MB", "GB", "TB"};
+    u32 unit_index      = 0;
+    double size         = (double)bytes;
+
+    while (size >= 1024 && unit_index < sizeof(units) / sizeof(units[0]) - 1) {
+        size /= 1024;
+        unit_index++;
+    }
+
+    snprintf(output, output_size, "%.2f %s", size, units[unit_index]);
+    return output;
+}
+
+static void print_entry(char *name, struct stat *st)
+{
+    switch (st->type) {
+    case T_DIR:
+        printf(KWHT "d ");
+        break;
+    case T_DEV:
+        printf(KWHT "c ");
+        break;
+    default:
+        printf(KWHT "- ");
+    }
+
+    printf(" %5d ", st->ino);
+
+    char human_readable_size[20];
+    bytes_to_human_readable(st->size, human_readable_size, sizeof(human_readable_size));
+    printf(" %10s ", human_readable_size);
+
+    struct tm modify_time = {0};
+    unix_timestamp_to_tm(st->i_mtime, &modify_time);
+
+    const char *date_time_format = "%Y %B %d %H:%M";
+    char modify_time_str[25]     = {0};
+
+    strftime(date_time_format, &modify_time, modify_time_str, sizeof(modify_time_str));
+    printf(" %s ", modify_time_str);
+
+    switch (st->type) {
+    case T_DIR:
+        printf(KBBLU " %s\n" KWHT, name);
+        break;
+    case T_DEV:
+        printf(KYEL " %s\n" KWHT, name);
+        break;
+    default:
+        printf(KWHT " %s\n", name);
+    }
+}
+
 static int ls_visit(const struct dirent_view *entry, void *arg)
 {
     struct ls_ctx *ctx = (struct ls_ctx *)arg;
 
     if (ctx->base_len + entry->name_len + 1 >= PATHBUF_SZ) {
-        printf(1, "ls: path too long\n");
+        printf("ls: path too long\n");
         return 0;
     }
 
@@ -45,11 +101,11 @@ static int ls_visit(const struct dirent_view *entry, void *arg)
 
     struct stat st;
     if (stat(ctx->path, &st) < 0) {
-        printf(1, "ls: cannot stat %s\n", ctx->path);
+        printf("ls: cannot stat %s\n", ctx->path);
         return -1;
     }
 
-    printf(1, KCYN "%s" KRESET " %d %d %d\n" , fmtname(ctx->path), st.type, st.ino, st.size);
+    print_entry(fmtname(ctx->path), &st);
     return 0;
 }
 
@@ -59,25 +115,25 @@ void ls(char *path)
     struct stat st;
 
     if ((fd = open(path, 0)) < 0) {
-        printf(2, "ls: cannot open %s\n", path);
+        printf("ls: cannot open %s\n", path);
         return;
     }
 
     if (fstat(fd, &st) < 0) {
-        printf(2, "ls: cannot stat %s\n", path);
+        printf("ls: cannot stat %s\n", path);
         close(fd);
         return;
     }
 
     switch (st.type) {
     case T_FILE:
-        printf(1, KCYN "%s" KRESET " %d %d %d\n" , fmtname(path), st.type, st.ino, st.size);
+        print_entry(fmtname(path), &st);
         break;
 
     case T_DIR: {
         struct ls_ctx ctx;
         if (strlen(path) + 1 + EXT2_DIRENT_NAME_MAX + 1 > sizeof(ctx.path)) {
-            printf(1, "ls: path too long\n");
+            printf("ls: path too long\n");
             break;
         }
         strcpy(ctx.path, path);
@@ -87,11 +143,11 @@ void ls(char *path)
             ctx.path[ctx.base_len]   = 0;
         }
         if (dirwalk(fd, ls_visit, &ctx) < 0)
-            printf(1, "ls: cannot read directory %s\n", path);
+            printf("ls: cannot read directory %s\n", path);
         break;
     }
     default: ;
-        printf(1, "ls: unknown type %d for %s\n", st.type, path);
+        printf("ls: unknown type %d for %s\n", st.type, path);
     }
     close(fd);
 }

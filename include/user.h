@@ -1,5 +1,6 @@
 #pragma once
 #include <types.h>
+#include "printf.h"
 struct stat;
 struct rtcdate;
 typedef void (*atexit_function)(void);
@@ -36,7 +37,7 @@ char *strcpy(char *, const char *);
 void *memmove(void *, const void *, int);
 char *strchr(const char *, char c);
 int strcmp(const char *, const char *);
-void printf(int, const char *, ...);
+// void printf(int, const char *, ...);
 char *gets(char *, int max);
 u32 strlen(const char *);
 void *memset(void *, int, u32);
@@ -46,4 +47,5 @@ int atoi(const char *);
 int strncmp(const char *p, const char *q, u32 n);
 bool starts_with(const char pre[static 1], const char str[static 1]);
 char *strcat(char dest[static 1], const char src[static 1]);
+char* strncat(char dest[static 1], const char src[static 1], u32 n);
 u32 strnlen(const char *s, u32 maxlen);

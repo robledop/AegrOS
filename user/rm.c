@@ -4,7 +4,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        printf(2, "Usage: rm files...\n");
+        printf( "Usage: rm files...\n");
         exit();
     }
 
@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
     {
         if (unlink(argv[i]) < 0)
         {
-            printf(2, "rm: %s failed to delete\n", argv[i]);
+            printf( "rm: %s failed to delete\n", argv[i]);
             break;
         }
     }

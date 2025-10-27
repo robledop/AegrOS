@@ -16,7 +16,7 @@
 #include "printf.h"
 #include "string.h"
 
-extern struct inode *devtab[NDEV];
+extern struct inode devtab[NDEV];
 bool devtab_parsed = false;
 void parse_devtab();
 
@@ -37,9 +37,9 @@ static int canonicalize_absolute_path(const char *path, char *output, int outsz)
         return -1;
     }
 
-    int stack_depth      = 0;
+    int stack_depth = 0;
     int stack[MAX_FILE_PATH];
-    int len = 1;
+    int len   = 1;
     output[0] = '/';
     output[1] = '\0';
 
@@ -68,7 +68,7 @@ static int canonicalize_absolute_path(const char *path, char *output, int outsz)
         }
         if (segment_len == 2 && start[0] == '.' && start[1] == '.') {
             if (stack_depth > 0) {
-                len = stack[--stack_depth];
+                len         = stack[--stack_depth];
                 output[len] = '\0';
             }
             while (*p == '/') {
@@ -95,7 +95,7 @@ static int canonicalize_absolute_path(const char *path, char *output, int outsz)
         }
         memmove(output + len, start, segment_len);
         len += segment_len;
-        output[len] = '\0';
+        output[len]          = '\0';
         stack[stack_depth++] = prev_len;
 
         while (*p == '/') {
@@ -132,7 +132,7 @@ static int resolve_cwd_path(struct proc *proc, const char *request, char *resolv
         }
         safestrcpy(combined, request, MAX_FILE_PATH);
     } else {
-        const char *base   = proc->cwd_path;
+        const char *base = proc->cwd_path;
         if (base[0] != '/') {
             base = "/";
         }
@@ -491,17 +491,26 @@ static struct inode *create(char *path, short type, short major, short minor)
 
         bool found = false;
         for (int i = 0; i < NDEV; i++) {
-            if (devtab[i] && devtab[i]->inum == ip->inum) {
-                devtab[i] = ip;
-                found     = true;
+            if (devtab[i].inum == ip->inum) {
+                devtab[i].inum  = ip->inum;
+                devtab[i].dev   = ip->dev;
+                devtab[i].type  = ip->type;
+                devtab[i].major = ip->major;
+                devtab[i].minor = ip->minor;
+
+                found = true;
                 break;
             }
         }
 
         if (!found) {
             for (int i = 0; i < NDEV; i++) {
-                if (devtab[i] == nullptr) {
-                    devtab[i] = ip;
+                if (devtab[i].inum == 0) {
+                    devtab[i].inum  = ip->inum;
+                    devtab[i].dev   = ip->dev;
+                    devtab[i].type  = ip->type;
+                    devtab[i].major = ip->major;
+                    devtab[i].minor = ip->minor;
                     break;
                 }
             }
@@ -537,23 +546,31 @@ void parse_devtab()
             ip->iops->iunlock(ip);
             ip->iops->iput(ip);
 
-            // bool found = false;
-            // for (int i = 0; i < NDEV; i++) {
-            //     if (devtab[i] && devtab[i]->inum == inum) {
-            //         devtab[i] = ip;
-            //         found     = true;
-            //         break;
-            //     }
-            // }
-            //
-            // if (!found) {
-            //     for (int i = 0; i < NDEV; i++) {
-            //         if (devtab[i] == nullptr) {
-            //             devtab[i] = ip;
-            //             break;
-            //         }
-            //     }
-            // }
+            bool found = false;
+            for (int i = 0; i < NDEV; i++) {
+                if (devtab[i].inum == inum) {
+                    devtab[i].inum  = ip->inum;
+                    devtab[i].dev   = ip->dev;
+                    devtab[i].type  = ip->type;
+                    devtab[i].major = ip->major;
+                    devtab[i].minor = ip->minor;
+                    found           = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                for (int i = 0; i < NDEV; i++) {
+                    if (devtab[i].inum == 0) {
+                        devtab[i].inum  = ip->inum;
+                        devtab[i].dev   = ip->dev;
+                        devtab[i].type  = ip->type;
+                        devtab[i].major = ip->major;
+                        devtab[i].minor = ip->minor;
+                        break;
+                    }
+                }
+            }
         }
     }
     fileclose(file);

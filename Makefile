@@ -20,11 +20,6 @@ ifeq ("$(wildcard rootfs/boot/grub/grub.cfg)","")
             echo '}' >> rootfs/boot/grub/grub.cfg)
 endif
 
-$(shell chmod 777 rootfs/etc/devtab)
-$(shell echo "# /etc/devtab" > rootfs/etc/devtab && \
-		echo "# inum   type    major   minor  # optional notes" >> rootfs/etc/devtab && \
-	    echo "9	char	1	1	#/dev/console" >> rootfs/etc/devtab)
-
 SRC_DIRS := $(shell find ./kernel -type d)
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))
 $(shell mkdir -p $(BUILD_DIRS))

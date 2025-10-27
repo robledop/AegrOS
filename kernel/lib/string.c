@@ -129,6 +129,22 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
+char* strncat(char dest[static 1], const char src[static 1], u32 n)
+{
+    char *d = dest;
+    while (*d != '\0') {
+        d++;
+    }
+    u32 i = 0;
+    while (i < n && src[i] != '\0') {
+        *d = src[i];
+        d++;
+        i++;
+    }
+    *d = '\0';
+    return dest;
+}
+
 void reverse(char *s)
 {
     int i, j;
