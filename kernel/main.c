@@ -93,8 +93,8 @@ pde_t entrypgdir[]; // For entry.asm
  */
 static void startothers(void)
 {
-    // This name depends on the path of the entryohter file. I moved it to the build folder
-    extern u8 _binary_build_x86_entryother_start[], _binary_build_x86_entryother_size[];
+    // This name depends on the path of the entryohter file.
+    extern u8 _binary_build_x86_entryother_start[], _binary_build_x86_entryother_size[]; // NOLINT(*-reserved-identifier)
 
     // Write entry code to unused memory at 0x7000.
     // The linker has placed the image of entryother.S in
