@@ -608,14 +608,14 @@ void procdump(void)
             state = "???";
         }
         cprintf("\n");
-        cprintf(KYEL "%s " KWHT "pid: %d, state: %s\n", p->name, p->pid, state);
-        cprintf("Stack trace:\n");
+        cprintf(KYEL "%s " KWHT "pid: %d, state: %s", p->name, p->pid, state);
         if (p->state == SLEEPING) {
+            cprintf("\nStack trace:\n");
             getcallerpcs((u32 *)p->context->ebp + 2, pc);
             for (int i = 0; i < 10 && pc[i] != 0; i++) {
                 struct symbol symbol = debug_function_symbol_lookup(pc[i]);
                 cprintf(KBWHT " %s " KBBLU "[" KWHT "%p" KBBLU "]" KWHT,
-                        (symbol.name == nullptr) ? "[unknown]" : symbol.name,
+                        (symbol.name == nullptr) ? KBRED "[" KWHT "unknown" KBRED "]" KWHT : symbol.name,
                         pc[i]);
             }
         }

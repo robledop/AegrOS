@@ -1,10 +1,12 @@
 #include "types.h"
 #include "defs.h"
 #include "mmu.h"
+#include "printf.h"
 #include "proc.h"
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "termcolors.h"
 
 /** @brief Interrupt descriptor table shared by all CPUs. */
 struct gate_desc idt[256];
@@ -15,7 +17,7 @@ struct spinlock tickslock;
 /** @brief Global tick counter incremented by the timer interrupt. */
 u32 ticks;
 
-char* exception_messages[] = {
+char *exception_messages[] = {
     "Division By Zero",
     "Debug",
     "Non Maskable Interrupt",
@@ -54,67 +56,67 @@ static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[TOTAL_INTERRUPTS];
 
 void idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback)
 {
-    if (interrupt < 0 || interrupt >= TOTAL_INTERRUPTS)
-    {
+    if (interrupt < 0 || interrupt >= TOTAL_INTERRUPTS) {
         panic("idt_register_interrupt_callback: interrupt out of bounds");
     }
     interrupt_callbacks[interrupt] = interrupt_callback;
 }
 
-void syscall_handler(struct trapframe* tf)
+void syscall_handler(struct trapframe *tf)
 {
-    if (current_process()->killed)
-    {
+    if (current_process()->killed) {
         exit();
     }
     current_process()->trap_frame = tf;
     syscall();
-    if (current_process()->killed)
-    {
+    if (current_process()->killed) {
         exit();
     }
 }
 
-void exception_handler(struct trapframe* tf)
+void exception_handler(struct trapframe *tf)
 {
     // Handle page fault separately to get the faulting address from CR2.
-    if (tf->trapno == T_PGFLT)
-    {
+    if (tf->trapno == T_PGFLT) {
         u32 faulting_address = rcr2();
         // Handle page fault (for example, by terminating the process).
-        cprintf("Page fault at address 0x%x, eip 0x%x\n", faulting_address, tf->eip);
+        printf("Process:" KBWHT " %s" KRESET " (%d). Page fault at address 0x%x, eip 0x%x\n",
+               current_process()->name,
+               current_process()->pid,
+               faulting_address,
+               tf->eip);
         current_process()->killed = 1;
         return;
     }
 
-    if ((tf->cs & DPL_USER) == DPL_USER)
-    {
-        cprintf("Process %d USER MODE EXCEPTION: %s\n", current_process()->pid, exception_messages[tf->trapno]);
-        cprintf("EIP: 0x%x\n", tf->eip);
-        cprintf("CS: 0x%x\n", tf->cs);
-        cprintf("EFLAGS: 0x%x\n", tf->eflags);
+    if ((tf->cs & DPL_USER) == DPL_USER) {
+        printf("Process " KBWHT "%s" KWHT " (%d)" KYEL " USER MODE EXCEPTION:" KRESET " %s\n",
+               current_process()->name,
+               current_process()->pid,
+               exception_messages[tf->trapno]);
+        printf(KBWHT "EIP:" KRESET " 0x%x\n", tf->eip);
+        printf(KBWHT "CS:" KRESET " 0x%x\n", tf->cs);
+        printf(KBWHT "EFLAGS:" KRESET " 0x%x\n", tf->eflags);
         current_process()->killed = 1;
         return;
     }
 
-    cprintf("CPU %d KERNEL MODE EXCEPTION: %s\n", cpuid(), exception_messages[tf->trapno]);
-    cprintf("EIP: 0x%x ", tf->eip);
-    cprintf("CS: 0x%x ", tf->cs);
-    cprintf("EFLAGS: 0x%x ", tf->eflags);
-    if ((tf->cs == (SEG_UCODE << 3)) | DPL_USER)
-    {
-        cprintf("ESP: 0x%x ", tf->esp);
-        cprintf("SS: 0x%x ", tf->ss);
+    printf("CPU %d" KYEL " KERNEL MODE EXCEPTION:" KRESET " %s\n", cpuid(), exception_messages[tf->trapno]);
+    printf(KBWHT "EIP:" KRESET " 0x%x ", tf->eip);
+    printf(KBWHT "CS:" KRESET " 0x%x ", tf->cs);
+    printf(KBWHT "EFLAGS:" KRESET " 0x%x ", tf->eflags);
+    if ((tf->cs == (SEG_UCODE << 3)) | DPL_USER) {
+        printf(KBWHT "ESP:" KRESET " 0x%x ", tf->esp);
+        printf(KBWHT "SS:" KRESET " 0x%x ", tf->ss);
     }
-    cprintf("\n");
+    printf("\n");
     panic("exception_handler");
 }
 
 
-void timer_handler([[maybe_unused]] struct trapframe* tf)
+void timer_handler([[maybe_unused]] struct trapframe *tf)
 {
-    if (cpuid() == 0)
-    {
+    if (cpuid() == 0) {
         acquire(&tickslock);
         ticks++;
         wakeup(&ticks);
@@ -123,28 +125,30 @@ void timer_handler([[maybe_unused]] struct trapframe* tf)
     lapiceoi(); // Acknowledge the interrupt
 }
 
-void ide_handler([[maybe_unused]] struct trapframe* tf)
+void ide_handler([[maybe_unused]] struct trapframe *tf)
 {
     ideintr();
     lapiceoi(); // Acknowledge the interrupt
 }
 
-void keyboard_handler([[maybe_unused]] struct trapframe* tf)
+void keyboard_handler([[maybe_unused]] struct trapframe *tf)
 {
     kbdintr();
     lapiceoi(); // Acknowledge the interrupt
 }
 
-void uart_handler([[maybe_unused]] struct trapframe* tf)
+void uart_handler([[maybe_unused]] struct trapframe *tf)
 {
     uartintr();
     lapiceoi(); // Acknowledge the interrupt
 }
 
-void spurious_handler(struct trapframe* tf)
+void spurious_handler(struct trapframe *tf)
 {
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
-            cpuid(), tf->cs, tf->eip);
+            cpuid(),
+            tf->cs,
+            tf->eip);
     lapiceoi();
 }
 
@@ -153,15 +157,13 @@ void spurious_handler(struct trapframe* tf)
  */
 void tvinit(void)
 {
-    for (int i = 0; i < 256; i++)
-    {
+    for (int i = 0; i < 256; i++) {
         SETGATE(idt[i], 0, SEG_KCODE << 3, vectors[i], 0);
     }
     SETGATE(idt[T_SYSCALL], 1, SEG_KCODE << 3, vectors[T_SYSCALL], DPL_USER);
 
 
-    for (int i = 0; i < 0x20; i++)
-    {
+    for (int i = 0; i < 0x20; i++) {
         idt_register_interrupt_callback(i, exception_handler);
     }
 
@@ -187,26 +189,30 @@ void idtinit(void)
  *
  * @param tf Trap frame captured at the time of the trap/interrupt.
  */
-void trap(struct trapframe* tf)
+void trap(struct trapframe *tf)
 {
-    if (interrupt_callbacks[tf->trapno])
-    {
+    if (interrupt_callbacks[tf->trapno]) {
         interrupt_callbacks[tf->trapno](tf);
-    }
-    else
-    {
-        if (current_process() == nullptr || (tf->cs & 3) == 0)
-        {
+    } else {
+        if (current_process() == nullptr || (tf->cs & 3) == 0) {
             // In kernel, it must be our mistake.
             cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
-                    tf->trapno, cpuid(), tf->eip, rcr2());
+                    tf->trapno,
+                    cpuid(),
+                    tf->eip,
+                    rcr2());
             panic("trap");
         }
         // In user space, assume the process misbehaved.
         cprintf("pid %d %s: trap %d err %d on cpu %d "
                 "eip 0x%x addr 0x%x--kill proc\n",
-                current_process()->pid, current_process()->name, tf->trapno,
-                tf->err, cpuid(), tf->eip, rcr2());
+                current_process()->pid,
+                current_process()->name,
+                tf->trapno,
+                tf->err,
+                cpuid(),
+                tf->eip,
+                rcr2());
         current_process()->killed = 1;
     }
 
