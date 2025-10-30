@@ -12,6 +12,7 @@
 #include "proc.h"
 #include "x86.h"
 #include "debug.h"
+#include "printf.h"
 #include "termcolors.h"
 
 // Special keycodes
@@ -479,6 +480,7 @@ bool param_process(const int c)
         // Not implemented
 
 
+
     }
 
     return true;
@@ -526,6 +528,28 @@ struct
     u32 w; // Write index
     u32 e; // Edit index
 } input;
+
+void boot_message(warning_level_t level, const char *fmt, ...)
+{
+    switch (level) {
+    case WARNING_LEVEL_INFO:
+        cprintf(KWHT "[ " KBGRN "INFO" KRESET " ] ");
+        break;
+    case WARNING_LEVEL_WARNING:
+        cprintf(KWHT "[ " KYEL "WARNING" KRESET " ] ");
+        break;
+    case WARNING_LEVEL_ERROR:
+        cprintf(KWHT "[ " KRED "ERROR" KRESET " ] ");
+        break;
+    }
+
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    printf("%s\n", buf);
+}
 
 
 #define CTRL(x) ((x) - '@') // Control-x

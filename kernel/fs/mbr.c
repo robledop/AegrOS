@@ -27,7 +27,7 @@ void mbr_init_fs()
 
         switch (mbr.part[i].type) {
         case MBR_TYPE_LINUX:
-            cprintf("Linux partition found at MBR partition %d\n", i);
+            boot_message(WARNING_LEVEL_INFO, "Linux partition found at MBR partition %d", i);
             // ext2_load_superblock(mbr.part[i].lba_start + 2); // EXT2 superblock is at offset 2
             break;
         case MBR_TYPE_FAT16_LBA:

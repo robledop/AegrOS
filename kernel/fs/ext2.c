@@ -136,12 +136,11 @@ void ext2fs_iinit(int dev)
 {
     mbr_load();
     ext2fs_readsb(dev, &ext2_sb);
-    cprintf("ext2: size %d nblocks %d ninodes %d inodes_per_group %d inode_size %d\n",
-            1024 << ext2_sb.s_log_block_size,
-            ext2_sb.s_blocks_count,
-            ext2_sb.s_inodes_count,
-            ext2_sb.s_inodes_per_group,
-            ext2_sb.s_inode_size);
+    boot_message(WARNING_LEVEL_INFO,
+                       "ext2: size %d nblocks %d ninodes %d",
+                       1024 << ext2_sb.s_log_block_size,
+                       ext2_sb.s_blocks_count,
+                       ext2_sb.s_inodes_count);
 }
 
 struct inode *ext2fs_ialloc(u32 dev, short type)

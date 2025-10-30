@@ -105,7 +105,7 @@ sum(u8 *addr, int len)
 }
 
 // Look for an MP structure in the len bytes at addr.
-static struct mp * mpsearch1(u32 a, int len)
+static struct mp *mpsearch1(u32 a, int len)
 {
     u8 *addr = P2V(a);
     u8 *e    = addr + len;
@@ -374,8 +374,11 @@ void mpinit(void)
     lapic    = nullptr;
     ioapicid = 0;
 
+    boot_message(WARNING_LEVEL_INFO, "Initializing multiprocessor support via ACPI");
     int acpi = acpi_init();
     if (!acpi) {
+        boot_message(WARNING_LEVEL_INFO,
+                           "ACPI multiprocessor initialization failed, falling back to legacy MP tables");
         int legacy = mpinit_legacy();
 
         if (!legacy) {

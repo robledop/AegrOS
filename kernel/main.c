@@ -75,10 +75,10 @@ static void mpenter(void)
  */
 static void mpmain(void)
 {
-    cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
+    boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpuid(), cpuid());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
-    scheduler();                        // start running processes
+    scheduler(); // start running processes
 }
 
 /** @brief Boot-time page directory referenced from assembly. */
@@ -102,7 +102,7 @@ static void startothers(void)
     u8 *code = P2V(0x7000);
     memmove(code, _binary_build_x86_entryother_start, (u32)_binary_build_x86_entryother_size);
 
-    cprintf("%d cpu%s\n", ncpu, ncpu == 1 ? "" : "s");
+    boot_message(WARNING_LEVEL_INFO, "%d cpu%s", ncpu, ncpu == 1 ? "" : "s");
 
     for (struct cpu *c = cpus; c < cpus + ncpu; c++) {
         if (c == current_cpu()) // We've started already.

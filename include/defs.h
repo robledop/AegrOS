@@ -13,6 +13,13 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+typedef enum warning_level
+{
+    WARNING_LEVEL_INFO,
+    WARNING_LEVEL_WARNING,
+    WARNING_LEVEL_ERROR,
+} warning_level_t;
+
 // bio.c
 void binit(void);
 struct buf *bread(u32, u32);
@@ -25,6 +32,7 @@ void cprintf(char *, ...);
 void consputc(int c);
 void consoleintr(int (*)(void));
 void panic(char *) __attribute__ ((noreturn));
+void boot_message(warning_level_t level, const char *fmt, ...);
 
 // exec.c
 int exec(char *, char **);
