@@ -171,10 +171,12 @@ found:
 /**
  * @brief Create the initial user process containing initcode.
  */
-void user_init(void)
+void user_init()
 {
+    boot_message(WARNING_LEVEL_INFO, "Creating initial user process");
+
     // This name depends on the path where initcode.asm is built.
-    extern char _binary_build_initcode_start[], _binary_build_initcode_size[];
+    extern char _binary_build_initcode_start[], _binary_build_initcode_size[]; // NOLINT(*-reserved-identifier)
 
     struct proc *p = alloc_proc();
 

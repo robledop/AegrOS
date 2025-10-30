@@ -5,6 +5,7 @@
 #include "types.h"
 #include "defs.h"
 #include "traps.h"
+#include "proc.h"
 
 #define IOAPIC 0xFEC00000 // Default physical address of IO APIC
 
@@ -82,13 +83,18 @@ void ioapicinit(void)
  * @brief Route an external interrupt to a specific CPU.
  *
  * @param irq IRQ line to enable.
- * @param cpunum APIC ID of the destination CPU.
+ * @param cpunum Index of the destination CPU in the cpus[] array.
  */
 void ioapicenable(int irq, int cpunum)
 {
+    if (cpunum < 0 || cpunum >= ncpu)
+        panic("ioapicenable: invalid cpu");
+
+    u32 apicid = cpus[cpunum].apicid;
+
     // Mark interrupt edge-triggered, active high,
     // enabled, and routed to the given cpunum,
     // which happens to be that cpu's APIC ID.
     ioapicwrite(REG_TABLE + 2 * irq, T_IRQ0 + irq);
-    ioapicwrite(REG_TABLE + 2 * irq + 1, cpunum << 24);
+    ioapicwrite(REG_TABLE + 2 * irq + 1, apicid << 24);
 }

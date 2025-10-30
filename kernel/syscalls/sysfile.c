@@ -120,51 +120,62 @@ static int canonicalize_absolute_path(const char *path, char *output, int outsz)
  */
 static int resolve_cwd_path(struct proc *proc, const char *request, char *resolved)
 {
-    if (request == nullptr || request[0] == '\0') {
+    if (request == nullptr || request[0] == '\0' || resolved == nullptr) {
         return -1;
     }
 
-    char combined[MAX_FILE_PATH];
     if (request[0] == '/') {
-        const int req_len = strnlen(request, MAX_FILE_PATH);
-        if (req_len < 0) {
-            return -1;
+        if (canonicalize_absolute_path(request, resolved, MAX_FILE_PATH) < 0) {
+            resolved[0] = '\0';
+            return 1;
         }
-        safestrcpy(combined, request, MAX_FILE_PATH);
-    } else {
-        const char *base = proc->cwd_path;
-        if (base[0] != '/') {
-            base = "/";
-        }
-        const int base_len = strnlen(base, MAX_FILE_PATH);
-        const int req_len  = strnlen(request, MAX_FILE_PATH);
-        if (base_len < 0 || req_len < 0) {
-            return -1;
-        }
-
-        safestrcpy(combined, base, MAX_FILE_PATH);
-        int len = base_len;
-        if (len == 0) {
-            combined[0] = '/';
-            combined[1] = '\0';
-            len         = 1;
-        }
-        if (len > 1 && combined[len - 1] != '/') {
-            if (len + 1 >= MAX_FILE_PATH) {
-                return -1;
-            }
-            combined[len++] = '/';
-            combined[len]   = '\0';
-        }
-        if (len + req_len >= MAX_FILE_PATH) {
-            return -1;
-        }
-        memmove(combined + len, request, req_len);
-        len += req_len;
-        combined[len] = '\0';
+        return 0;
     }
 
-    return canonicalize_absolute_path(combined, resolved, MAX_FILE_PATH);
+    if (proc->cwd_path[0] == '\0') {
+        resolved[0] = '\0';
+        return 1;
+    }
+
+    char combined[MAX_FILE_PATH];
+    const char *base = proc->cwd_path;
+    if (base[0] != '/') {
+        base = "/";
+    }
+    const int base_len = strnlen(base, MAX_FILE_PATH);
+    const int req_len  = strnlen(request, MAX_FILE_PATH);
+    if (base_len < 0 || req_len < 0) {
+        return -1;
+    }
+
+    safestrcpy(combined, base, MAX_FILE_PATH);
+    int len = base_len;
+    if (len == 0) {
+        combined[0] = '/';
+        combined[1] = '\0';
+        len         = 1;
+    }
+    if (len > 1 && combined[len - 1] != '/') {
+        if (len + 1 >= MAX_FILE_PATH) {
+            resolved[0] = '\0';
+            return 1;
+        }
+        combined[len++] = '/';
+        combined[len]   = '\0';
+    }
+    if (len + req_len >= MAX_FILE_PATH) {
+        resolved[0] = '\0';
+        return 1;
+    }
+    memmove(combined + len, request, req_len);
+    len += req_len;
+    combined[len] = '\0';
+
+    if (canonicalize_absolute_path(combined, resolved, MAX_FILE_PATH) < 0) {
+        resolved[0] = '\0';
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -678,7 +689,8 @@ int sys_chdir(void)
     if (argstr(0, &path) < 0 || (ip = namei(path)) == nullptr) {
         return -1;
     }
-    if (resolve_cwd_path(curproc, path, resolved) < 0) {
+    int rc = resolve_cwd_path(curproc, path, resolved);
+    if (rc < 0) {
         ip->iops->iput(ip);
         return -1;
     }
@@ -692,6 +704,10 @@ int sys_chdir(void)
     curproc->cwd = ip;
     safestrcpy(ip->path, resolved, MAX_FILE_PATH);
     safestrcpy(curproc->cwd_path, resolved, MAX_FILE_PATH);
+    if (rc > 0 && resolved[0] == '\0') {
+        ip->path[0]        = '\0';
+        curproc->cwd_path[0] = '\0';
+    }
     return 0;
 }
 

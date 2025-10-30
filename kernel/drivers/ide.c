@@ -18,6 +18,8 @@
 #define IDE_DF 0x20
 /** @brief Generic error flag. */
 #define IDE_ERR 0x01
+/** @brief Data request ready flag. */
+#define IDE_DRQ 0x08
 
 /** @brief PIO read command for a single sector. */
 #define IDE_CMD_READ 0x20
@@ -27,6 +29,8 @@
 #define IDE_CMD_RDMUL 0xc4
 /** @brief PIO write command for multiple sectors. */
 #define IDE_CMD_WRMUL 0xc5
+/** @brief Command to set up multi-sector transfer count. */
+#define IDE_CMD_SETMUL 0xc6
 
 #define SECTOR_PER_BLOCK (BSIZE / SECTOR_SIZE)
 
@@ -56,10 +60,22 @@ static int idewait(int checkerr)
     return 0;
 }
 
+static int idewait_drq(void)
+{
+    int r;
+    while (((r = inb(0x1f7)) & (IDE_BSY | IDE_DRDY | IDE_DRQ)) != (IDE_DRDY | IDE_DRQ)) {
+    }
+    if (r & (IDE_DF | IDE_ERR))
+        return -1;
+    return 0;
+}
+
 /** @brief Initialize the IDE controller and detect attached drives. */
 void ideinit(void)
 {
     initlock(&idelock, "ide");
+    boot_message(WARNING_LEVEL_INFO,
+                       "ncpu = %d, cpus[ncpu -1].apicid = %d", ncpu, cpus[ncpu - 1].apicid);
     ioapicenable(IRQ_IDE, ncpu - 1);
     idewait(0);
 
@@ -74,6 +90,14 @@ void ideinit(void)
 
     // Switch back to disk 0.
     outb(0x1f6, 0xe0 | (0 << 4));
+
+#if SECTOR_PER_BLOCK > 1
+    idewait(0);
+    outb(0x1f2, SECTOR_PER_BLOCK);
+    outb(0x1f7, IDE_CMD_SETMUL);
+    if (idewait(1) < 0)
+        boot_message(WARNING_LEVEL_WARNING, "ideinit: set multiple failed");
+#endif
 }
 
 /**
@@ -104,8 +128,12 @@ static void idestart(struct buf *b)
     outb(0x1f4, (sector >> 8) & 0xff);
     outb(0x1f5, (sector >> 16) & 0xff);
     outb(0x1f6, 0xe0 | ((b->dev & 1) << 4) | ((sector >> 24) & 0x0f));
+
     if (b->flags & B_DIRTY) {
         outb(0x1f7, write_cmd);
+        if (idewait_drq() < 0) {
+            boot_message(WARNING_LEVEL_ERROR, "idestart: write error before data transfer");
+        }
         outsl(0x1f0, b->data, BSIZE / 4);
     } else {
         outb(0x1f7, read_cmd);

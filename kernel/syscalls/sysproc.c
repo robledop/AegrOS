@@ -51,7 +51,11 @@ int sys_getcwd(void)
         return -1;
     }
 
-    safestrcpy(p, current_process()->cwd_path, n);
+    const char *cwd = current_process()->cwd_path;
+    if (cwd[0] == '\0') {
+        cwd = "/";
+    }
+    safestrcpy(p, cwd, n);
 
     return 0;
 }

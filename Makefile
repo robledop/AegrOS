@@ -101,6 +101,7 @@ qemu-nox-gdb: grub
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB)
 
 vbox: grub FORCE
+	./scripts/create_tap.sh
 	./scripts/start_vbox.sh $(MEMORY)
 
 qemu-nobuild:

@@ -77,9 +77,11 @@ int exec(char *path, char **argv)
         goto bad;
     }
 
+
     if ((pgdir = setup_kernel_page_directory()) == nullptr) {
         goto bad;
     }
+
 
     // Load program into memory.
     int sz = 0;
@@ -107,6 +109,7 @@ int exec(char *path, char **argv)
         if ((sz = allocuvm(pgdir, sz, alloc_end)) == 0) {
             goto bad;
         }
+
         if (loaduvm(pgdir, (char *)ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             goto bad;
         }
@@ -168,6 +171,7 @@ int exec(char *path, char **argv)
     curproc->trap_frame->esp = sp;
     activate_process(curproc);
     freevm(oldpgdir);
+
     return 0;
 
 bad:
