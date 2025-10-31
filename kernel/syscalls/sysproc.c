@@ -71,7 +71,7 @@ int sys_sbrk(void)
 
     if (argint(0, &n) < 0)
         return -1;
-    int addr = current_process()->size;
+    int addr = (int)current_process()->size;
     if (growproc(n) < 0)
         return -1;
     return addr;
@@ -110,7 +110,7 @@ int sys_uptime(void)
     acquire(&tickslock);
     u32 xticks = ticks;
     release(&tickslock);
-    return xticks;
+    return (int)xticks;
 }
 
 int sys_reboot(void)

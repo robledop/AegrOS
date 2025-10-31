@@ -115,7 +115,7 @@ static int canonicalize_absolute_path(const char *path, char *output, int outsz)
  *
  * @param proc Current process (provides cwd fallback).
  * @param request User-supplied path (absolute or relative).
- * @param resolved Output buffer receiving canonical absolute path.
+ * @param resolved Output buffer receiving a canonical absolute path.
  * @return 0 on success, -1 on failure.
  */
 static int resolve_cwd_path(struct proc *proc, const char *request, char *resolved)
@@ -392,9 +392,7 @@ int sys_unlink(void)
     if (argstr(0, &path) < 0)
         return -1;
 
-    // begin_op();
     if ((dp = nameiparent(path, name)) == nullptr) {
-        // end_op();
         return -1;
     }
 
@@ -428,8 +426,6 @@ int sys_unlink(void)
     ip->nlink--;
     ip->iops->iupdate(ip);
     ip->iops->iunlockput(ip);
-
-    // end_op();
 
     return 0;
 
