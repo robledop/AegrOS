@@ -12,9 +12,15 @@ u64 fib(u64 n)
 
 int main(const int argc, char **argv)
 {
-    printf("Calculating fibonacci of 46 using recursion.\n");
-    const u64 result = fib(46);
-    printf("\nResult: %llu", result);
+    if (argc < 2) {
+        printf("Usage: fib <number>\n");
+        return -1;
+    }
+
+    int number = atoi(argv[1]);
+    printf("Calculating fibonacci of %d using recursion.\n", number);
+    const u64 res = fib((u64)number);
+    printf("Result: %llu\n", res);
 
     // u64 a = 0, b = 1, c, i, n = 100;
     // for (i = 0; i < n; i++) {

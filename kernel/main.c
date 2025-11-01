@@ -77,7 +77,7 @@ static void mpenter(void)
  */
 static void mpmain(void)
 {
-    boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
+    // boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
     scheduler(); // start running processes
