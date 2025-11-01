@@ -121,3 +121,14 @@ int sys_reboot(void)
     outb(0x64, 0xFE);
     return 0;
 }
+
+int sys_shutdown()
+{
+    outw(0x604, 0x2000);  // qemu
+    outw(0x4004, 0x3400); // VirtualBox
+    outw(0xB004, 0x2000); // Bochs
+    outw(0x600, 0x34);    // Cloud hypervisors
+
+    hlt();
+    return 0;
+}

@@ -10,6 +10,7 @@
 #include "multiboot.h"
 #include "debug.h"
 #include "mbr.h"
+#include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */
 static void startothers(void);
@@ -45,6 +46,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     ioapicinit();                                       // another interrupt controller
     consoleinit();                                      // console hardware
     uartinit();                                         // serial port
+    cpu_print_info();
     pinit();                                            // process table
     tvinit();                                           // trap vectors
     binit();                                            // buffer cache
@@ -75,7 +77,7 @@ static void mpenter(void)
  */
 static void mpmain(void)
 {
-    boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpuid(), cpuid());
+    boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
     scheduler(); // start running processes

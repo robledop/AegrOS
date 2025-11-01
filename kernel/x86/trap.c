@@ -101,7 +101,7 @@ void exception_handler(struct trapframe *tf)
         return;
     }
 
-    printf("CPU %d" KYEL " KERNEL MODE EXCEPTION:" KRESET " %s\n", cpuid(), exception_messages[tf->trapno]);
+    printf("CPU %d" KYEL " KERNEL MODE EXCEPTION:" KRESET " %s\n", cpu_index(), exception_messages[tf->trapno]);
     printf(KBWHT "EIP:" KRESET " 0x%x ", tf->eip);
     printf(KBWHT "CS:" KRESET " 0x%x ", tf->cs);
     printf(KBWHT "EFLAGS:" KRESET " 0x%x ", tf->eflags);
@@ -116,7 +116,7 @@ void exception_handler(struct trapframe *tf)
 
 void timer_handler([[maybe_unused]] struct trapframe *tf)
 {
-    if (cpuid() == 0) {
+    if (cpu_index() == 0) {
         acquire(&tickslock);
         ticks++;
         wakeup(&ticks);
@@ -146,7 +146,7 @@ void uart_handler([[maybe_unused]] struct trapframe *tf)
 void spurious_handler(struct trapframe *tf)
 {
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
-            cpuid(),
+            cpu_index(),
             tf->cs,
             tf->eip);
     lapiceoi();
@@ -198,7 +198,7 @@ void trap(struct trapframe *tf)
             // In kernel, it must be our mistake.
             cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
                     tf->trapno,
-                    cpuid(),
+                    cpu_index(),
                     tf->eip,
                     rcr2());
             panic("trap");
@@ -210,7 +210,7 @@ void trap(struct trapframe *tf)
                 current_process()->name,
                 tf->trapno,
                 tf->err,
-                cpuid(),
+                cpu_index(),
                 tf->eip,
                 rcr2());
         current_process()->killed = 1;

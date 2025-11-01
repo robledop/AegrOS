@@ -43,3 +43,4 @@ SYSCALL sleep
 SYSCALL uptime
 SYSCALL getcwd
 SYSCALL reboot
+SYSCALL shutdown

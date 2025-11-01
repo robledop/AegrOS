@@ -6,4 +6,4 @@ add-symbol-file ./rootfs/bin/sh 0x0
 
 #break trapret
 #break vector32
-break panic
+#break panic

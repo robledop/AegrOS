@@ -54,7 +54,7 @@ void pinit(void)
  *
  * Must be called with interrupts disabled.
  */
-int cpuid()
+int cpu_index()
 {
     return current_cpu() - cpus;
 }

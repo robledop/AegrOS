@@ -25,7 +25,7 @@ void seginit(void)
     // Cannot share a CODE descriptor for both kernel and user
     // because it would have to have DPL_USR, but the CPU forbids
     // an interrupt from CPL=0 to DPL=3.
-    struct cpu *c     = &cpus[cpuid()];
+    struct cpu *c     = &cpus[cpu_index()];
     c->gdt[SEG_KCODE] = SEG(STA_X | STA_R, 0, 0xffffffff, 0);
     c->gdt[SEG_KDATA] = SEG(STA_W, 0, 0xffffffff, 0);
     c->gdt[SEG_UCODE] = SEG(STA_X | STA_R, 0, 0xffffffff, DPL_USER);

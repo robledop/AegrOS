@@ -285,6 +285,11 @@ int main(void)
             reboot();
         }
 
+        if (strncmp("shutdown", buf, 8) == 0 && input_len == 8) {
+            shutdown();
+            continue;
+        }
+
         bool return_immediately = false;
         return_immediately      = str_ends_with((char *)buf, " &");
 

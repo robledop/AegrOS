@@ -36,7 +36,7 @@ LD = $(TOOLPREFIX)ld
 INCLUDE = -I./include
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
-CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -O0 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
+CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
@@ -47,7 +47,8 @@ QEMUEXTRA := -display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=of
 QEMUGDB = -S -gdb tcp::1234 -d int -D qemu.log
 QEMUOPTS = -drive file=disk.img,index=0,media=disk,format=raw -smp $(CPUS) -m $(MEMORY)
 
-build/kernel: CFLAGS += -fsanitize=undefined -fstack-protector
+qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -O0
+qemu-perf: CFLAGS += -O3
 
 asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include syscall.asm traps.asm memlayout.asm mmu.asm asm.asm param.asm
@@ -79,9 +80,9 @@ grub: build/kernel apps FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
+	./scripts/create_tap.sh
 
 qemu: grub FORCE
-	./scripts/create_tap.sh
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA)
 
 qemu-nox: grub
@@ -96,11 +97,16 @@ qemu-nox-gdb: grub
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB)
 
 vbox: grub FORCE
-	./scripts/create_tap.sh
 	./scripts/start_vbox.sh $(MEMORY)
 
 qemu-nobuild:
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA)
+
+qemu-perf: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host
+
+qemu-nox-perf: grub
+	$(QEMU) -nographic $(QEMUOPTS) -accel kvm -cpu host
 
 .PHONY: clean
 clean:
