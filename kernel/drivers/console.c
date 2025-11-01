@@ -313,6 +313,10 @@ static void cgaputc(int c)
             cursor_y++;
         }
         break;
+    case '\b':
+        cursor_left();
+        vga_buffer_write(' ', attribute, cursor_x, cursor_y);
+        break;
     default:
         vga_buffer_write(c, attribute, -1, -1);
         cursor_x++;
@@ -579,6 +583,16 @@ void consoleintr(int (*getc)(void))
                 input.e--;
                 consputc(BACKSPACE);
             }
+            break;
+        case 226: // Up arrow
+            input.buf[input.e++ % INPUT_BUF] = c;
+            input.w = input.e;
+            wakeup(&input.r);
+            break;
+        case 227: // Down arrow
+            input.buf[input.e++ % INPUT_BUF] = c;
+            input.w = input.e;
+            wakeup(&input.r);
             break;
         default:
             if (c != 0 && input.e - input.r < INPUT_BUF) {

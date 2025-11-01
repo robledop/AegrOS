@@ -11,6 +11,17 @@ char *strcpy(char *s, const char *t)
     return os;
 }
 
+/** @brief Copy n characters of string */
+char *strncpy(char *s, const char *t, int n)
+{
+    char *os = s;
+    while (n-- > 0 && (*s++ = *t++) != 0) {
+    }
+    while (n-- > 0)
+        *s++ = 0;
+    return os;
+}
+
 int strcmp(const char *p, const char *q)
 {
     while (*p && *p == *q)
@@ -40,6 +51,22 @@ u32 strnlen(const char *s, const u32 maxlen)
     return n;
 }
 
+bool str_ends_with(const char *str, const char *suffix)
+{
+    if (!str || !suffix) {
+        return false;
+    }
+
+    const size_t str_len    = strlen(str);
+    const size_t suffix_len = strlen(suffix);
+
+    if (suffix_len > str_len) {
+        return false;
+    }
+
+    return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
+}
+
 void *memset(void *dst, int c, u32 n)
 {
     stosb(dst, c, n);
@@ -54,6 +81,29 @@ char *strchr(const char *s, char c)
     return nullptr;
 }
 
+int getkey()
+{
+    int c = 0;
+    read(0, &c, 1); // Read from stdin
+    return c;
+}
+
+int getkey_blocking()
+{
+    int key = 0;
+    key     = getkey();
+    while (key == 0) {
+        key = getkey();
+    }
+
+    return key;
+}
+
+void putchar(char c)
+{
+    write(0, &c, 1);
+}
+
 char *gets(char *buf, int max)
 {
     int i;
@@ -64,7 +114,7 @@ char *gets(char *buf, int max)
         if (cc < 1)
             break;
         buf[i++] = c;
-        if (c == '\n' || c == '\r')
+        if (c == '\n' || c == '\r' || c == -30)
             break;
     }
     buf[i] = '\0';

@@ -5,7 +5,7 @@ CC = $(TOOLPREFIX)gcc
 AS = nasm
 LD = $(TOOLPREFIX)ld
 INCLUDE = -I../include
-CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -O3 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
+CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -O0 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386

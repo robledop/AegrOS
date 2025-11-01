@@ -34,6 +34,7 @@ int reboot(void);
 // ulib.c
 int stat(const char *, struct stat *);
 char *strcpy(char *, const char *);
+char *strncpy(char *, const char *, int);
 void *memmove(void *, const void *, int);
 char *strchr(const char *, char c);
 int strcmp(const char *, const char *);
@@ -49,3 +50,7 @@ bool starts_with(const char pre[static 1], const char str[static 1]);
 char *strcat(char dest[static 1], const char src[static 1]);
 char* strncat(char dest[static 1], const char src[static 1], u32 n);
 u32 strnlen(const char *s, u32 maxlen);
+int getkey();
+int getkey_blocking();
+void putchar(char c);
+bool str_ends_with(const char *str, const char *suffix);

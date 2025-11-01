@@ -6,6 +6,11 @@
 #include "fcntl.h"
 #include "termcolors.h"
 
+
+#define MAX_COMMAND_LENGTH 256
+#define COMMAND_HISTORY_SIZE 10
+#define COMMAND_HISTORY_ENTRY_SIZE 256
+
 // Parsed command representation
 #define EXEC  1
 #define REDIR 2
@@ -57,6 +62,10 @@ struct backcmd
     struct cmd *cmd;
 };
 
+
+static char command_history[COMMAND_HISTORY_SIZE][COMMAND_HISTORY_ENTRY_SIZE];
+static int history_count = 0;
+
 int fork1(void); // Fork but panics on failure.
 void panic(char *);
 struct cmd *parsecmd(char *);
@@ -84,14 +93,14 @@ struct cmd *parsecmd(char *);
         if (ecmd->argv[0] == nullptr)
             exit();
         exec(ecmd->argv[0], ecmd->argv);
-        printf( "exec %s failed\n", ecmd->argv[0]);
+        printf("exec %s failed\n", ecmd->argv[0]);
         break;
 
     case REDIR:
         rcmd = (struct redircmd *)cmd;
         close(rcmd->fd);
         if (open(rcmd->file, rcmd->mode) < 0) {
-            printf( "open %s failed\n", rcmd->file);
+            printf("open %s failed\n", rcmd->file);
             exit();
         }
         runcmd(rcmd->cmd);
@@ -138,23 +147,85 @@ struct cmd *parsecmd(char *);
     exit();
 }
 
-int getcmd(char *buf, int nbuf)
+void shell_terminal_readline(char *out, const int max, const bool output_while_typing)
 {
-    char cwd[MAX_FILE_PATH];
-    getcwd(cwd, sizeof(cwd));
-    printf( "%s" KGRN "> " KWHT, cwd);
-    memset(buf, 0, nbuf);
-    gets(buf, nbuf);
-    if (buf[0] == 0) // EOF
-    {
-        return -1;
+    int current_history_index = history_count;
+    int i                     = 0;
+    for (; i < max - 1; i++) {
+        const unsigned char key = getkey_blocking();
+        if (key == 0) {
+            continue;
+        }
+
+        // Up arrow
+        if (key == 226) {
+            if (current_history_index == 0) {
+                continue;
+            }
+
+            for (int j = 0; j < i - 1; j++) {
+                printf("\b");
+            }
+            current_history_index--;
+            strncpy((char *)out, command_history[current_history_index], (u32)max);
+            i = (int)strnlen((char *)out, max);
+            printf((char *)out);
+            continue;
+        }
+
+        // TODO: This is still a little buggy
+        // Down arrow
+        if (key == 227) {
+            if (current_history_index >= history_count - 1) {
+                continue;
+            }
+
+            for (int j = 0; j < i - 1; j++) {
+                printf("\b");
+            }
+            current_history_index++;
+            strncpy((char *)out, command_history[current_history_index], (u32)max);
+            i = (int)strlen((char *)out);
+            printf((char *)out);
+            continue;
+        }
+
+        // Left arrow key
+        if (key == 228) {
+            if (i <= 0) {
+                i = -1;
+                continue;
+            } else {
+                i -= 2;
+            }
+        }
+
+        if (key == '\n' || key == '\r') {
+            break;
+        }
+
+        if (key == '\b' && i <= 0) {
+            i = -1;
+            continue;
+        }
+
+        if (output_while_typing) {
+            putchar((char)key);
+        }
+
+        if (key == '\b' && i > 0) {
+            i -= 2;
+            continue;
+        }
+
+        out[i] = key;
     }
-    return 0;
+
+    out[i] = 0x00;
 }
 
 int main(void)
 {
-    static char buf[100];
     int fd;
 
     // Ensure that three file descriptors are open.
@@ -165,42 +236,74 @@ int main(void)
         }
     }
 
+    printf(KWHT "User mode shell started\n");
+
     // Read and run input commands.
-    while (getcmd(buf, sizeof(buf)) >= 0) {
+    while (true) {
+        char cwd[MAX_FILE_PATH];
+        getcwd(cwd, sizeof(cwd));
+        printf("%s" KGRN "> " KWHT, cwd);
+
+        char buf[MAX_COMMAND_LENGTH] = {0};
+        shell_terminal_readline(buf, sizeof(buf), false);
+
+        if (strlen((char *)buf) != 0) {
+            u32 copy_len = sizeof(command_history[0]);
+
+            if (history_count == COMMAND_HISTORY_SIZE) {
+                memmove(command_history[0],
+                        command_history[1],
+                        (COMMAND_HISTORY_SIZE - 1) * sizeof(command_history[0]));
+                history_count = COMMAND_HISTORY_SIZE - 1;
+            }
+
+            strncpy(command_history[history_count], (char *)buf, (int)copy_len);
+            command_history[history_count][copy_len - 1] = '\0';
+            history_count++;
+        }
+
         if (starts_with("cd ", buf)) {
             // Chdir must be called by the parent, not the child.
-            buf[strlen(buf) - 1] = 0; // chop \n
+            buf[strlen(buf)] = 0;
             if (chdir(buf + 3) < 0)
-                printf( "cannot cd %s\n", buf + 3);
+                printf("cannot cd %s\n", buf + 3);
             continue;
         }
 
         const u32 input_len = strnlen(buf, 100);
-        if (strncmp("exit", buf, 4) == 0 && input_len == 5 /* including newline */) {
+        if (strncmp("exit", buf, 4) == 0 && input_len == 4) {
             exit();
         }
 
-        if (strncmp("cls", buf, 3) == 0 && input_len == 4) {
+        if (strncmp("cls", buf, 3) == 0 && input_len == 3) {
             // Clear the screen
-            printf( "\033[2J\033[H");
+            printf("\033[2J\033[H");
             continue;
         }
 
-        if (strncmp("reboot", buf, 6) == 0 && input_len == 7) {
+        if (strncmp("reboot", buf, 6) == 0 && input_len == 6) {
             reboot();
+        }
+
+        bool return_immediately = false;
+        return_immediately      = str_ends_with((char *)buf, " &");
+
+        if (return_immediately) {
+            buf[strlen((char *)buf) - 2] = 0x00;
         }
 
         if (fork1() == 0) {
             runcmd(parsecmd(buf));
         }
-
-        wait();
+        if (!return_immediately) {
+            wait();
+        }
     }
 }
 
 void panic(char *s)
 {
-    printf( "%s\n", s);
+    printf("%s\n", s);
     exit();
 }
 
