@@ -51,6 +51,7 @@ UPROGS=\
 	build/usertests\
 	build/wc\
 	build/zombie\
+	build/fib\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

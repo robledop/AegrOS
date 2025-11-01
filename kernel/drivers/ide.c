@@ -74,8 +74,6 @@ static int idewait_drq(void)
 void ideinit(void)
 {
     initlock(&idelock, "ide");
-    boot_message(WARNING_LEVEL_INFO,
-                       "ncpu = %d, cpus[ncpu -1].apicid = %d", ncpu, cpus[ncpu - 1].apicid);
     ioapicenable(IRQ_IDE, ncpu - 1);
     idewait(0);
 
