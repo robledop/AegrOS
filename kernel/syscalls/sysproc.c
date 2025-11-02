@@ -74,7 +74,7 @@ int sys_sbrk(void)
         return -1;
     }
     int addr = (int)current_process()->size;
-    if (growproc(n) < 0) {
+    if (resize_proc(n) < 0) {
         return -1;
     }
     return addr;

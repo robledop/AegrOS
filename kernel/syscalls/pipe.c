@@ -32,11 +32,11 @@ struct pipe
  */
 int pipealloc(struct file** f0, struct file** f1)
 {
-    struct pipe* p = 0;
-    *f0 = *f1 = 0;
-    if ((*f0 = filealloc()) == 0 || (*f1 = filealloc()) == 0)
+    struct pipe* p = nullptr;
+    *f0 = *f1 = nullptr;
+    if ((*f0 = filealloc()) == nullptr || (*f1 = filealloc()) == nullptr)
         goto bad;
-    if ((p = (struct pipe*)kalloc()) == 0)
+    if ((p = (struct pipe*)kalloc_page()) == nullptr)
         goto bad;
     p->readopen = 1;
     p->writeopen = 1;
@@ -55,7 +55,7 @@ int pipealloc(struct file** f0, struct file** f1)
 
 bad:
     if (p)
-        kfree((char*)p);
+        kfree_page((char*)p);
     if (*f0)
         fileclose(*f0);
     if (*f1)
@@ -85,7 +85,7 @@ void pipeclose(struct pipe* p, int writable)
     if (p->readopen == 0 && p->writeopen == 0)
     {
         release(&p->lock);
-        kfree((char*)p);
+        kfree_page((char*)p);
     }
     else
         release(&p->lock);

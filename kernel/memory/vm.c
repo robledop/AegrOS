@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "param.h"
 #include "types.h"
 #include "defs.h"
@@ -12,6 +13,7 @@
 extern char data[]; // defined by kernel.ld
 /** @brief Kernel page directory shared across CPUs when idle. */
 pde_t *kpgdir; // for use in scheduler()
+u32 kpgdir_break;
 
 /**
  * @brief Initialize the per-CPU segment descriptors.
@@ -49,7 +51,7 @@ static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
     if (*pde & PTE_P) {
         pgtab = (pte_t *)P2V(PTE_ADDR(*pde));
     } else {
-        if (!alloc || (pgtab = (pte_t *)kalloc()) == nullptr) {
+        if (!alloc || (pgtab = (pte_t *)kalloc_page()) == nullptr) {
             return nullptr;
         }
         // Make sure all those PTE_P bits are zero.
@@ -79,13 +81,16 @@ static int mappages(pde_t *pgdir, void *va, u32 size, u32 pa, int perm)
     const char *a    = (char *)PGROUNDDOWN((u32)va);
     const char *last = (char *)PGROUNDDOWN(((u32)va) + size - 1);
     for (;;) {
-        if ((pte = walkpgdir(pgdir, a, 1)) == nullptr)
+        if ((pte = walkpgdir(pgdir, a, 1)) == nullptr) {
             return -1;
-        if (*pte & PTE_P)
+        }
+        if (*pte & PTE_P) {
             panic("remap");
+        }
         *pte = pa | perm | PTE_P;
-        if (a == last)
+        if (a == last) {
             break;
+        }
         a += PGSIZE;
         pa += PGSIZE;
     }
@@ -136,8 +141,9 @@ pde_t *setup_kernel_page_directory(void)
 {
     pde_t *pgdir;
 
-    if ((pgdir = (pde_t *)kalloc()) == nullptr)
+    if ((pgdir = (pde_t *)kalloc_page()) == nullptr) {
         return nullptr;
+    }
     memset(pgdir, 0, PGSIZE);
 
 #if (PHYSTOP + KERNBASE) > DEVSPACE
@@ -153,13 +159,15 @@ pde_t *setup_kernel_page_directory(void)
             freevm(pgdir);
             return nullptr;
         }
+
     return pgdir;
 }
 
 /** @brief Allocate the kernel page directory and activate it. */
 void kernel_page_directory_init(void)
 {
-    kpgdir = setup_kernel_page_directory();
+    kpgdir       = setup_kernel_page_directory();
+    kpgdir_break = (uptr)KHEAP_START;
     switch_kernel_page_directory();
 }
 
@@ -167,6 +175,33 @@ void kernel_page_directory_init(void)
 void switch_kernel_page_directory(void)
 {
     lcr3(V2P(kpgdir)); // switch to the kernel page table
+}
+
+
+/**
+ * @brief Grow or shrink a page directory's address space.
+ *
+ * @param n Positive delta to grow, negative to shrink.
+ * @return 0 on success, -1 on failure.
+ */
+u32 resize_kernel_page_directory(int n)
+{
+    u32 sz        = kpgdir_break;
+    u32 old_break = kpgdir_break;
+    if (n > 0) {
+        if ((sz = allocvm(kpgdir, sz, sz + n, PTE_W)) == 0) {
+            return -1;
+        }
+    } else if (n < 0) {
+        if ((sz = deallocvm(kpgdir, sz, (int)sz + n)) == 0) {
+            return -1;
+        }
+    } else {
+        return 0;
+    }
+
+    kpgdir_break = sz;
+    return old_break;
 }
 
 /**
@@ -208,7 +243,7 @@ void inituvm(pde_t *pgdir, const char *init, u32 sz)
     if (sz >= PGSIZE) {
         panic("inituvm: more than a page");
     }
-    char *mem = kalloc();
+    char *mem = kalloc_page();
     memset(mem, 0, PGSIZE);
     mappages(pgdir, nullptr, PGSIZE, V2P(mem), PTE_W | PTE_U);
     memmove(mem, init, sz);
@@ -260,34 +295,37 @@ int loaduvm(pde_t *pgdir, char *addr, struct inode *ip, u32 offset, u32 sz)
 }
 
 /**
- * @brief Grow a process's address space.
+ * @brief Grow a page directory's address space.
  *
  * Allocates physical pages and maps them into the supplied page directory.
  *
  * @param pgdir Page directory to extend.
  * @param oldsz Current size in bytes.
  * @param newsz Requested new size in bytes.
+ * @param perm Permission bits to set on each new mapping.
  * @return The resulting size on success, or 0 on failure.
  */
-int allocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
+int allocvm(pde_t *pgdir, u32 oldsz, u32 newsz, int perm)
 {
-    if (newsz >= KERNBASE)
+    if (newsz >= KERNBASE && perm & PTE_U) {
         return 0;
-    if (newsz < oldsz)
+    }
+    if (newsz < oldsz) {
         return (int)oldsz;
+    }
 
     for (u32 a = PGROUNDUP(oldsz); a < newsz; a += PGSIZE) {
-        char *mem = kalloc();
+        char *mem = kalloc_page();
         if (mem == nullptr) {
-            cprintf("allocuvm out of memory\n");
-            deallocuvm(pgdir, newsz, oldsz);
+            cprintf("allocvm out of memory\n");
+            deallocvm(pgdir, newsz, oldsz);
             return 0;
         }
         memset(mem, 0, PGSIZE);
-        if (mappages(pgdir, (char *)a, PGSIZE, V2P(mem), PTE_W | PTE_U) < 0) {
-            cprintf("allocuvm out of memory (2)\n");
-            deallocuvm(pgdir, newsz, oldsz);
-            kfree(mem);
+        if (mappages(pgdir, (char *)a, PGSIZE, V2P(mem), perm) < 0) {
+            cprintf("allocvm out of memory (2)\n");
+            deallocvm(pgdir, newsz, oldsz);
+            kfree_page(mem);
             return 0;
         }
     }
@@ -304,7 +342,7 @@ int allocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
  * @param newsz Desired size in bytes.
  * @return The resulting size after deallocation.
  */
-int deallocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
+int deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
 {
     if (newsz >= oldsz)
         return oldsz;
@@ -316,10 +354,11 @@ int deallocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
             a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
         } else if ((*pte & PTE_P) != 0) {
             u32 pa = PTE_ADDR(*pte);
-            if (pa == 0)
+            if (pa == 0) {
                 panic("kfree");
+            }
             char *v = P2V(pa);
-            kfree(v);
+            kfree_page(v);
             *pte = 0;
         }
     }
@@ -332,14 +371,14 @@ void freevm(pde_t *pgdir)
     if (pgdir == nullptr) {
         panic("freevm: no pgdir");
     }
-    deallocuvm(pgdir, KERNBASE, 0);
+    deallocvm(pgdir, KERNBASE, 0);
     for (u32 i = 0; i < NPDENTRIES; i++) {
         if (pgdir[i] & PTE_P) {
             char *v = P2V(PTE_ADDR(pgdir[i]));
-            kfree(v);
+            kfree_page(v);
         }
     }
-    kfree((char *)pgdir);
+    kfree_page((char *)pgdir);
 }
 
 /**
@@ -351,8 +390,9 @@ void freevm(pde_t *pgdir)
 void clearpteu(pde_t *pgdir, const char *uva)
 {
     pte_t *pte = walkpgdir(pgdir, uva, 0);
-    if (pte == nullptr)
+    if (pte == nullptr) {
         panic("clearpteu");
+    }
     *pte &= ~PTE_U;
 }
 
@@ -380,7 +420,7 @@ pde_t *copyuvm(pde_t *pgdir, u32 sz)
         }
 
         char *mem;
-        if ((mem = kalloc()) == nullptr) {
+        if ((mem = kalloc_page()) == nullptr) {
             goto bad;
         }
 
@@ -388,7 +428,7 @@ pde_t *copyuvm(pde_t *pgdir, u32 sz)
         int flags = PTE_FLAGS(*pte);
         memmove(mem, (char *)P2V(pa), PGSIZE);
         if (mappages(d, (void *)i, PGSIZE, V2P(mem), flags) < 0) {
-            kfree(mem);
+            kfree_page(mem);
             goto bad;
         }
     }

@@ -36,7 +36,7 @@ LD = $(TOOLPREFIX)ld
 INCLUDE = -I./include
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
-CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
+CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -Wall -MD -m32 -fno-omit-frame-pointer -std=gnu23
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
@@ -48,8 +48,8 @@ QEMUGDB = -S -gdb tcp::1234 -d int -D qemu.log
 QEMUOPTS = -drive file=disk.img,index=0,media=disk,format=raw -smp $(CPUS) -m $(MEMORY)
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 
-qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -O0
-qemu-perf: CFLAGS += -O3
+qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0
+vbox qemu-nox-perf qemu-perf: CFLAGS += -O3
 
 asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include syscall.asm traps.asm memlayout.asm mmu.asm asm.asm param.asm
@@ -86,14 +86,14 @@ grub: build/kernel apps FORCE
 qemu: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
-qemu-nox: grub
+qemu-nox: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK)
 
-qemu-gdb: grub
+qemu-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
 	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA) $(QEMU_NETWORK)
 
-qemu-nox-gdb: grub
+qemu-nox-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB) $(QEMU_NETWORK)
 
@@ -106,7 +106,7 @@ qemu-nobuild:
 qemu-perf: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
 
-qemu-nox-perf: grub
+qemu-nox-perf: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
 .PHONY: clean

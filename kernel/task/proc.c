@@ -39,7 +39,7 @@ struct proc *current_process(void)
 static struct proc *init_proc(struct proc *p)
 {
     // Allocate kernel stack.
-    if ((p->kstack = kalloc()) == nullptr) {
+    if ((p->kstack = kalloc_page()) == nullptr) {
         p->state = UNUSED;
         return nullptr;
     }
@@ -91,7 +91,7 @@ found:
 
 [[maybe_unused]] static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
 {
-    if ((p->kstack = kalloc()) == nullptr) {
+    if ((p->kstack = kalloc_page()) == nullptr) {
         p->state = UNUSED;
         return nullptr;
     }
@@ -157,17 +157,17 @@ void user_init()
  * @param n Positive delta to grow, negative to shrink.
  * @return 0 on success, -1 on failure.
  */
-int growproc(int n)
+int resize_proc(int n)
 {
     struct proc *curproc = current_process();
 
     u32 sz = curproc->size;
     if (n > 0) {
-        if ((sz = allocuvm(curproc->page_directory, sz, sz + n)) == 0) {
+        if ((sz = allocvm(curproc->page_directory, sz, sz + n, PTE_W | PTE_U)) == 0) {
             return -1;
         }
     } else if (n < 0) {
-        if ((sz = deallocuvm(curproc->page_directory, sz, sz + n)) == 0) {
+        if ((sz = deallocvm(curproc->page_directory, sz, sz + n)) == 0) {
             return -1;
         }
     }
@@ -176,12 +176,14 @@ int growproc(int n)
     return 0;
 }
 
+
+
 /**
  * @brief Create a child process that duplicates the current process.
  *
  * The caller must mark the returned process RUNNABLE.
  *
- * @return Child PID in the parent, ::0 in the child, or ::-1 on failure.
+ * @return Child PID in the parent, 0 in the child, or -1 on failure.
  */
 int fork(void)
 {
@@ -195,7 +197,7 @@ int fork(void)
 
     // Copy process state from proc.
     if ((np->page_directory = copyuvm(curproc->page_directory, curproc->size)) == nullptr) {
-        kfree(np->kstack);
+        kfree_page(np->kstack);
         np->kstack = nullptr;
         np->state  = UNUSED;
         return -1;

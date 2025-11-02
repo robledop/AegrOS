@@ -106,7 +106,7 @@ int exec(char *path, char **argv)
         if (alloc_end < seg_end) {
             goto bad;
         }
-        if ((sz = allocuvm(pgdir, sz, alloc_end)) == 0) {
+        if ((sz = allocvm(pgdir, sz, alloc_end, PTE_W | PTE_U)) == 0) {
             goto bad;
         }
 
@@ -120,7 +120,7 @@ int exec(char *path, char **argv)
     // Allocate two pages at the next page boundary.
     // Make the first inaccessible (stack guard page).  Use the second as the user stack.
     sz = PGROUNDUP(sz);
-    if ((sz = allocuvm(pgdir, sz, sz + 2 * PGSIZE)) == 0) {
+    if ((sz = allocvm(pgdir, sz, sz + 2 * PGSIZE, PTE_W | PTE_U)) == 0) {
         goto bad;
     }
     clearpteu(pgdir, (char *)(sz - 2 * PGSIZE));

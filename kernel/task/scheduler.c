@@ -106,7 +106,7 @@ int wait(void)
             if (p->state == ZOMBIE) {
                 // Found one.
                 int pid = p->pid;
-                kfree(p->kstack);
+                kfree_page(p->kstack);
                 p->kstack = nullptr;
                 freevm(p->page_directory);
                 p->pid     = 0;

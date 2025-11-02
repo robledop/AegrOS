@@ -282,6 +282,7 @@ void e1000_linkup()
  */
 bool e1000_start()
 {
+    return false;
     e1000_detect_eeprom();
     if (!e1000_read_mac_address()) {
         return false;

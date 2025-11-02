@@ -56,6 +56,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     startothers();                                      // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP));         // must come after startothers()
     pci_scan();
+    uptr * test = kmalloc(1);
     user_init();                                        // first user process
     mpmain();                                           // finish this processor's setup
 }
@@ -116,7 +117,7 @@ static void startothers(void)
         // Tell entryother.S what stack to use, where to enter, and what
         // pgdir to use. We cannot use kpgdir yet, because the AP processor
         // is running in low  memory, so we use entrypgdir for the APs too.
-        char *stack                  = kalloc();
+        char *stack                  = kalloc_page();
         *(void **)(code - 4)         = stack + KSTACKSIZE;
         *(void (**)(void))(code - 8) = mpenter;
         *(int **)(code - 12)         = (void *)V2P(entrypgdir);

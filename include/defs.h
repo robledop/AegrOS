@@ -63,9 +63,9 @@ void ioapicenable(int irq, int cpu);
 extern u8 ioapicid;
 void ioapicinit(void);
 
-// kalloc.c
-char *kalloc(void);
-void kfree(char *);
+// kalloc_page.c
+char *kalloc_page(void);
+void kfree_page(char *);
 void kinit1(void *, void *);
 void kinit2(void *, void *);
 
@@ -99,7 +99,7 @@ int pipewrite(struct pipe *, char *, int);
 int cpu_index(void);
 void exit(void);
 int fork(void);
-int growproc(int);
+int resize_proc(int);
 int kill(int);
 struct cpu *current_cpu();
 struct proc *current_process();
@@ -160,16 +160,21 @@ void seginit(void);
 void kernel_page_directory_init();
 pde_t *setup_kernel_page_directory();
 char *uva2ka(pde_t *, char *);
-int allocuvm(pde_t *, u32, u32);
-int deallocuvm(pde_t *, u32, u32);
+int allocvm(pde_t *, u32, u32, int);
+int deallocvm(pde_t *, u32, u32);
 void freevm(pde_t *);
 void inituvm(pde_t *, const char *, u32);
 int loaduvm(pde_t *, char *, struct inode *, u32, u32);
 pde_t *copyuvm(pde_t *, u32);
 void activate_process(struct proc *);
+u32 resize_kernel_page_directory(int n);
 void switch_kernel_page_directory();
 int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
+
+
+void *kmalloc(u32 nbytes);
+void kfree(void *ap);
 
 // number of elements in a fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

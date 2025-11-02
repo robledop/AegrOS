@@ -54,7 +54,7 @@ void freerange(void *vstart, void *vend)
 {
     char *p = (char *)PGROUNDUP((u32)vstart);
     for (; p + PGSIZE <= (char *)vend; p += PGSIZE) {
-        kfree(p);
+        kfree_page(p);
     }
 }
 
@@ -63,35 +63,41 @@ void freerange(void *vstart, void *vend)
  * call to kalloc().  (The exception is when
  * initializing the allocator; see kinit)
  */
-void kfree(char *v)
+void kfree_page(char *v)
 {
-    if ((u32)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
-        panic("kfree");
+    if ((u32)v % PGSIZE || v < end || V2P(v) >= PHYSTOP) {
+        panic("kfree_page");
+    }
 
     // Fill with junk to catch dangling refs.
     memset(v, 1, PGSIZE);
 
-    if (kmem.use_lock)
+    if (kmem.use_lock) {
         acquire(&kmem.lock);
+    }
     struct run *r = (struct run *)v;
     r->next       = kmem.freelist; // The current head of the free list becomes the next of this page
     kmem.freelist = r;             // This page becomes the head of the free list
-    if (kmem.use_lock)
+    if (kmem.use_lock) {
         release(&kmem.lock);
+    }
 }
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
 /** @brief Allocate one 4096-byte page of physical memory */
-char *kalloc(void)
+char *kalloc_page(void)
 {
-    if (kmem.use_lock)
+    if (kmem.use_lock) {
         acquire(&kmem.lock);
+    }
     struct run *r = kmem.freelist; // Gets the first free page
-    if (r)
+    if (r) {
         kmem.freelist = r->next; // The next free page becomes the head of the list
-    if (kmem.use_lock)
+    }
+    if (kmem.use_lock) {
         release(&kmem.lock);
+    }
     return (char *)r; // Returns the first free page (or 0 if none)
 }
