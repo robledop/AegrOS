@@ -7,6 +7,7 @@
 #include "syscall.h"
 #include "traps.h"
 #include "memlayout.h"
+#include "termcolors.h"
 
 char buf[8192];
 char name[3];
@@ -15,54 +16,54 @@ char *echoargv[] = {"echo", "ALL", "TESTS", "PASSED", nullptr};
 // does chdir() call iput(p->cwd) in a transaction?
 void iputtest(void)
 {
-    printf("iput test\n");
+    printf("iput test");
 
     if (mkdir("iputdir") < 0) {
-        printf("mkdir failed\n");
+        printf(KBRED "\nmkdir failed\n" KRESET);
         exit();
     }
     if (chdir("iputdir") < 0) {
-        printf("chdir iputdir failed\n");
+        printf(KBRED "\nchdir iputdir failed\n" KRESET);
         exit();
     }
     if (unlink("../iputdir") < 0) {
-        printf("unlink ../iputdir failed\n");
+        printf(KBRED "\nunlink ../iputdir failed\n" KRESET);
         exit();
     }
     if (chdir("/") < 0) {
-        printf("chdir / failed\n");
+        printf(KBRED "\nchdir / failed\n" KRESET);
         exit();
     }
-    printf("iput test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // does exit() call iput(p->cwd) in a transaction?
 void exitiputtest(void)
 {
-    printf("exitiput test\n");
+    printf("exitiput test");
 
     int pid = fork();
     if (pid < 0) {
-        printf("fork failed\n");
+        printf(KBRED "\nfork failed\n" KRESET);
         exit();
     }
     if (pid == 0) {
         if (mkdir("iputdir") < 0) {
-            printf("mkdir failed\n");
+            printf(KBRED "\nmkdir failed\n" KRESET);
             exit();
         }
         if (chdir("iputdir") < 0) {
-            printf("child chdir failed\n");
+            printf(KBRED "\nchild chdir failed\n" KRESET);
             exit();
         }
         if (unlink("../iputdir") < 0) {
-            printf("unlink ../iputdir failed\n");
+            printf(KBRED "\nunlink ../iputdir failed\n" KRESET);
             exit();
         }
         exit();
     }
     wait();
-    printf("exitiput test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // does the error path in open() for attempt to write a
@@ -78,115 +79,108 @@ void exitiputtest(void)
 //    }
 void openiputtest(void)
 {
-    printf("openiput test\n");
+    printf("openiput test");
     if (mkdir("oidir") < 0) {
-        printf("mkdir oidir failed\n");
+        printf(KBRED "\nmkdir oidir failed\n" KRESET);
         exit();
     }
     int pid = fork();
     if (pid < 0) {
-        printf("fork failed\n");
+        printf(KBRED "\nfork failed\n" KRESET);
         exit();
     }
     if (pid == 0) {
         int fd = open("oidir", O_RDWR);
         if (fd >= 0) {
-            printf("open directory for write succeeded\n");
+            printf(KBRED "\nopen directory for write succeeded\n" KRESET);
             exit();
         }
         exit();
     }
     sleep(1);
     if (unlink("oidir") != 0) {
-        printf("unlink failed\n");
+        printf(KBRED "\nunlink failed\n" KRESET);
         exit();
     }
     wait();
-    printf("openiput test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // simple file system tests
 
 void opentest(void)
 {
-    printf("open test\n");
+    printf("open test");
     int fd = open("/bin/echo", 0);
     if (fd < 0) {
-        printf("open echo failed!\n");
+        printf(KBRED "\nopen echo failed!\n" KRESET);
         exit();
     }
     close(fd);
     fd = open("doesnotexist", 0);
     if (fd >= 0) {
-        printf("open doesnotexist succeeded!\n");
+        printf(KBRED "\nopen doesnotexist succeeded!\n" KRESET);
         exit();
     }
-    printf("open test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void writetest(void)
 {
     int i;
 
-    printf("small file test\n");
+    printf("small file test");
     int fd = open("small", O_CREATE | O_RDWR);
-    if (fd >= 0) {
-        printf("creat small succeeded; ok\n");
-    } else {
-        printf("error: creat small failed!\n");
+    if (fd < 0) {
+        printf(KBRED "\ncreat small failed!\n" KRESET);
         exit();
     }
     for (i = 0; i < 100; i++) {
         if (write(fd, "aaaaaaaaaa", 10) != 10) {
-            printf("error: write aa %d new file failed\n", i);
+            printf(KBRED "\nwrite aa %d new file failed\n" KRESET, i);
             exit();
         }
         if (write(fd, "bbbbbbbbbb", 10) != 10) {
-            printf("error: write bb %d new file failed\n", i);
+            printf(KBRED "\nwrite bb %d new file failed\n" KRESET, i);
             exit();
         }
     }
-    printf("writes ok\n");
     close(fd);
     fd = open("small", O_RDONLY);
-    if (fd >= 0) {
-        printf("open small succeeded ok\n");
-    } else {
-        printf("error: open small failed!\n");
+    if (fd < 0) {
+        printf(KBRED "\nopen small failed!\n" KRESET);
         exit();
     }
     i = read(fd, buf, 2000);
-    if (i == 2000) {
-        printf("read succeeded ok\n");
-    } else {
-        printf("read failed\n");
+    if (i != 2000) {
+        printf(KBRED "\nread failed\n" KRESET);
         exit();
     }
     close(fd);
 
     if (unlink("small") < 0) {
-        printf("unlink small failed\n");
+        printf(KBRED "\nunlink small failed\n" KRESET);
         exit();
     }
-    printf("small file test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void writetest1(void)
 {
     int i;
 
-    printf("big files test\n");
+    printf("big files test");
 
     int fd = open("big", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("error: creat big failed!\n");
+        printf(KBRED "\ncreat big failed!\n" KRESET);
         exit();
     }
 
     for (i = 0; i < MAXFILE; i++) {
         ((int *)buf)[0] = i;
         if (write(fd, buf, 512) != 512) {
-            printf("error: write big file failed\n");
+            printf(KBRED "\nwrite big file failed\n" KRESET);
             exit();
         }
     }
@@ -195,7 +189,7 @@ void writetest1(void)
 
     fd = open("big", O_RDONLY);
     if (fd < 0) {
-        printf("error: open big failed!\n");
+        printf(KBRED "\nopen big failed!\n" KRESET);
         exit();
     }
 
@@ -204,36 +198,33 @@ void writetest1(void)
         i = read(fd, buf, 512);
         if (i == 0) {
             if (n == MAXFILE - 1) {
-                printf("read only %d blocks from big", n);
+                printf(KBRED "\nread only %d blocks from big\n" KRESET, n);
                 exit();
             }
             break;
         } else if (i != 512) {
-            printf("read failed %d\n", i);
+            printf(KBRED "\nread failed %d\n" KRESET, i);
             exit();
         }
         if (((int *)buf)[0] != n) {
-            printf(
-                "read content of block %d is %d\n",
-                n,
-                ((int *)buf)[0]);
+            printf(KBRED "\nread content of block %d is %d\n" KRESET, n, ((int *)buf)[0]);
             exit();
         }
         n++;
     }
     close(fd);
     if (unlink("big") < 0) {
-        printf("unlink big failed\n");
+        printf(KBRED "\nunlink big failed\n" KRESET);
         exit();
     }
-    printf("big files ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void createtest(void)
 {
     int i;
 
-    printf("many creates, followed by unlink test\n");
+    printf("many creates, followed by unlink test");
 
     name[0] = 'a';
     name[2] = '\0';
@@ -248,40 +239,40 @@ void createtest(void)
         name[1] = '0' + i;
         unlink(name);
     }
-    printf("many creates, followed by unlink; ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void dirtest(void)
 {
-    printf("mkdir test\n");
+    printf("mkdir test");
 
     if (mkdir("dir0") < 0) {
-        printf("mkdir failed\n");
+        printf(KBRED "\nmkdir failed\n" KRESET);
         exit();
     }
 
     if (chdir("dir0") < 0) {
-        printf("chdir dir0 failed\n");
+        printf(KBRED "\nchdir dir0 failed\n" KRESET);
         exit();
     }
 
     if (chdir("..") < 0) {
-        printf("chdir .. failed\n");
+        printf(KBRED "\nchdir .. failed\n" KRESET);
         exit();
     }
 
     if (unlink("dir0") < 0) {
-        printf("unlink dir0 failed\n");
+        printf(KBRED "\nunlink dir0 failed\n" KRESET);
         exit();
     }
-    printf("mkdir test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void exectest(void)
 {
     printf("exec test\n");
     if (exec("/bin/echo", echoargv) < 0) {
-        printf("exec echo failed\n");
+        printf(KBRED "\nexec echo failed\n" KRESET);
         exit();
     }
 }
@@ -293,8 +284,9 @@ void pipe1(void)
     int fds[2];
     int i, n;
 
+    printf("pipe1 test");
     if (pipe(fds) != 0) {
-        printf("pipe() failed\n");
+        printf(KBRED "\npipe() failed\n" KRESET);
         exit();
     }
     int pid = fork();
@@ -305,7 +297,7 @@ void pipe1(void)
             for (i     = 0; i < 1033; i++)
                 buf[i] = seq++;
             if (write(fds[1], buf, 1033) != 1033) {
-                printf("pipe1 oops 1\n");
+                printf(KBRED "\npipe1 oops 1\n" KRESET);
                 exit();
             }
         }
@@ -317,7 +309,7 @@ void pipe1(void)
         while ((n = read(fds[0], buf, cc)) > 0) {
             for (i = 0; i < n; i++) {
                 if ((buf[i] & 0xff) != (seq++ & 0xff)) {
-                    printf("pipe1 oops 2\n");
+                    printf(KBRED "\npipe1 oops 2\n" KRESET);
                     return;
                 }
             }
@@ -327,16 +319,16 @@ void pipe1(void)
                 cc = sizeof(buf);
         }
         if (total != 5 * 1033) {
-            printf("pipe1 oops 3 total %d\n", total);
+            printf(KBRED "\npipe1 oops 3 total %d\n" KRESET, total);
             exit();
         }
         close(fds[0]);
         wait();
     } else {
-        printf("fork() failed\n");
+        printf(KBRED "\nfork() failed\n" KRESET);
         exit();
     }
-    printf("pipe1 ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // meant to be run w/ at most two CPUs
@@ -344,7 +336,7 @@ void preempt(void)
 {
     int pfds[2];
 
-    printf("preempt: ");
+    printf("preempt test");
     int pid1 = fork();
     if (pid1 == 0)
         for (;;) {
@@ -360,7 +352,7 @@ void preempt(void)
     if (pid3 == 0) {
         close(pfds[0]);
         if (write(pfds[1], "x", 1) != 1)
-            printf("preempt write error");
+            printf(KBRED "\npreempt write error\n" KRESET);
         close(pfds[1]);
         for (;;) {
         }
@@ -368,40 +360,39 @@ void preempt(void)
 
     close(pfds[1]);
     if (read(pfds[0], buf, sizeof(buf)) != 1) {
-        printf("preempt read error");
+        printf(KBRED "\npreempt read error\n" KRESET);
         return;
     }
     close(pfds[0]);
-    printf("kill... ");
     kill(pid1);
     kill(pid2);
     kill(pid3);
-    printf("wait... ");
     wait();
     wait();
     wait();
-    printf("preempt ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // try to find any races between exit and wait
 void exitwait(void)
 {
+    printf("exitwait test");
     for (int i = 0; i < 100; i++) {
         int pid = fork();
         if (pid < 0) {
-            printf("fork failed\n");
+            printf(KBRED "\nfork failed\n" KRESET);
             return;
         }
         if (pid) {
             if (wait() != pid) {
-                printf("wait wrong pid\n");
+                printf(KBRED "\nwait wrong pid\n" KRESET);
                 return;
             }
         } else {
             exit();
         }
     }
-    printf("exitwait ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void mem(void)
@@ -412,8 +403,8 @@ void mem(void)
     printf("mem test\n");
     int ppid = getpid();
     if ((pid = fork()) == 0) {
-        void *m1 = 0;
-        while ((m2 = malloc(10001)) != 0) {
+        void *m1 = nullptr;
+        while ((m2 = malloc(10001)) != nullptr) {
             *(char **)m2 = m1;
             m1           = m2;
         }
@@ -423,13 +414,13 @@ void mem(void)
             m1 = m2;
         }
         m1 = malloc(1024 * 20);
-        if (m1 == 0) {
-            printf("couldn't allocate mem?!!\n");
+        if (m1 == nullptr) {
+            printf(KBRED "\ncouldn't allocate mem?!!\n" KRESET);
             kill(ppid);
             exit();
         }
         free(m1);
-        printf("mem ok\n");
+        printf("mem test [ " KBGRN "OK" KRESET " ]\n");
         exit();
     } else {
         wait();
@@ -445,19 +436,19 @@ void sharedfd(void)
     int i, n, np;
     char buf[10];
 
-    printf("sharedfd test\n");
+    printf("sharedfd test");
 
     unlink("sharedfd");
     int fd = open("sharedfd", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("fstests: cannot open sharedfd for writing");
+        printf(KBRED "\ncannot open sharedfd for writing\n" KRESET);
         return;
     }
     int pid = fork();
     memset(buf, pid == 0 ? 'c' : 'p', sizeof(buf));
     for (i = 0; i < 1000; i++) {
         if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-            printf("fstests: write sharedfd failed\n");
+            printf(KBRED "\nwrite sharedfd failed\n" KRESET);
             break;
         }
     }
@@ -468,7 +459,7 @@ void sharedfd(void)
     close(fd);
     fd = open("sharedfd", 0);
     if (fd < 0) {
-        printf("fstests: cannot open sharedfd for reading\n");
+        printf(KBRED "\ncannot open sharedfd for reading\n" KRESET);
         return;
     }
     int nc = np = 0;
@@ -483,9 +474,9 @@ void sharedfd(void)
     close(fd);
     unlink("sharedfd");
     if (nc == 10000 && np == 10000) {
-        printf("sharedfd ok\n");
+        printf(" [ " KBGRN "OK" KRESET " ]\n");
     } else {
-        printf("sharedfd oops %d %d\n", nc, np);
+        printf(KBRED "\nsharedfd oops %d %d\n" KRESET, nc, np);
         exit();
     }
 }
@@ -499,7 +490,7 @@ fourfiles(void)
     char *names[] = {"f0", "f1", "f2", "f3"};
     char *fname;
 
-    printf("fourfiles test\n");
+    printf("fourfiles test");
 
     for (pi = 0; pi < 4; pi++) {
         fname = names[pi];
@@ -507,21 +498,21 @@ fourfiles(void)
 
         int pid = fork();
         if (pid < 0) {
-            printf("fork failed\n");
+            printf(KBRED "\nfork failed\n" KRESET);
             exit();
         }
 
         if (pid == 0) {
             fd = open(fname, O_CREATE | O_RDWR);
             if (fd < 0) {
-                printf("create failed\n");
+                printf(KBRED "\ncreate failed\n" KRESET);
                 exit();
             }
 
             memset(buf, '0' + pi, 512);
             for (i = 0; i < 12; i++) {
                 if ((n = write(fd, buf, 500)) != 500) {
-                    printf("write failed %d\n", n);
+                    printf(KBRED "\nwrite failed %d\n" KRESET, n);
                     exit();
                 }
             }
@@ -540,7 +531,7 @@ fourfiles(void)
         while ((n = read(fd, buf, sizeof(buf))) > 0) {
             for (int j = 0; j < n; j++) {
                 if (buf[j] != '0' + i) {
-                    printf("wrong char\n");
+                    printf(KBRED "\nwrong char\n" KRESET);
                     exit();
                 }
             }
@@ -548,13 +539,13 @@ fourfiles(void)
         }
         close(fd);
         if (total != 12 * 500) {
-            printf("wrong length %d\n", total);
+            printf(KBRED "\nwrong length %d\n" KRESET, total);
             exit();
         }
         unlink(fname);
     }
 
-    printf("fourfiles ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // four processes create and delete different files in same directory
@@ -564,12 +555,12 @@ void createdelete(void)
     int i, fd, pi;
     char name[32];
 
-    printf("createdelete test\n");
+    printf("createdelete test");
 
     for (pi = 0; pi < 4; pi++) {
         int pid = fork();
         if (pid < 0) {
-            printf("fork failed\n");
+            printf(KBRED "\nfork failed\n" KRESET);
             exit();
         }
 
@@ -580,14 +571,14 @@ void createdelete(void)
                 name[1] = '0' + i;
                 fd      = open(name, O_CREATE | O_RDWR);
                 if (fd < 0) {
-                    printf("create failed\n");
+                    printf(KBRED "\ncreate failed\n" KRESET);
                     exit();
                 }
                 close(fd);
                 if (i > 0 && (i % 2) == 0) {
                     name[1] = '0' + (i / 2);
                     if (unlink(name) < 0) {
-                        printf("unlink failed\n");
+                        printf(KBRED "\nunlink failed\n" KRESET);
                         exit();
                     }
                 }
@@ -607,10 +598,10 @@ void createdelete(void)
             name[1] = '0' + i;
             fd      = open(name, 0);
             if ((i == 0 || i >= N / 2) && fd < 0) {
-                printf("oops createdelete %s didn't exist\n", name);
+                printf(KBRED "\noops createdelete %s didn't exist\n" KRESET, name);
                 exit();
             } else if ((i >= 1 && i < N / 2) && fd >= 0) {
-                printf("oops createdelete %s did exist\n", name);
+                printf(KBRED "\noops createdelete %s did exist\n" KRESET, name);
                 exit();
             }
             if (fd >= 0)
@@ -626,16 +617,16 @@ void createdelete(void)
         }
     }
 
-    printf("createdelete ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // can I unlink a file and still read it?
 void unlinkread(void)
 {
-    printf("unlinkread test\n");
+    printf("unlinkread test");
     int fd = open("unlinkread", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("create unlinkread failed\n");
+        printf(KBRED "\ncreate unlinkread failed\n" KRESET);
         exit();
     }
     write(fd, "hello", 5);
@@ -643,11 +634,11 @@ void unlinkread(void)
 
     fd = open("unlinkread", O_RDWR);
     if (fd < 0) {
-        printf("open unlinkread failed\n");
+        printf(KBRED "\nopen unlinkread failed\n" KRESET);
         exit();
     }
     if (unlink("unlinkread") != 0) {
-        printf("unlink unlinkread failed\n");
+        printf(KBRED "\nunlink unlinkread failed\n" KRESET);
         exit();
     }
 
@@ -656,80 +647,80 @@ void unlinkread(void)
     close(fd1);
 
     if (read(fd, buf, sizeof(buf)) != 5) {
-        printf("unlinkread read failed");
+        printf(KBRED "\nunlinkread read failed\n" KRESET);
         exit();
     }
     if (buf[0] != 'h') {
-        printf("unlinkread wrong data\n");
+        printf(KBRED "\nunlinkread wrong data\n" KRESET);
         exit();
     }
     if (write(fd, buf, 10) != 10) {
-        printf("unlinkread write failed\n");
+        printf(KBRED "\nunlinkread write failed\n" KRESET);
         exit();
     }
     close(fd);
     unlink("unlinkread");
-    printf("unlinkread ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
 linktest(void)
 {
-    printf("linktest\n");
+    printf("linktest");
 
     unlink("lf1");
     unlink("lf2");
 
     int fd = open("lf1", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("create lf1 failed\n");
+        printf(KBRED "\ncreate lf1 failed\n" KRESET);
         exit();
     }
     if (write(fd, "hello", 5) != 5) {
-        printf("write lf1 failed\n");
+        printf(KBRED "\nwrite lf1 failed\n" KRESET);
         exit();
     }
     close(fd);
 
     if (link("lf1", "lf2") < 0) {
-        printf("link lf1 lf2 failed\n");
+        printf(KBRED "\nlink lf1 lf2 failed\n" KRESET);
         exit();
     }
     unlink("lf1");
 
     if (open("lf1", 0) >= 0) {
-        printf("unlinked lf1 but it is still there!\n");
+        printf(KBRED "\nunlinked lf1 but it is still there!\n" KRESET);
         exit();
     }
 
     fd = open("lf2", 0);
     if (fd < 0) {
-        printf("open lf2 failed\n");
+        printf(KBRED "\nopen lf2 failed\n" KRESET);
         exit();
     }
     if (read(fd, buf, sizeof(buf)) != 5) {
-        printf("read lf2 failed\n");
+        printf(KBRED "\nread lf2 failed\n" KRESET);
         exit();
     }
     close(fd);
 
     if (link("lf2", "lf2") >= 0) {
-        printf("link lf2 lf2 succeeded! oops\n");
+        printf(KBRED "\nlink lf2 lf2 succeeded! oops\n" KRESET);
         exit();
     }
 
     unlink("lf2");
     if (link("lf2", "lf1") >= 0) {
-        printf("link non-existant succeeded! oops\n");
+        printf(KBRED "\nlink non-existant succeeded! oops\n" KRESET);
         exit();
     }
 
     if (link(".", "lf1") >= 0) {
-        printf("link . lf1 succeeded! oops\n");
+        printf(KBRED "\nlink . lf1 succeeded! oops\n" KRESET);
         exit();
     }
 
-    printf("linktest ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // test concurrent create/link/unlink of the same file
@@ -770,7 +761,7 @@ concreate(void)
     int i, pid, fd;
     char fa[40];
 
-    printf("concreate test\n");
+    printf("concreate test");
     file[0] = 'C';
     file[2] = '\0';
     for (i = 0; i < 40; i++) {
@@ -784,7 +775,7 @@ concreate(void)
         } else {
             fd = open(file, O_CREATE | O_RDWR);
             if (fd < 0) {
-                printf("concreate create %s failed\n", file);
+                printf(KBRED "\nconcreate create %s failed\n" KRESET, file);
                 exit();
             }
             close(fd);
@@ -798,7 +789,7 @@ concreate(void)
     memset(fa, 0, sizeof(fa));
     fd = open(".", 0);
     if (fd < 0) {
-        printf("concreate: cannot open .\n");
+        printf(KBRED "\nconcreate: cannot open .\n" KRESET);
         exit();
     }
     struct concreate_ctx ctx = {
@@ -810,12 +801,12 @@ concreate(void)
     close(fd);
     if (walk_rc < 0 || ctx.error) {
         if (!ctx.error)
-            printf("concreate: dirwalk failed\n");
+            printf(KBRED "\nconcreate: dirwalk failed\n" KRESET);
         exit();
     }
 
     if (ctx.count != 40) {
-        printf("concreate not enough files in directory listing: %d\n", ctx.count);
+        printf(KBRED "\nconcreate not enough files in directory listing: %d\n" KRESET, ctx.count);
         exit();
     }
 
@@ -823,7 +814,7 @@ concreate(void)
         file[1] = '0' + i;
         pid     = fork();
         if (pid < 0) {
-            printf("fork failed\n");
+            printf(KBRED "\nfork failed\n" KRESET);
             exit();
         }
         if (((i % 3) == 0 && pid == 0) ||
@@ -844,7 +835,7 @@ concreate(void)
             wait();
     }
 
-    printf("concreate ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // another concurrent link/unlink/create test,
@@ -852,12 +843,12 @@ concreate(void)
 void
 linkunlink()
 {
-    printf("linkunlink test\n");
+    printf("linkunlink test");
 
     unlink("x");
     int pid = fork();
     if (pid < 0) {
-        printf("fork failed\n");
+        printf(KBRED "\nfork failed\n" KRESET);
         exit();
     }
 
@@ -878,7 +869,7 @@ linkunlink()
     else
         exit();
 
-    printf("linkunlink ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // directory that uses indirect blocks
@@ -887,12 +878,12 @@ void bigdir(void)
     int i;
     char dirname[10];
 
-    printf("bigdir test\n");
+    printf("bigdir test");
     unlink("bd");
 
     int fd = open("bd", O_CREATE);
     if (fd < 0) {
-        printf("bigdir create failed\n");
+        printf(KBRED "\nbigdir create failed\n" KRESET);
         exit();
     }
     close(fd);
@@ -903,7 +894,7 @@ void bigdir(void)
         dirname[2] = '0' + (i % 64);
         dirname[3] = '\0';
         if (link("bd", dirname) != 0) {
-            printf("bigdir link failed\n");
+            printf(KBRED "\nbigdir link failed\n" KRESET);
             exit();
         }
     }
@@ -915,46 +906,46 @@ void bigdir(void)
         dirname[2] = '0' + (i % 64);
         dirname[3] = '\0';
         if (unlink(dirname) != 0) {
-            printf("bigdir unlink failed");
+            printf(KBRED "\nbigdir unlink failed\n" KRESET);
             exit();
         }
     }
 
-    printf("bigdir ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
 subdir(void)
 {
-    printf("subdir test\n");
+    printf("subdir test");
 
     unlink("ff");
     if (mkdir("dd") != 0) {
-        printf("subdir mkdir dd failed\n");
+        printf(KBRED "\nsubdir mkdir dd failed\n" KRESET);
         exit();
     }
 
     int fd = open("dd/ff", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("create dd/ff failed\n");
+        printf(KBRED "\ncreate dd/ff failed\n" KRESET);
         exit();
     }
     write(fd, "ff", 2);
     close(fd);
 
     if (unlink("dd") >= 0) {
-        printf("unlink dd (non-empty dir) succeeded!\n");
+        printf(KBRED "\nunlink dd (non-empty dir) succeeded!\n" KRESET);
         exit();
     }
 
     if (mkdir("/dd/dd") != 0) {
-        printf("subdir mkdir dd/dd failed\n");
+        printf(KBRED "\nsubdir mkdir dd/dd failed\n" KRESET);
         exit();
     }
 
     fd = open("dd/dd/ff", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("create dd/dd/ff failed\n");
+        printf(KBRED "\ncreate dd/dd/ff failed\n" KRESET);
         exit();
     }
     write(fd, "FF", 2);
@@ -962,165 +953,165 @@ subdir(void)
 
     fd = open("dd/dd/../ff", 0);
     if (fd < 0) {
-        printf("open dd/dd/../ff failed\n");
+        printf(KBRED "\nopen dd/dd/../ff failed\n" KRESET);
         exit();
     }
     int cc = read(fd, buf, sizeof(buf));
     if (cc != 2 || buf[0] != 'f') {
-        printf("dd/dd/../ff wrong content\n");
+        printf(KBRED "\ndd/dd/../ff wrong content\n" KRESET);
         exit();
     }
     close(fd);
 
     if (link("dd/dd/ff", "dd/dd/ffff") != 0) {
-        printf("link dd/dd/ff dd/dd/ffff failed\n");
+        printf(KBRED "\nlink dd/dd/ff dd/dd/ffff failed\n" KRESET);
         exit();
     }
 
     if (unlink("dd/dd/ff") != 0) {
-        printf("unlink dd/dd/ff failed\n");
+        printf(KBRED "\nunlink dd/dd/ff failed\n" KRESET);
         exit();
     }
     if (open("dd/dd/ff", O_RDONLY) >= 0) {
-        printf("open (unlinked) dd/dd/ff succeeded\n");
+        printf(KBRED "\nopen (unlinked) dd/dd/ff succeeded\n" KRESET);
         exit();
     }
 
     if (chdir("dd") != 0) {
-        printf("chdir dd failed\n");
+        printf(KBRED "\nchdir dd failed\n" KRESET);
         exit();
     }
     if (chdir("dd/../../dd") != 0) {
-        printf("chdir dd/../../dd failed\n");
+        printf(KBRED "\nchdir dd/../../dd failed\n" KRESET);
         exit();
     }
     if (chdir("dd/../../../dd") != 0) {
-        printf("chdir dd/../../dd failed\n");
+        printf(KBRED "\nchdir dd/../../dd failed\n" KRESET);
         exit();
     }
     if (chdir("./..") != 0) {
-        printf("chdir ./.. failed\n");
+        printf(KBRED "\nchdir ./.. failed\n" KRESET);
         exit();
     }
 
     fd = open("dd/dd/ffff", 0);
     if (fd < 0) {
-        printf("open dd/dd/ffff failed\n");
+        printf(KBRED "\nopen dd/dd/ffff failed\n" KRESET);
         exit();
     }
     if (read(fd, buf, sizeof(buf)) != 2) {
-        printf("read dd/dd/ffff wrong len\n");
+        printf(KBRED "\nread dd/dd/ffff wrong len\n" KRESET);
         exit();
     }
     close(fd);
 
     if (open("dd/dd/ff", O_RDONLY) >= 0) {
-        printf("open (unlinked) dd/dd/ff succeeded!\n");
+        printf(KBRED "\nopen (unlinked) dd/dd/ff succeeded!\n" KRESET);
         exit();
     }
 
     if (open("dd/ff/ff", O_CREATE | O_RDWR) >= 0) {
-        printf("create dd/ff/ff succeeded!\n");
+        printf(KBRED "\ncreate dd/ff/ff succeeded!\n" KRESET);
         exit();
     }
     if (open("dd/xx/ff", O_CREATE | O_RDWR) >= 0) {
-        printf("create dd/xx/ff succeeded!\n");
+        printf(KBRED "\ncreate dd/xx/ff succeeded!\n" KRESET);
         exit();
     }
     if (open("dd", O_CREATE) >= 0) {
-        printf("create dd succeeded!\n");
+        printf(KBRED "\ncreate dd succeeded!\n" KRESET);
         exit();
     }
     if (open("dd", O_RDWR) >= 0) {
-        printf("open dd rdwr succeeded!\n");
+        printf(KBRED "\nopen dd rdwr succeeded!\n" KRESET);
         exit();
     }
     if (open("dd", O_WRONLY) >= 0) {
-        printf("open dd wronly succeeded!\n");
+        printf(KBRED "\nopen dd wronly succeeded!\n" KRESET);
         exit();
     }
     if (link("dd/ff/ff", "dd/dd/xx") == 0) {
-        printf("link dd/ff/ff dd/dd/xx succeeded!\n");
+        printf(KBRED "\nlink dd/ff/ff dd/dd/xx succeeded!\n" KRESET);
         exit();
     }
     if (link("dd/xx/ff", "dd/dd/xx") == 0) {
-        printf("link dd/xx/ff dd/dd/xx succeeded!\n");
+        printf(KBRED "\nlink dd/xx/ff dd/dd/xx succeeded!\n" KRESET);
         exit();
     }
     if (link("dd/ff", "dd/dd/ffff") == 0) {
-        printf("link dd/ff dd/dd/ffff succeeded!\n");
+        printf(KBRED "\nlink dd/ff dd/dd/ffff succeeded!\n" KRESET);
         exit();
     }
     if (mkdir("dd/ff/ff") == 0) {
-        printf("mkdir dd/ff/ff succeeded!\n");
+        printf(KBRED "\nmkdir dd/ff/ff succeeded!\n" KRESET);
         exit();
     }
     if (mkdir("dd/xx/ff") == 0) {
-        printf("mkdir dd/xx/ff succeeded!\n");
+        printf(KBRED "\nmkdir dd/xx/ff succeeded!\n" KRESET);
         exit();
     }
     if (mkdir("dd/dd/ffff") == 0) {
-        printf("mkdir dd/dd/ffff succeeded!\n");
+        printf(KBRED "\nmkdir dd/dd/ffff succeeded!\n" KRESET);
         exit();
     }
     if (unlink("dd/xx/ff") == 0) {
-        printf("unlink dd/xx/ff succeeded!\n");
+        printf(KBRED "\nunlink dd/xx/ff succeeded!\n" KRESET);
         exit();
     }
     if (unlink("dd/ff/ff") == 0) {
-        printf("unlink dd/ff/ff succeeded!\n");
+        printf(KBRED "\nunlink dd/ff/ff succeeded!\n" KRESET);
         exit();
     }
     if (chdir("dd/ff") == 0) {
-        printf("chdir dd/ff succeeded!\n");
+        printf(KBRED "\nchdir dd/ff succeeded!\n" KRESET);
         exit();
     }
     if (chdir("dd/xx") == 0) {
-        printf("chdir dd/xx succeeded!\n");
+        printf(KBRED "\nchdir dd/xx succeeded!\n" KRESET);
         exit();
     }
 
     if (unlink("dd/dd/ffff") != 0) {
-        printf("unlink dd/dd/ff failed\n");
+        printf(KBRED "\nunlink dd/dd/ff failed\n" KRESET);
         exit();
     }
     if (unlink("dd/ff") != 0) {
-        printf("unlink dd/ff failed\n");
+        printf(KBRED "\nunlink dd/ff failed\n" KRESET);
         exit();
     }
     if (unlink("dd") == 0) {
-        printf("unlink non-empty dd succeeded!\n");
+        printf(KBRED "\nunlink non-empty dd succeeded!\n" KRESET);
         exit();
     }
     if (unlink("dd/dd") < 0) {
-        printf("unlink dd/dd failed\n");
+        printf(KBRED "\nunlink dd/dd failed\n" KRESET);
         exit();
     }
     if (unlink("dd") < 0) {
-        printf("unlink dd failed\n");
+        printf(KBRED "\nunlink dd failed\n" KRESET);
         exit();
     }
 
-    printf("subdir ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // test writes that are larger than the log.
 void
 bigwrite(void)
 {
-    printf("bigwrite test\n");
+    printf("bigwrite test");
 
     unlink("bigwrite");
     for (int sz = 499; sz < 12 * 512; sz += 471) {
         int fd = open("bigwrite", O_CREATE | O_RDWR);
         if (fd < 0) {
-            printf("cannot create bigwrite\n");
+            printf(KBRED "\ncannot create bigwrite\n" KRESET);
             exit();
         }
         for (int i = 0; i < 2; i++) {
             int cc = write(fd, buf, sz);
             if (cc != sz) {
-                printf("write(%d) ret %d\n", sz, cc);
+                printf(KBRED "\nwrite(%d) ret %d\n" KRESET, sz, cc);
                 exit();
             }
         }
@@ -1128,7 +1119,7 @@ bigwrite(void)
         unlink("bigwrite");
     }
 
-    printf("bigwrite ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
@@ -1136,18 +1127,18 @@ bigfile(void)
 {
     int i;
 
-    printf("bigfile test\n");
+    printf("bigfile test");
 
     unlink("bigfile");
     int fd = open("bigfile", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("cannot create bigfile");
+        printf(KBRED "\ncannot create bigfile\n" KRESET);
         exit();
     }
     for (i = 0; i < 20; i++) {
         memset(buf, i, 600);
         if (write(fd, buf, 600) != 600) {
-            printf("write bigfile failed\n");
+            printf(KBRED "\nwrite bigfile failed\n" KRESET);
             exit();
         }
     }
@@ -1155,193 +1146,193 @@ bigfile(void)
 
     fd = open("bigfile", 0);
     if (fd < 0) {
-        printf("cannot open bigfile\n");
+        printf(KBRED "\ncannot open bigfile\n" KRESET);
         exit();
     }
     int total = 0;
     for (i = 0; ; i++) {
         int cc = read(fd, buf, 300);
         if (cc < 0) {
-            printf("read bigfile failed\n");
+            printf(KBRED "\nread bigfile failed\n" KRESET);
             exit();
         }
         if (cc == 0)
             break;
         if (cc != 300) {
-            printf("short read bigfile\n");
+            printf(KBRED "\nshort read bigfile\n" KRESET);
             exit();
         }
         if (buf[0] != i / 2 || buf[299] != i / 2) {
-            printf("read bigfile wrong data\n");
+            printf(KBRED "\nread bigfile wrong data\n" KRESET);
             exit();
         }
         total += cc;
     }
     close(fd);
     if (total != 20 * 600) {
-        printf("read bigfile wrong total\n");
+        printf(KBRED "\nread bigfile wrong total\n" KRESET);
         exit();
     }
     unlink("bigfile");
 
-    printf("bigfile test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
 fourteen(void)
 {
-    printf("fourteen test\n");
+    printf("fourteen test");
 
     if (mkdir("12345678901234") != 0) {
-        printf("mkdir 12345678901234 failed\n");
+        printf(KBRED "\nmkdir 12345678901234 failed\n" KRESET);
         exit();
     }
     if (mkdir("12345678901234/123456789012345") != 0) {
-        printf("mkdir 12345678901234/123456789012345 failed\n");
+        printf(KBRED "\nmkdir 12345678901234/123456789012345 failed\n" KRESET);
         exit();
     }
 
     int fd = open("12345678901234/123456789012345/123456789012345", O_CREATE | O_RDWR);
     if (fd < 0) {
-        printf("create 12345678901234/123456789012345/123456789012345 failed\n");
+        printf(KBRED "\ncreate 12345678901234/123456789012345/123456789012345 failed\n" KRESET);
         exit();
     }
     close(fd);
 
     fd = open("12345678901234/123456789012345/123456789012345", 0);
     if (fd < 0) {
-        printf("open 12345678901234/123456789012345/123456789012345 failed\n");
+        printf(KBRED "\nopen 12345678901234/123456789012345/123456789012345 failed\n" KRESET);
         exit();
     }
     close(fd);
 
     if (open("123456789012345/123456789012345/123456789012345", 0) >= 0) {
-        printf("open 123456789012345/123456789012345/123456789012345 unexpectedly succeeded\n");
+        printf(KBRED "\nopen 123456789012345/123456789012345/123456789012345 unexpectedly succeeded\n" KRESET);
         exit();
     }
 
     if (mkdir("12345678901234/12345678901234") != 0) {
-        printf("mkdir 12345678901234/12345678901234 failed\n");
+        printf(KBRED "\nmkdir 12345678901234/12345678901234 failed\n" KRESET);
         exit();
     }
     if (mkdir("123456789012345/12345678901234") == 0) {
-        printf("mkdir 123456789012345/12345678901234 unexpectedly succeeded\n");
+        printf(KBRED "\nmkdir 123456789012345/12345678901234 unexpectedly succeeded\n" KRESET);
         exit();
     }
 
-    printf("fourteen ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
 rmdot(void)
 {
-    printf("rmdot test\n");
+    printf("rmdot test");
     if (mkdir("dots") != 0) {
-        printf("mkdir dots failed\n");
+        printf(KBRED "\nmkdir dots failed\n" KRESET);
         exit();
     }
     if (chdir("dots") != 0) {
-        printf("chdir dots failed\n");
+        printf(KBRED "\nchdir dots failed\n" KRESET);
         exit();
     }
     if (unlink(".") == 0) {
-        printf("rm . worked!\n");
+        printf(KBRED "\nrm . worked!\n" KRESET);
         exit();
     }
     if (unlink("..") == 0) {
-        printf("rm .. worked!\n");
+        printf(KBRED "\nrm .. worked!\n" KRESET);
         exit();
     }
     if (chdir("/") != 0) {
-        printf("chdir / failed\n");
+        printf(KBRED "\nchdir / failed\n" KRESET);
         exit();
     }
     if (unlink("dots/.") == 0) {
-        printf("unlink dots/. worked!\n");
+        printf(KBRED "\nunlink dots/. worked!\n" KRESET);
         exit();
     }
     if (unlink("dots/..") == 0) {
-        printf("unlink dots/.. worked!\n");
+        printf(KBRED "\nunlink dots/.. worked!\n" KRESET);
         exit();
     }
     if (unlink("dots") != 0) {
-        printf("unlink dots failed!\n");
+        printf(KBRED "\nunlink dots failed!\n" KRESET);
         exit();
     }
-    printf("rmdot ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void
 dirfile(void)
 {
-    printf("dir vs file\n");
+    printf("dir vs file");
 
     int fd = open("dirfile", O_CREATE);
     if (fd < 0) {
-        printf("create dirfile failed\n");
+        printf(KBRED "\ncreate dirfile failed\n" KRESET);
         exit();
     }
     close(fd);
     if (chdir("dirfile") == 0) {
-        printf("chdir dirfile succeeded!\n");
+        printf(KBRED "\nchdir dirfile succeeded!\n" KRESET);
         exit();
     }
     fd = open("dirfile/xx", 0);
     if (fd >= 0) {
-        printf("create dirfile/xx succeeded!\n");
+        printf(KBRED "\ncreate dirfile/xx succeeded!\n" KRESET);
         exit();
     }
     fd = open("dirfile/xx", O_CREATE);
     if (fd >= 0) {
-        printf("create dirfile/xx succeeded!\n");
+        printf(KBRED "\ncreate dirfile/xx succeeded!\n" KRESET);
         exit();
     }
     if (mkdir("dirfile/xx") == 0) {
-        printf("mkdir dirfile/xx succeeded!\n");
+        printf(KBRED "\nmkdir dirfile/xx succeeded!\n" KRESET);
         exit();
     }
     if (unlink("dirfile/xx") == 0) {
-        printf("unlink dirfile/xx succeeded!\n");
+        printf(KBRED "\nunlink dirfile/xx succeeded!\n" KRESET);
         exit();
     }
     if (link("README", "dirfile/xx") == 0) {
-        printf("link to dirfile/xx succeeded!\n");
+        printf(KBRED "\nlink to dirfile/xx succeeded!\n" KRESET);
         exit();
     }
     if (unlink("dirfile") != 0) {
-        printf("unlink dirfile failed!\n");
+        printf(KBRED "\nunlink dirfile failed!\n" KRESET);
         exit();
     }
 
     fd = open(".", O_RDWR);
     if (fd >= 0) {
-        printf("open . for writing succeeded!\n");
+        printf(KBRED "\nopen . for writing succeeded!\n" KRESET);
         exit();
     }
     fd = open(".", 0);
     if (write(fd, "x", 1) > 0) {
-        printf("write . succeeded!\n");
+        printf(KBRED "\nwrite . succeeded!\n" KRESET);
         exit();
     }
     close(fd);
 
-    printf("dir vs file OK\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // test that iput() is called at the end of _namei()
 void
 iref(void)
 {
-    printf("empty file name\n");
+    printf("empty file name");
 
     // the 50 is NINODE
     for (int i = 0; i < 50 + 1; i++) {
         if (mkdir("irefd") != 0) {
-            printf("mkdir irefd failed\n");
+            printf(KBRED "\nmkdir irefd failed\n" KRESET);
             exit();
         }
         if (chdir("irefd") != 0) {
-            printf("chdir irefd failed\n");
+            printf(KBRED "\nchdir irefd failed\n" KRESET);
             exit();
         }
 
@@ -1357,7 +1348,7 @@ iref(void)
     }
 
     chdir("/");
-    printf("empty file name OK\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // test that fork fails gracefully
@@ -1368,7 +1359,7 @@ forktest(void)
 {
     int n;
 
-    printf("fork test\n");
+    printf("fork test");
 
     for (n = 0; n < 1000; n++) {
         int pid = fork();
@@ -1379,23 +1370,23 @@ forktest(void)
     }
 
     if (n == 1000) {
-        printf("fork claimed to work 1000 times!\n");
+        printf(KBRED "\nfork claimed to work 1000 times!\n" KRESET);
         exit();
     }
 
     for (; n > 0; n--) {
         if (wait() < 0) {
-            printf("wait stopped early\n");
+            printf(KBRED "\nwait stopped early\n" KRESET);
             exit();
         }
     }
 
     if (wait() != -1) {
-        printf("wait got too many\n");
+        printf(KBRED "\nwait got too many\n" KRESET);
         exit();
     }
 
-    printf("fork test OK\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void sbrktest(void)
@@ -1529,7 +1520,7 @@ void sbrktest(void)
     if (sbrk(0) > oldbrk)
         sbrk(-(sbrk(0) - oldbrk));
 
-    printf("sbrk test OK\n");
+    printf("sbrk test [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void validateint(int *p)
@@ -1548,7 +1539,7 @@ void validatetest(void)
 {
     int pid;
 
-    printf("validate test\n");
+    printf("validate test");
     int hi = 1100 * 1024;
 
     for (u32 p = 0; p <= (u32)hi; p += 4096) {
@@ -1569,7 +1560,7 @@ void validatetest(void)
         }
     }
 
-    printf("validate ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // does unintialized data start out zero?
@@ -1577,14 +1568,14 @@ char uninit[10000];
 
 void bsstest(void)
 {
-    printf("bss test\n");
+    printf("bss test");
     for (int i = 0; i < sizeof(uninit); i++) {
         if (uninit[i] != '\0') {
-            printf("bss test failed\n");
+            printf(KBRED "\nbss test failed\n" KRESET);
             exit();
         }
     }
-    printf("bss test ok\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 // does exec return an error if the arguments
@@ -1602,20 +1593,20 @@ void bigargtest(void)
             args[i] =
                 "bigargs test: failed\n                                                                                                                                                                                                       ";
         args[MAXARG - 1] = 0;
-        printf("bigarg test\n");
+        printf("bigarg test");
         exec("/bin/echo", args);
-        printf("bigarg test ok\n");
+        printf(" [ " KBGRN "OK" KRESET " ]\n");
         fd = open("bigarg-ok", O_CREATE);
         close(fd);
         exit();
     } else if (pid < 0) {
-        printf("bigargtest: fork failed\n");
+        printf(KBRED "\nbigargtest: fork failed\n" KRESET);
         exit();
     }
     wait();
     fd = open("bigarg-ok", 0);
     if (fd < 0) {
-        printf("bigarg test failed!\n");
+        printf(KBRED "\nbigarg test failed!\n" KRESET);
         exit();
     }
     close(fd);
@@ -1629,7 +1620,7 @@ void fsfull()
     int nfiles;
     int fsblocks = 0;
 
-    printf("fsfull test\n");
+    printf("fsfull test");
 
     for (nfiles = 0; ; nfiles++) {
         char name[64];
@@ -1671,7 +1662,7 @@ void fsfull()
         nfiles--;
     }
 
-    printf("fsfull test finished\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void uio()
@@ -1692,26 +1683,27 @@ void uio()
         __asm__ volatile("outb %0,%1"::"a"(val), "d" (port));
         port = RTC_DATA;
         __asm__ volatile("inb %1,%0" : "=a" (val) : "d" (port));
-        printf("uio: uio succeeded; test FAILED\n");
+        printf(KBRED "\nuio: uio succeeded; test FAILED\n" KRESET);
         exit();
     } else if (pid < 0) {
-        printf("fork failed\n");
+        printf(KBRED "\nfork failed\n" KRESET);
         exit();
     }
     wait();
-    printf("uio test done\n");
+    printf("uio test [ " KBGRN "OK" KRESET " ]\n");
 }
 
 void argptest()
 {
+    printf("arg test");
     int fd = open("/bin/init", O_RDONLY);
     if (fd < 0) {
-        printf("open failed\n");
+        printf(KBRED "\nopen failed\n" KRESET);
         exit();
     }
     read(fd, sbrk(0) - 1, -1);
     close(fd);
-    printf("arg test passed\n");
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
 unsigned long randstate = 1;
