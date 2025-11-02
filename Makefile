@@ -46,6 +46,7 @@ MEMORY := 512
 QEMUEXTRA := -display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off
 QEMUGDB = -S -gdb tcp::1234 -d int -D qemu.log
 QEMUOPTS = -drive file=disk.img,index=0,media=disk,format=raw -smp $(CPUS) -m $(MEMORY)
+QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 
 qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -O0
 qemu-perf: CFLAGS += -O3
@@ -83,30 +84,30 @@ grub: build/kernel apps FORCE
 	./scripts/create_tap.sh
 
 qemu: grub FORCE
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA)
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-nox: grub
-	$(QEMU) -nographic $(QEMUOPTS)
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK)
 
 qemu-gdb: grub
 	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA)
+	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-nox-gdb: grub
 	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB)
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB) $(QEMU_NETWORK)
 
 vbox: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
 
 qemu-nobuild:
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA)
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-perf: grub FORCE
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
 
 qemu-nox-perf: grub
-	$(QEMU) -nographic $(QEMUOPTS) -accel kvm -cpu host
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
 .PHONY: clean
 clean:

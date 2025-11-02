@@ -136,22 +136,20 @@ int piperead(struct pipe* p, char* addr, int n)
     acquire(&p->lock);
     while (p->nread == p->nwrite && p->writeopen)
     {
-        // DOC: pipe-empty
         if (current_process()->killed)
         {
             release(&p->lock);
             return -1;
         }
-        sleep(&p->nread, &p->lock); // DOC: piperead-sleep
+        sleep(&p->nread, &p->lock);
     }
     for (i = 0; i < n; i++)
     {
-        // DOC: piperead-copy
         if (p->nread == p->nwrite)
             break;
         addr[i] = p->data[p->nread++ % PIPESIZE];
     }
-    wakeup(&p->nwrite); // DOC: piperead-wakeup
+    wakeup(&p->nwrite);
     release(&p->lock);
     return i;
 }

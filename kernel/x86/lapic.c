@@ -8,6 +8,7 @@
 #include "memlayout.h"
 #include "traps.h"
 #include "x86.h"
+#include "io.h"
 
 // Local APIC registers, divided by 4 for use as u32[] indices.
 #define ID (0x0020 / 4)    // ID

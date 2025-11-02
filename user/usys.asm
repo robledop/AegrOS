@@ -40,6 +40,7 @@ SYSCALL dup
 SYSCALL getpid
 SYSCALL sbrk
 SYSCALL sleep
+SYSCALL yield
 SYSCALL uptime
 SYSCALL getcwd
 SYSCALL reboot

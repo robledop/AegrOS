@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "fs.h"
 #include "buf.h"
+#include "io.h"
 
 /** @brief Size in bytes of a hardware IDE sector. */
 #define SECTOR_SIZE 512
@@ -111,7 +112,7 @@ static void idestart(struct buf *b)
     // if (b->blockno >= FSSIZE)
     //     panic("incorrect blockno");
     // int sector_per_block = BSIZE / SECTOR_SIZE;
-    int sector    = b->blockno * SECTOR_PER_BLOCK;
+    u32 sector    = b->blockno * SECTOR_PER_BLOCK;
     int read_cmd  = (SECTOR_PER_BLOCK == 1) ? IDE_CMD_READ : IDE_CMD_RDMUL;
     int write_cmd = (SECTOR_PER_BLOCK == 1) ? IDE_CMD_WRITE : IDE_CMD_WRMUL;
 
@@ -184,7 +185,7 @@ void iderw(struct buf *b)
     // if (b->dev != 0 && !havedisk1)
     //     panic("iderw: ide disk 1 not present");
 
-    acquire(&idelock); // DOC:acquire-lock
+    acquire(&idelock);
 
     // Append b to idequeue.
     b->qnext = nullptr;

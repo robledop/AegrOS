@@ -3,6 +3,7 @@
 // http://developer.intel.com/design/pentium/datashts/24201606.pdf
 
 #include "types.h"
+#include "io.h"
 #include "defs.h"
 #include "string.h"
 #include "param.h"

@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "string.h"
 #include "x86.h"
+#include "io.h"
 
 /** @brief System call wrapper for fork. */
 int sys_fork(void)
@@ -69,11 +70,13 @@ int sys_sbrk(void)
 {
     int n;
 
-    if (argint(0, &n) < 0)
+    if (argint(0, &n) < 0) {
         return -1;
+    }
     int addr = (int)current_process()->size;
-    if (growproc(n) < 0)
+    if (growproc(n) < 0) {
         return -1;
+    }
     return addr;
 }
 
@@ -99,6 +102,12 @@ int sys_sleep(void)
         sleep(&ticks, &tickslock);
     }
     release(&tickslock);
+    return 0;
+}
+
+int sys_yield(void)
+{
+    yield();
     return 0;
 }
 

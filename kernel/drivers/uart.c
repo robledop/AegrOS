@@ -3,6 +3,7 @@
 #include "defs.h"
 #include "traps.h"
 #include "x86.h"
+#include "io.h"
 
 /** @brief Base I/O port for the primary serial interface. */
 #define COM1 0x3f8

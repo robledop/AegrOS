@@ -14,6 +14,7 @@
 #include "debug.h"
 #include "printf.h"
 #include "termcolors.h"
+#include "io.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0

@@ -10,6 +10,7 @@
 #include "multiboot.h"
 #include "debug.h"
 #include "mbr.h"
+#include "pci.h"
 #include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */
@@ -54,6 +55,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     ideinit();                                          // disk
     startothers();                                      // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP));         // must come after startothers()
+    pci_scan();
     user_init();                                        // first user process
     mpmain();                                           // finish this processor's setup
 }

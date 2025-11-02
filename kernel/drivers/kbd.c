@@ -2,6 +2,7 @@
 #include "x86.h"
 #include "defs.h"
 #include "kbd.h"
+#include "io.h"
 
 int kbdgetc(void)
 {

@@ -28,6 +28,7 @@ int dup(int);
 int getpid(void);
 char *sbrk(int);
 int sleep(int);
+int yield(void);
 int uptime(void);
 int reboot(void);
 int shutdown(void);

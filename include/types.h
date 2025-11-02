@@ -9,3 +9,4 @@ typedef int i32;
 typedef short i16;
 typedef char i8;
 typedef u32 pde_t;
+typedef u32 uptr;

@@ -312,9 +312,9 @@ int deallocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
     u32 a = PGROUNDUP(newsz);
     for (; a < oldsz; a += PGSIZE) {
         pte_t *pte = walkpgdir(pgdir, (char *)a, 0);
-        if (!pte)
+        if (!pte) {
             a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
-        else if ((*pte & PTE_P) != 0) {
+        } else if ((*pte & PTE_P) != 0) {
             u32 pa = PTE_ADDR(*pte);
             if (pa == 0)
                 panic("kfree");
@@ -329,8 +329,9 @@ int deallocuvm(pde_t *pgdir, u32 oldsz, u32 newsz)
 /** @brief Free a user page table and all associated physical pages. */
 void freevm(pde_t *pgdir)
 {
-    if (pgdir == nullptr)
+    if (pgdir == nullptr) {
         panic("freevm: no pgdir");
+    }
     deallocuvm(pgdir, KERNBASE, 0);
     for (u32 i = 0; i < NPDENTRIES; i++) {
         if (pgdir[i] & PTE_P) {
