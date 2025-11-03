@@ -41,3 +41,5 @@
 #define TOTAL_INTERRUPTS 256
 
 typedef void (*INTERRUPT_CALLBACK_FUNCTION)(struct trapframe* frame);
+
+void idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback);

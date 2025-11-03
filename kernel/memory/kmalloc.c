@@ -1,4 +1,5 @@
 #include "defs.h"
+#include "string.h"
 #include "types.h"
 
 // Memory allocator by Kernighan and Ritchie,
@@ -101,6 +102,14 @@ static Header *morecore(u32 nu)
     kfree((void *)(hp + 1));
 
     return freep;
+}
+
+
+void *kzalloc(u32 nbytes)
+{
+    void *ptr = kmalloc(nbytes);
+    memset(ptr, 0, nbytes);
+    return ptr;
 }
 
 // Allocate memory of at least nbytes size

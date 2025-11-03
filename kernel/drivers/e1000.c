@@ -1,8 +1,15 @@
 #include "e1000.h"
 #include "defs.h"
+#include "memlayout.h"
+#include "net/arp.h"
+#include "net/dhcp.h"
+#include "net/helpers.h"
+#include "net/network.h"
 #include "printf.h"
 #include "io.h"
 #include "x86.h"
+#include "traps.h"
+#include "string.h"
 
 #define IRQ0 0x20
 
@@ -18,9 +25,26 @@ static bool eeprom_exists;                                 // A flag indicating 
 static u8 mac[6];                                          // A buffer for storing the mack address
 static struct e1000_rx_desc *rx_descs[E1000_RX_RING_SIZE]; // Receive Descriptor Buffers
 static struct e1000_tx_desc *tx_descs[E1000_TX_RING_SIZE]; // Transmit Descriptor Buffers
+static u8 *rx_buffers[E1000_RX_RING_SIZE];                 // Virtual receive buffers
+static u8 *tx_buffers[E1000_TX_RING_SIZE];                 // Virtual transmit buffers
 static u16 rx_cur;                                         // Current Receive Descriptor Buffer
 static u16 tx_cur;                                         // Current Transmit Descriptor Buffer
 static struct pci_device pci_device;
+
+u32 wait_for_network_timeout = 15'000;
+
+void wait_for_network()
+{
+    u32 budget = wait_for_network_timeout;
+    while (!network_is_ready() && budget-- > 0) {
+        e1000_receive();  // poll RX ring while interrupts are unavailable
+        microdelay(1000); // ~1ms
+    }
+
+    if (!network_is_ready()) {
+        boot_message(WARNING_LEVEL_ERROR, "Network failed to start");
+    }
+}
 
 
 /**
@@ -120,7 +144,7 @@ bool e1000_read_mac_address()
         }
     }
 
-    // network_set_mac(mac);
+    network_set_mac(mac);
     return true;
 }
 
@@ -129,27 +153,34 @@ bool e1000_read_mac_address()
  */
 void e1000_rx_init()
 {
-    // const u8 *ptr = (u8 *)(kmalloc(sizeof(struct e1000_rx_desc) * E1000_RX_RING_SIZE + 16));
-    //
-    // const struct e1000_rx_desc *descs = (struct e1000_rx_desc *)ptr;
-    //
-    // for (int i = 0; i < E1000_RX_RING_SIZE; i++) {
-    //     rx_descs[i]         = (struct e1000_rx_desc *)((u8 *)descs + i * 16);
-    //     rx_descs[i]->addr   = (u64)(uptr)(kmalloc(8192 + 16));
-    //     rx_descs[i]->status = 0;
-    // }
-    //
-    // e1000_write_command(REG_RXDESCLO, (u32)ptr);
-    // e1000_write_command(REG_RXDESCHI, 0);
-    //
-    // e1000_write_command(REG_RXDESCLEN, E1000_RX_RING_SIZE * 16);
-    //
-    // e1000_write_command(REG_RXDESCHEAD, 0);
-    // e1000_write_command(REG_RXDESCTAIL, E1000_RX_RING_SIZE - 1);
-    // rx_cur = 0;
-    // e1000_write_command(REG_RCTRL,
-    //                     RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC |
-    //                     RCTL_BSIZE_8192);
+    u8 *ring = (u8 *)kalloc_page();
+    if (ring == nullptr) {
+        panic("e1000_rx_init: no descriptor memory");
+    }
+    memset(ring, 0, PGSIZE);
+
+    for (int i = 0; i < E1000_RX_RING_SIZE; i++) {
+        rx_descs[i]   = (struct e1000_rx_desc *)(ring + i * sizeof(struct e1000_rx_desc));
+        rx_buffers[i] = (u8 *)kalloc_page();
+        if (rx_buffers[i] == nullptr) {
+            panic("e1000_rx_init: no rx buffer");
+        }
+        memset(rx_buffers[i], 0, PGSIZE);
+        rx_descs[i]->addr   = V2P(rx_buffers[i]);
+        rx_descs[i]->status = 0;
+    }
+
+    e1000_write_command(REG_RXDESCLO, V2P(ring));
+    e1000_write_command(REG_RXDESCHI, 0);
+
+    e1000_write_command(REG_RXDESCLEN, E1000_RX_RING_SIZE * sizeof(struct e1000_rx_desc));
+
+    e1000_write_command(REG_RXDESCHEAD, 0);
+    e1000_write_command(REG_RXDESCTAIL, E1000_RX_RING_SIZE - 1);
+    rx_cur = 0;
+    e1000_write_command(REG_RCTRL,
+                        RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC |
+                        RCTL_BSIZE_4096);
 }
 
 /**
@@ -157,26 +188,33 @@ void e1000_rx_init()
  */
 void e1000_tx_init()
 {
-    // const u8 *ptr = (u8 *)(kmalloc(sizeof(struct e1000_tx_desc) * E1000_TX_RING_SIZE + 16));
-    //
-    // const struct e1000_tx_desc *descs = (struct e1000_tx_desc *)ptr;
-    //
-    // for (int i = 0; i < E1000_TX_RING_SIZE; i++) {
-    //     tx_descs[i]         = (struct e1000_tx_desc *)((u8 *)descs + i * 16);
-    //     tx_descs[i]->addr   = 0;
-    //     tx_descs[i]->cmd    = 0;
-    //     tx_descs[i]->status = TSTA_DD;
-    // }
-    //
-    // e1000_write_command(REG_TXDESCLO, (u32)ptr);
-    // e1000_write_command(REG_TXDESCHI, 0);
-    //
-    // e1000_write_command(REG_TXDESCLEN, E1000_TX_RING_SIZE * 16);
-    //
-    // e1000_write_command(REG_TXDESCHEAD, 0);
-    // e1000_write_command(REG_TXDESCTAIL, 0);
-    // tx_cur = 0;
-    // e1000_write_command(REG_TCTRL, TCTL_EN | TCTL_PSP | (15 << TCTL_CT_SHIFT) | (64 << TCTL_COLD_SHIFT) | TCTL_RTLC);
+    u8 *ring = (u8 *)kalloc_page();
+    if (ring == nullptr) {
+        panic("e1000_tx_init: no descriptor memory");
+    }
+    memset(ring, 0, PGSIZE);
+
+    for (int i = 0; i < E1000_TX_RING_SIZE; i++) {
+        tx_descs[i]   = (struct e1000_tx_desc *)(ring + i * sizeof(struct e1000_tx_desc));
+        tx_buffers[i] = (u8 *)kalloc_page();
+        if (tx_buffers[i] == nullptr) {
+            panic("e1000_tx_init: no tx buffer");
+        }
+        memset(tx_buffers[i], 0, PGSIZE);
+        tx_descs[i]->addr   = V2P(tx_buffers[i]);
+        tx_descs[i]->cmd    = 0;
+        tx_descs[i]->status = TSTA_DD;
+    }
+
+    e1000_write_command(REG_TXDESCLO, V2P(ring));
+    e1000_write_command(REG_TXDESCHI, 0);
+
+    e1000_write_command(REG_TXDESCLEN, E1000_TX_RING_SIZE * sizeof(struct e1000_tx_desc));
+
+    e1000_write_command(REG_TXDESCHEAD, 0);
+    e1000_write_command(REG_TXDESCTAIL, 0);
+    tx_cur = 0;
+    e1000_write_command(REG_TCTRL, TCTL_EN | TCTL_PSP | (15 << TCTL_CT_SHIFT) | (64 << TCTL_COLD_SHIFT) | TCTL_RTLC);
 
     // This line of code overrides the one before it but I left both to highlight that the previous one works with e1000
     // cards, but for the e1000e cards you should set the TCTRL register as follows. For detailed description of each
@@ -210,7 +248,8 @@ void e1000_init(struct pci_device pci)
     pci_enable_bus_mastering(pci);
     eeprom_exists = false;
     if (e1000_start()) {
-        // arp_init();
+        arp_init();
+        wait_for_network();
     } else {
         boot_message(WARNING_LEVEL_ERROR, "E1000 failed to start");
     }
@@ -225,9 +264,8 @@ void e1000_interrupt_handler(struct trapframe *frame)
 {
     int interrupt = frame->trapno;
     if (interrupt == pci_device.header.irq + IRQ0) {
-        // This might be needed here if your handler doesn't clear interrupts from each device and must be done
-        // before EOI if using the PIC. Without this, the card will spam interrupts as the int-line will stay high.
-        e1000_write_command(REG_IMS, 0x1);
+        // Mask device interrupts while we process the current event.
+        e1000_write_command(REG_IMC, E1000_IMS_ENABLE_MASK);
 
         // - Bit 0 (0x01): Transmit Descriptor Written Back (TXDW) - Indicates that the transmit descriptor has been
         // written back.
@@ -254,6 +292,7 @@ void e1000_interrupt_handler(struct trapframe *frame)
         }
 
         e1000_write_command(REG_IMS, E1000_IMS_ENABLE_MASK);
+        lapiceoi();
     }
 }
 
@@ -262,7 +301,7 @@ void e1000_interrupt_handler(struct trapframe *frame)
  */
 void e1000_print_mac_address()
 {
-    // boot_message(WARNING_LEVEL_INFO, "Intel e1000 MAC Address: %s", get_mac_address_string(mac));
+    boot_message(WARNING_LEVEL_INFO, "Intel e1000 MAC Address: %s", get_mac_address_string(mac));
 }
 
 /**
@@ -282,7 +321,6 @@ void e1000_linkup()
  */
 bool e1000_start()
 {
-    return false;
     e1000_detect_eeprom();
     if (!e1000_read_mac_address()) {
         return false;
@@ -295,15 +333,14 @@ bool e1000_start()
         e1000_write_command(REG_MTA + i * 4, 0);
     }
 
-    // if (idt_register_interrupt_callback(IRQ0 + pci_device.header.irq, e1000_interrupt_handler) == 0) {
-    //     e1000_enable_interrupt();
-    //     e1000_rx_init();
-    //     e1000_tx_init();
-    //
-    //     // dhcp_send_discover(mac);
-    //     return true;
-    // }
-    return false;
+    ioapicenable(pci_device.header.irq, 0);
+    idt_register_interrupt_callback(IRQ0 + pci_device.header.irq, e1000_interrupt_handler);
+    e1000_enable_interrupt();
+    e1000_rx_init();
+    e1000_tx_init();
+
+    dhcp_send_discover(mac);
+    return true;
 }
 
 /// @brief Process all available packets in the receive ring
@@ -313,7 +350,7 @@ bool e1000_start()
 void e1000_receive()
 {
     while ((rx_descs[rx_cur]->status & E1000_RXD_STAT_DD)) {
-        auto const buf = (u8 *)(u32)rx_descs[rx_cur]->addr;
+        auto const buf = rx_buffers[rx_cur];
         const u16 len  = rx_descs[rx_cur]->length;
 
         if (!(rx_descs[rx_cur]->status & E1000_RXD_STAT_EOP)) {
@@ -322,7 +359,7 @@ void e1000_receive()
             continue;
         }
 
-        // network_receive(buf, len);
+        network_receive(buf, len);
 
         rx_descs[rx_cur]->status = 0;
         const u16 old_cur        = rx_cur;
@@ -340,14 +377,24 @@ void e1000_receive()
  */
 int e1000_send_packet(const void *data, const u16 len)
 {
-    tx_descs[tx_cur]->addr   = (uptr)data;
-    tx_descs[tx_cur]->length = len;
-    tx_descs[tx_cur]->cmd    = CMD_EOP | CMD_IFCS | CMD_RS;
-    tx_descs[tx_cur]->status = 0;
-    const u8 old_cur         = tx_cur;
-    tx_cur                   = (tx_cur + 1) % E1000_TX_RING_SIZE;
+    const u8 slot = tx_cur;
+
+    while ((tx_descs[slot]->status & TSTA_DD) == 0);
+
+    if (len > PGSIZE) {
+        return -1;
+    }
+
+    memcpy(tx_buffers[slot], data, len);
+
+    tx_descs[slot]->length = len;
+    tx_descs[slot]->cmd    = CMD_EOP | CMD_IFCS | CMD_RS;
+    tx_descs[slot]->status = 0;
+
+    tx_cur = (tx_cur + 1) % E1000_TX_RING_SIZE;
     e1000_write_command(REG_TXDESCTAIL, tx_cur);
-    while (!(tx_descs[old_cur]->status & 0xff));
+
+    while ((tx_descs[slot]->status & TSTA_DD) == 0);
 
     return 0;
 }

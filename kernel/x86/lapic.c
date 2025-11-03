@@ -124,10 +124,21 @@ void lapiceoi(void)
 /**
  * @brief Busy-wait for approximately @p us microseconds.
  *
- * @note Stubbed to no-op; real hardware would require calibration.
+ * This is a coarse delay loop that simply spins for a number of iterations
+ * proportional to @p us. It is not calibrated and only intended for very
+ * short waits during early boot when interrupts are still disabled.
  */
-void microdelay([[maybe_unused]] int us)
+void microdelay(int us)
 {
+    if (us <= 0) {
+        return;
+    }
+
+    const int loops_per_us = 200; // empirically reasonable for QEMU/Bochs
+    volatile int spins     = us * loops_per_us;
+    while (spins-- > 0) {
+        __asm__ volatile("pause");
+    }
 }
 
 #define CMOS_PORT 0x70

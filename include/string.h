@@ -3,6 +3,7 @@
 #include "types.h"
 
 int memcmp(const void *, const void *, u32);
+void *memcpy(void *dst, const void *src, u32 n);
 void *memmove(void *, const void *, u32);
 void *memset(void *, int, u32);
 char *safestrcpy(char *, const char *, int);

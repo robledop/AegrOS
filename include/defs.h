@@ -174,6 +174,7 @@ void clearpteu(pde_t *pgdir, const char *uva);
 
 
 void *kmalloc(u32 nbytes);
+void *kzalloc(u32 nbytes);
 void kfree(void *ap);
 
 // number of elements in a fixed-size array

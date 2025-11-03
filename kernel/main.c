@@ -56,7 +56,6 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     startothers();                                      // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP));         // must come after startothers()
     pci_scan();
-    uptr * test = kmalloc(1);
     user_init();                                        // first user process
     mpmain();                                           // finish this processor's setup
 }
