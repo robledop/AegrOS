@@ -171,6 +171,7 @@ u32 resize_kernel_page_directory(int n);
 void switch_kernel_page_directory();
 int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
+void kernel_map_mmio(u32 pa, u32 size);
 
 
 void *kmalloc(u32 nbytes);

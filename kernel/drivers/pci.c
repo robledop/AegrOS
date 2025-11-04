@@ -229,29 +229,27 @@ const char *pci_find_vendor(const u16 vendor_id)
     return "Unknown Vendor";
 }
 
+// static void pci_log_device_info(const struct pci_header *pci, const u8 bus, const u8 device,
+//                                 const u8 function)
+// {
+//     boot_message(WARNING_LEVEL_INFO,
+//                  "%02X:%02X.%u vendor=0x%04X device=0x%04X class=0x%02X subclass=0x%02X prog_if=0x%02X",
+//                  bus,
+//                  device,
+//                  function,
+//                  pci->vendor_id,
+//                  pci->device_id,
+//                  pci->class,
+//                  pci->subclass,
+//                  pci->prog_if);
+// }
+
 /**
  * @brief Attempt to load a driver matching the given PCI header.
  */
-static void pci_log_device_info(const struct pci_header *pci, const u8 bus, const u8 device,
-                                const u8 function)
-{
-    boot_message(WARNING_LEVEL_INFO,
-                 "%02X:%02X.%u vendor=0x%04X device=0x%04X class=0x%02X subclass=0x%02X prog_if=0x%02X",
-                 bus,
-                 device,
-                 function,
-                 pci->vendor_id,
-                 pci->device_id,
-                 pci->class,
-                 pci->subclass,
-                 pci->prog_if);
-}
-
 void load_driver(const struct pci_header pci, const u8 bus, const u8 device, const u8 function)
 {
-    if (pci.class == 0x01) {
-        pci_log_device_info(&pci, bus, device, function);
-    }
+    boot_message(WARNING_LEVEL_INFO, "%s", pci_find_name(pci.class, pci.subclass));
 
     for (u16 i = 0; i < sizeof(pci_drivers) / sizeof(struct pci_driver); i++) {
         const struct pci_driver *driver = &pci_drivers[i];

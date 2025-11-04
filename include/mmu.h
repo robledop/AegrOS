@@ -97,6 +97,8 @@ struct segdesc
 #define PTE_P           0x001   // Present
 #define PTE_W           0x002   // Writeable
 #define PTE_U           0x004   // User
+#define PTE_PWT         0x008   // Write-Through
+#define PTE_PCD         0x010   // Cache-Disable
 #define PTE_PS          0x080   // Page Size (4MB pages)
 
 // Address in the page table or page directory entry

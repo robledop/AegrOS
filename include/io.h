@@ -34,7 +34,7 @@ static inline void write16(const u64 addr, const u16 data)
 
 static inline void write32(const u64 addr, const u32 data)
 {
-    *(volatile u64 *)(uptr)addr = data;
+    *(volatile u32 *)(uptr)addr = data;
 }
 
 static inline void write64(const u64 addr, const u64 data)

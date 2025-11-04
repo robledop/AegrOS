@@ -137,11 +137,11 @@ void arp_send_reply(u8 *packet)
     reply_packet->ether_header = reply_ether_header;
     reply_packet->arp_packet   = reply_arp_header;
 
-    printf("ARP reply. Destination IP: %d.%d.%d.%d\n",
-           reply_packet->arp_packet.target_protocol_addr[0],
-           reply_packet->arp_packet.target_protocol_addr[1],
-           reply_packet->arp_packet.target_protocol_addr[2],
-           reply_packet->arp_packet.target_protocol_addr[3]);
+    // printf("ARP reply. Destination IP: %d.%d.%d.%d\n",
+    //        reply_packet->arp_packet.target_protocol_addr[0],
+    //        reply_packet->arp_packet.target_protocol_addr[1],
+    //        reply_packet->arp_packet.target_protocol_addr[2],
+    //        reply_packet->arp_packet.target_protocol_addr[3]);
 
     network_send_packet(reply_packet, sizeof(struct arp_packet));
     kfree(reply_packet);

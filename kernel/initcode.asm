@@ -5,8 +5,8 @@
 %include "traps.asm"
 
 ;# exec(init, argv)
-global start
-start:
+global _start
+_start:
   push argv
   push init
   push 0  ; where caller pc would be

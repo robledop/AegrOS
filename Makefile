@@ -49,7 +49,7 @@ QEMUOPTS = -drive file=disk.img,index=0,media=disk,format=raw -smp $(CPUS) -m $(
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
 
 qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0
-vbox qemu-nox-perf qemu-perf: CFLAGS += -O3
+vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3
 
 asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include syscall.asm traps.asm memlayout.asm mmu.asm asm.asm param.asm
@@ -105,6 +105,9 @@ qemu-nobuild:
 
 qemu-perf: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
+
+qemu-perf-no-net: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host -nic none
 
 qemu-nox-perf: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host

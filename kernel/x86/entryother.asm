@@ -20,8 +20,8 @@
 ; This code combines elements of bootasm.S and entry.S.
 
 [BITS 16]
-global start
-start:
+global _start
+_start:
   cli
 
   ; Zero data segment registers DS, ES, and SS.
@@ -59,7 +59,7 @@ start32:
   or      eax, CR4_PSE
   mov     cr4, eax
   ; Use entrypgdir as our initial page table
-  mov     eax, [start-12]
+  mov     eax, [_start-12]
   mov     cr3, eax
   ; Turn on paging.
   mov     eax, cr0
@@ -67,9 +67,9 @@ start32:
   mov     cr0, eax
 
   ; Switch to the stack allocated by startothers()
-  mov     esp, [start-4]
+  mov     esp, [_start-4]
   ; Call mpenter()
-  call    [start-8]
+  call    [_start-8]
 
   mov     ax, 0x8a00
   mov     dx, ax

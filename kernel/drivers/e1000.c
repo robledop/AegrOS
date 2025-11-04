@@ -31,6 +31,8 @@ static u16 rx_cur;                                         // Current Receive De
 static u16 tx_cur;                                         // Current Transmit Descriptor Buffer
 static struct pci_device pci_device;
 
+#define E1000_MMIO_SIZE 0x20000U
+
 u32 wait_for_network_timeout = 15'000;
 
 void wait_for_network()
@@ -244,6 +246,10 @@ void e1000_init(struct pci_device pci)
     bar_type   = pci_get_bar(pci_device, PCI_BAR_MEM) & 1;
     io_base    = pci_get_bar(pci_device, PCI_BAR_IO) & ~1;
     mem_base   = pci_get_bar(pci_device, PCI_BAR_MEM) & ~3;
+
+    if (bar_type == PCI_BAR_MEM && mem_base != 0) {
+        kernel_map_mmio((u32)mem_base, E1000_MMIO_SIZE);
+    }
 
     pci_enable_bus_mastering(pci);
     eeprom_exists = false;

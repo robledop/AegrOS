@@ -15,6 +15,81 @@ extern char data[]; // defined by kernel.ld
 pde_t *kpgdir; // for use in scheduler()
 u32 kpgdir_break;
 
+extern struct ptable_t ptable;
+
+#define MAX_KERNEL_MMIO_RANGES 16
+
+struct kernel_mmio_range
+{
+    u32 start;
+    u32 end;
+};
+
+static struct kernel_mmio_range kernel_mmio_ranges[MAX_KERNEL_MMIO_RANGES];
+static int kernel_mmio_count;
+
+/**
+ * @brief Replicate kernel mappings from kpgdir into another page directory.
+ *
+ * @param pgdir Target page directory.
+ * @param start Starting virtual address of the kernel range.
+ * @param end Ending virtual address of the kernel range.
+ */
+static void replicate_kernel_range(pde_t *pgdir, u32 start, u32 end)
+{
+    if (pgdir == nullptr || end <= start) {
+        return;
+    }
+
+    start = PGROUNDDOWN(start);
+    end   = PGROUNDUP(end);
+
+    for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES)) {
+        const u32 index = PDX(va);
+        pgdir[index]    = kpgdir[index];
+    }
+}
+
+/**
+ * @brief Propagate kernel mappings to all active process page directories.
+ *
+ * @param start Starting virtual address of the kernel range.
+ * @param end Ending virtual address of the kernel range.
+ */
+static void propagate_kernel_range(u32 start, u32 end)
+{
+    if (end <= start) {
+        return;
+    }
+
+    start = PGROUNDDOWN(start);
+    end   = PGROUNDUP(end);
+
+    const int lock_ready = ptable.lock.name != nullptr;
+    if (lock_ready) {
+        acquire(&ptable.lock);
+    }
+
+    for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; ++p) {
+        if (p->page_directory != nullptr && p->state != UNUSED) {
+            for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES)) {
+                const u32 index          = PDX(va);
+                p->page_directory[index] = kpgdir[index];
+            }
+        }
+    }
+    if (lock_ready) {
+        release(&ptable.lock);
+    }
+
+    struct proc *cur = current_process();
+    if (cur != nullptr && cur->page_directory != nullptr) {
+        lcr3(V2P(cur->page_directory));
+    } else {
+        switch_kernel_page_directory();
+    }
+}
+
 /**
  * @brief Initialize the per-CPU segment descriptors.
  *
@@ -97,6 +172,64 @@ static int mappages(pde_t *pgdir, void *va, u32 size, u32 pa, int perm)
     return 0;
 }
 
+/**
+ * @brief Identity-map an MMIO range into the kernel page directory and propagate it.
+ *
+ * @param pa Physical address of the MMIO region (must be page-aligned).
+ * @param size Size in bytes of the region to map.
+ */
+void kernel_map_mmio(u32 pa, u32 size)
+{
+    if (size == 0) {
+        return;
+    }
+
+    u32 start = PGROUNDDOWN(pa);
+    u32 end   = PGROUNDUP(pa + size);
+
+    for (u32 a = start; a < end; a += PGSIZE) {
+        pte_t *pte = walkpgdir(kpgdir, (void *)a, 0);
+        if (pte != nullptr && (*pte & PTE_P) != 0) {
+            continue;
+        }
+        if (mappages(kpgdir, (void *)a, PGSIZE, a, PTE_W | PTE_PCD | PTE_PWT) < 0) {
+            panic("kernel_map_mmio: mappages failed");
+        }
+    }
+
+    propagate_kernel_range(start, end);
+
+    // Record the MMIO range so future page directories inherit the mapping.
+    int merged = 0;
+    for (int i = 0; i < kernel_mmio_count; ++i) {
+        u32 range_start = kernel_mmio_ranges[i].start;
+        u32 range_end   = kernel_mmio_ranges[i].end;
+        if (start >= range_start && end <= range_end) {
+            merged = 1;
+            break;
+        }
+        if (start <= range_end && end >= range_start) {
+            if (start < range_start) {
+                kernel_mmio_ranges[i].start = start;
+            }
+            if (end > range_end) {
+                kernel_mmio_ranges[i].end = end;
+            }
+            merged = 1;
+            break;
+        }
+    }
+
+    if (!merged) {
+        if (kernel_mmio_count >= MAX_KERNEL_MMIO_RANGES) {
+            panic("kernel_map_mmio: too many ranges");
+        }
+        kernel_mmio_ranges[kernel_mmio_count].start = start;
+        kernel_mmio_ranges[kernel_mmio_count].end   = end;
+        kernel_mmio_count++;
+    }
+}
+
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
 // current process's page table during system calls and interrupts;
@@ -150,7 +283,7 @@ pde_t *setup_kernel_page_directory(void)
     panic("PHYSTOP too high");
 #endif
 
-    for (const struct kmap *k = kmap; k < &kmap[NELEM(kmap)]; k++)
+    for (const struct kmap *k = kmap; k < &kmap[NELEM(kmap)]; k++) {
         if (mappages(pgdir,
                      k->virt,
                      k->phys_end - k->phys_start,
@@ -159,6 +292,14 @@ pde_t *setup_kernel_page_directory(void)
             freevm(pgdir);
             return nullptr;
         }
+    }
+
+    if (kpgdir != nullptr) {
+        replicate_kernel_range(pgdir, (u32)KHEAP_START, kpgdir_break);
+        for (int i = 0; i < kernel_mmio_count; ++i) {
+            replicate_kernel_range(pgdir, kernel_mmio_ranges[i].start, kernel_mmio_ranges[i].end);
+        }
+    }
 
     return pgdir;
 }
@@ -189,13 +330,24 @@ u32 resize_kernel_page_directory(int n)
     u32 sz        = kpgdir_break;
     u32 old_break = kpgdir_break;
     if (n > 0) {
-        if ((sz = allocvm(kpgdir, sz, sz + n, PTE_W)) == 0) {
+        u32 requested = sz + (u32)n;
+        if (requested < sz) {
             return -1;
         }
+        if ((sz = allocvm(kpgdir, sz, requested, PTE_W)) == 0) {
+            return -1;
+        }
+        propagate_kernel_range(old_break, sz);
     } else if (n < 0) {
-        if ((sz = deallocvm(kpgdir, sz, (int)sz + n)) == 0) {
+        u32 delta = (u32)(-n);
+        if (delta > sz) {
             return -1;
         }
+        u32 target = sz - delta;
+        if ((sz = deallocvm(kpgdir, sz, target)) == 0) {
+            return -1;
+        }
+        propagate_kernel_range(sz, old_break);
     } else {
         return 0;
     }
@@ -374,6 +526,10 @@ void freevm(pde_t *pgdir)
     deallocvm(pgdir, KERNBASE, 0);
     for (u32 i = 0; i < NPDENTRIES; i++) {
         if (pgdir[i] & PTE_P) {
+            u32 va = i << PDXSHIFT;
+            if (va >= (u32)KHEAP_START) {
+                continue;
+            }
             char *v = P2V(PTE_ADDR(pgdir[i]));
             kfree_page(v);
         }

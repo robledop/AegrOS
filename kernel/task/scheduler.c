@@ -109,10 +109,12 @@ int wait(void)
                 kfree_page(p->kstack);
                 p->kstack = nullptr;
                 freevm(p->page_directory);
+                p->page_directory = nullptr;
                 p->pid     = 0;
                 p->parent  = nullptr;
                 p->name[0] = 0;
                 p->killed  = 0;
+                p->size    = 0;
                 p->state   = UNUSED;
                 release(&ptable.lock);
                 return pid;
