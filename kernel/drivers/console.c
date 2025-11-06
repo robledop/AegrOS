@@ -9,6 +9,7 @@
 #include "spinlock.h"
 #include "file.h"
 #include "memlayout.h"
+#include "console.h"
 #include "proc.h"
 #include "x86.h"
 #include "debug.h"
@@ -34,13 +35,7 @@ static int panicked = 0;
 
 #define VGA_WIDTH 80
 
-/** @brief Console lock and locking flag */
-static struct
-{
-    struct spinlock lock;
-    int locking;
-} cons;
-
+struct console_lock cons;
 
 /** @brief Print an integer in the given base */
 static void printint(int xx, int base, int sign)

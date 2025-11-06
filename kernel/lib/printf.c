@@ -37,6 +37,10 @@
  * THE SOFTWARE.
  */
 
+#include "console.h"
+
+extern struct console_lock cons;
+
 // Define this globally (e.g. gcc -DPRINTF_INCLUDE_CONFIG_H=1 ...) to include the
 // printf_config.h header file
 #if PRINTF_INCLUDE_CONFIG_H
@@ -286,7 +290,8 @@ typedef uint64_t printf_fp_uint_t;
 #endif
 #define FP_TYPE_STORED_MANTISSA_BITS (FP_TYPE_MANT_DIG - 1)
 
-typedef union {
+typedef union
+{
     printf_fp_uint_t U;
     floating_point_t F;
 } floating_point_with_bit_access;
@@ -317,6 +322,7 @@ static inline int get_exp2(floating_point_with_bit_access x)
     // special use).
     return (int)((x.U >> FP_TYPE_STORED_MANTISSA_BITS) & FP_TYPE_EXPONENT_MASK) - FP_TYPE_BASE_EXPONENT;
 }
+
 #define PRINTF_ABS(_x) ((_x) > 0 ? (_x) : -(_x))
 
 #endif // (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
@@ -334,7 +340,8 @@ static inline int get_exp2(floating_point_with_bit_access x)
 // 3. function is non-null
 //
 // ... otherwise bad things will happen.
-typedef struct {
+typedef struct
+{
     void (*function)(char c, void *extra_arg);
     void *extra_function_arg;
     char *buffer;
@@ -429,8 +436,7 @@ static inline output_gadget_t extern_putchar_gadget(void)
 static inline printf_size_t strnlen_s_(const char *str, printf_size_t maxsize)
 {
     const char *s;
-    for (s = str; *s && maxsize--; ++s)
-        ;
+    for (s = str; *s && maxsize--; ++s);
     return (printf_size_t)(s - str);
 }
 
@@ -581,7 +587,8 @@ static void print_integer(output_gadget_t *output, printf_unsigned_value_t value
 
 // Stores a fixed-precision representation of a floating-point number relative
 // to a fixed precision (which cannot be determined by examining this structure)
-struct floating_point_components {
+struct floating_point_components
+{
     int_fast64_t integral;
     int_fast64_t fractional;
     // ... truncation of the actual fractional part of the floating_point_t value, scaled
@@ -590,25 +597,25 @@ struct floating_point_components {
 };
 
 static const floating_point_t powers_of_10[PRINTF_MAX_PRECOMPUTED_POWER_OF_10 + 1] = {1e00,
-                                                                                      1e01,
-                                                                                      1e02,
-                                                                                      1e03,
-                                                                                      1e04,
-                                                                                      1e05,
-                                                                                      1e06,
-                                                                                      1e07,
-                                                                                      1e08,
-                                                                                      1e09,
-                                                                                      1e10
+    1e01,
+    1e02,
+    1e03,
+    1e04,
+    1e05,
+    1e06,
+    1e07,
+    1e08,
+    1e09,
+    1e10
 #if PRINTF_MAX_PRECOMPUTED_POWER_OF_10 > 10
-                                                                                      ,
-                                                                                      1e11,
-                                                                                      1e12,
-                                                                                      1e13,
-                                                                                      1e14,
-                                                                                      1e15,
-                                                                                      1e16,
-                                                                                      1e17
+    ,
+    1e11,
+    1e12,
+    1e13,
+    1e14,
+    1e15,
+    1e16,
+    1e17
 #endif
 };
 
@@ -658,7 +665,8 @@ static struct floating_point_components get_components(floating_point_t number, 
 }
 
 #if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
-struct scaling_factor {
+struct scaling_factor
+{
     floating_point_t raw_factor;
     bool multiply; // if true, need to multiply by raw_factor; otherwise need to divide by it
 };
@@ -671,7 +679,7 @@ static floating_point_t apply_scaling(floating_point_t num, struct scaling_facto
 static floating_point_t unapply_scaling(floating_point_t normalized, struct scaling_factor normalization)
 {
 #ifdef __GNUC__
-// accounting for a static analysis bug in GCC 6.x and earlier
+    // accounting for a static analysis bug in GCC 6.x and earlier
 #pragma GCC diagnostic push
 #if !defined(__has_warning)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -724,12 +732,12 @@ static struct floating_point_components get_normalized_components(bool negative,
         // So, we'll give up early on getting extra precision...
         return get_components(negative ? -scaled : scaled, precision);
     }
-    components.integral        = (int_fast64_t)scaled;
+    components.integral = (int_fast64_t)scaled;
     floating_point_t remainder = non_normalized - unapply_scaling((floating_point_t)components.integral, normalization);
-    floating_point_t prec_power_of_10           = powers_of_10[precision];
+    floating_point_t prec_power_of_10 = powers_of_10[precision];
     struct scaling_factor account_for_precision = update_normalization(normalization, prec_power_of_10);
-    floating_point_t scaled_remainder           = apply_scaling(remainder, account_for_precision);
-    floating_point_t rounding_threshold         = 0.5;
+    floating_point_t scaled_remainder = apply_scaling(remainder, account_for_precision);
+    floating_point_t rounding_threshold = 0.5;
 
     components.fractional = (int_fast64_t)scaled_remainder; // when precision == 0, the assigned value should be 0
     scaled_remainder -=
@@ -950,10 +958,11 @@ static void print_exponential_number(output_gadget_t *output, floating_point_t n
         // This also decided how we adjust the precision value - as in "%g" mode,
         // "precision" is the number of _significant digits_, and this is when we "translate"
         // the precision value to an actual number of decimal digits.
-        int precision_ = fall_back_to_decimal_only_mode ? (int)precision - 1 - floored_exp10
-                                                        : (int)precision -
-                1; // the presence of the exponent ensures only one significant digit comes before the decimal point
-        precision      = (precision_ > 0 ? (unsigned)precision_ : 0U);
+        int precision_ = fall_back_to_decimal_only_mode
+            ? (int)precision - 1 - floored_exp10
+            : (int)precision -
+            1; // the presence of the exponent ensures only one significant digit comes before the decimal point
+        precision = (precision_ > 0 ? (unsigned)precision_ : 0U);
         flags |= FLAGS_PRECISION; // make sure print_broken_up_decimal respects our choice above
     }
 
@@ -995,14 +1004,15 @@ static void print_exponential_number(output_gadget_t *output, floating_point_t n
         :
         // We're padding on the left; so the width constraint is the decimal part's
         // problem. Well, can both the decimal part and the exponent part fit within our overall width?
-        ((width > exp10_part_width) ?
-                                    // Yes, so we limit our decimal part's width.
-                                    // (Note this is trivially valid even if we've fallen back to "%f" mode)
-             width - exp10_part_width
-                                    :
-                                    // No; we just give up on any restriction on the decimal part and use as many
-                                    // characters as we need
-             0U);
+        ((width > exp10_part_width)
+            ?
+            // Yes, so we limit our decimal part's width.
+            // (Note this is trivially valid even if we've fallen back to "%f" mode)
+            width - exp10_part_width
+            :
+            // No; we just give up on any restriction on the decimal part and use as many
+            // characters as we need
+            0U);
 
     const printf_size_t printed_exponential_start_pos = output->pos;
     print_broken_up_decimal(decimal_part_components, output, precision, decimal_part_width, flags, buf, len);
@@ -1171,41 +1181,40 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
         // evaluate length field
         switch (*format) {
 #ifdef PRINTF_SUPPORT_MSVC_STYLE_INTEGER_SPECIFIERS
-        case 'I':
-            {
+        case 'I': {
+            ADVANCE_IN_FORMAT_STRING(format);
+            // Greedily parse for size in bits: 8, 16, 32 or 64
+            switch (*format) {
+            case '8':
+                flags |= FLAGS_INT8;
                 ADVANCE_IN_FORMAT_STRING(format);
-                // Greedily parse for size in bits: 8, 16, 32 or 64
-                switch (*format) {
-                case '8':
-                    flags |= FLAGS_INT8;
-                    ADVANCE_IN_FORMAT_STRING(format);
-                    break;
-                case '1':
-                    ADVANCE_IN_FORMAT_STRING(format);
-                    if (*format == '6') {
-                        format++;
-                        flags |= FLAGS_INT16;
-                    }
-                    break;
-                case '3':
-                    ADVANCE_IN_FORMAT_STRING(format);
-                    if (*format == '2') {
-                        ADVANCE_IN_FORMAT_STRING(format);
-                        flags |= FLAGS_INT32;
-                    }
-                    break;
-                case '6':
-                    ADVANCE_IN_FORMAT_STRING(format);
-                    if (*format == '4') {
-                        ADVANCE_IN_FORMAT_STRING(format);
-                        flags |= FLAGS_INT64;
-                    }
-                    break;
-                default:
-                    break;
+                break;
+            case '1':
+                ADVANCE_IN_FORMAT_STRING(format);
+                if (*format == '6') {
+                    format++;
+                    flags |= FLAGS_INT16;
                 }
                 break;
+            case '3':
+                ADVANCE_IN_FORMAT_STRING(format);
+                if (*format == '2') {
+                    ADVANCE_IN_FORMAT_STRING(format);
+                    flags |= FLAGS_INT32;
+                }
+                break;
+            case '6':
+                ADVANCE_IN_FORMAT_STRING(format);
+                if (*format == '4') {
+                    ADVANCE_IN_FORMAT_STRING(format);
+                    flags |= FLAGS_INT64;
+                }
+                break;
+            default:
+                break;
             }
+            break;
+        }
 #endif
         case 'l':
             flags |= FLAGS_LONG;
@@ -1228,9 +1237,11 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
             }
             break;
         case 't':
-            flags |= (sizeof(ptrdiff_t) <= sizeof(int)) ? FLAGS_INT
-                : (sizeof(ptrdiff_t) == sizeof(long))   ? FLAGS_LONG
-                                                        : FLAGS_LONG_LONG;
+            flags |= (sizeof(ptrdiff_t) <= sizeof(int))
+                ? FLAGS_INT
+                : (sizeof(ptrdiff_t) == sizeof(long))
+                ? FLAGS_LONG
+                : FLAGS_LONG_LONG;
             ADVANCE_IN_FORMAT_STRING(format);
             break;
         case 'j':
@@ -1238,9 +1249,11 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
             ADVANCE_IN_FORMAT_STRING(format);
             break;
         case 'z':
-            flags |= (sizeof(size_t) <= sizeof(int)) ? FLAGS_INT
-                : (sizeof(size_t) == sizeof(long))   ? FLAGS_LONG
-                                                     : FLAGS_LONG_LONG;
+            flags |= (sizeof(size_t) <= sizeof(int))
+                ? FLAGS_INT
+                : (sizeof(size_t) == sizeof(long))
+                ? FLAGS_LONG
+                : FLAGS_LONG_LONG;
             ADVANCE_IN_FORMAT_STRING(format);
             break;
         default:
@@ -1255,185 +1268,183 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
         case 'x':
         case 'X':
         case 'o':
-        case 'b':
-            {
+        case 'b': {
 
-                if (*format == 'd' || *format == 'i') {
-                    flags |= FLAGS_SIGNED;
-                }
-
-                numeric_base_t base;
-                if (*format == 'x' || *format == 'X') {
-                    base = BASE_HEX;
-                } else if (*format == 'o') {
-                    base = BASE_OCTAL;
-                } else if (*format == 'b') {
-                    base = BASE_BINARY;
-                } else {
-                    base = BASE_DECIMAL;
-                    flags &= ~FLAGS_HASH; // decimal integers have no alternative presentation
-                }
-
-                if (*format == 'X') {
-                    flags |= FLAGS_UPPERCASE;
-                }
-
-                format++;
-                // ignore '0' flag when precision is given
-                if (flags & FLAGS_PRECISION) {
-                    flags &= ~FLAGS_ZEROPAD;
-                }
-
-                if (flags & FLAGS_SIGNED) {
-                    // A signed specifier: d, i or possibly I + bit size if enabled
-
-                    if (flags & FLAGS_LONG_LONG) {
-#if PRINTF_SUPPORT_LONG_LONG
-                        const long long value = va_arg(args, long long);
-                        print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
-#endif
-                    } else if (flags & FLAGS_LONG) {
-                        const long value = va_arg(args, long);
-                        print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
-                    } else {
-                        // We never try to interpret the argument as something potentially-smaller than int,
-                        // due to integer promotion rules: Even if the user passed a short int, short unsigned
-                        // etc. - these will come in after promotion, as int's (or unsigned for the case of
-                        // short unsigned when it has the same size as int)
-                        const int value = (flags & FLAGS_CHAR) ? (signed char)va_arg(args, int)
-                            : (flags & FLAGS_SHORT)            ? (short int)va_arg(args, int)
-                                                               : va_arg(args, int);
-                        print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
-                    }
-                } else {
-                    // An unsigned specifier: u, x, X, o, b
-
-                    flags &= ~(FLAGS_PLUS | FLAGS_SPACE);
-
-                    if (flags & FLAGS_LONG_LONG) {
-#if PRINTF_SUPPORT_LONG_LONG
-                        print_integer(output,
-                                      (printf_unsigned_value_t)va_arg(args, unsigned long long),
-                                      false,
-                                      base,
-                                      precision,
-                                      width,
-                                      flags);
-#endif
-                    } else if (flags & FLAGS_LONG) {
-                        print_integer(output,
-                                      (printf_unsigned_value_t)va_arg(args, unsigned long),
-                                      false,
-                                      base,
-                                      precision,
-                                      width,
-                                      flags);
-                    } else {
-                        const unsigned int value = (flags & FLAGS_CHAR) ? (unsigned char)va_arg(args, unsigned int)
-                            : (flags & FLAGS_SHORT)                     ? (unsigned short int)va_arg(args, unsigned int)
-                                                                        : va_arg(args, unsigned int);
-                        print_integer(output, (printf_unsigned_value_t)value, false, base, precision, width, flags);
-                    }
-                }
-                break;
+            if (*format == 'd' || *format == 'i') {
+                flags |= FLAGS_SIGNED;
             }
+
+            numeric_base_t base;
+            if (*format == 'x' || *format == 'X') {
+                base = BASE_HEX;
+            } else if (*format == 'o') {
+                base = BASE_OCTAL;
+            } else if (*format == 'b') {
+                base = BASE_BINARY;
+            } else {
+                base = BASE_DECIMAL;
+                flags &= ~FLAGS_HASH; // decimal integers have no alternative presentation
+            }
+
+            if (*format == 'X') {
+                flags |= FLAGS_UPPERCASE;
+            }
+
+            format++;
+            // ignore '0' flag when precision is given
+            if (flags & FLAGS_PRECISION) {
+                flags &= ~FLAGS_ZEROPAD;
+            }
+
+            if (flags & FLAGS_SIGNED) {
+                // A signed specifier: d, i or possibly I + bit size if enabled
+
+                if (flags & FLAGS_LONG_LONG) {
+#if PRINTF_SUPPORT_LONG_LONG
+                    const long long value = va_arg(args, long long);
+                    print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
+#endif
+                } else if (flags & FLAGS_LONG) {
+                    const long value = va_arg(args, long);
+                    print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
+                } else {
+                    // We never try to interpret the argument as something potentially-smaller than int,
+                    // due to integer promotion rules: Even if the user passed a short int, short unsigned
+                    // etc. - these will come in after promotion, as int's (or unsigned for the case of
+                    // short unsigned when it has the same size as int)
+                    const int value = (flags & FLAGS_CHAR)
+                        ? (signed char)va_arg(args, int)
+                        : (flags & FLAGS_SHORT)
+                        ? (short int)va_arg(args, int)
+                        : va_arg(args, int);
+                    print_integer(output, ABS_FOR_PRINTING(value), value < 0, base, precision, width, flags);
+                }
+            } else {
+                // An unsigned specifier: u, x, X, o, b
+
+                flags &= ~(FLAGS_PLUS | FLAGS_SPACE);
+
+                if (flags & FLAGS_LONG_LONG) {
+#if PRINTF_SUPPORT_LONG_LONG
+                    print_integer(output,
+                                  (printf_unsigned_value_t)va_arg(args, unsigned long long),
+                                  false,
+                                  base,
+                                  precision,
+                                  width,
+                                  flags);
+#endif
+                } else if (flags & FLAGS_LONG) {
+                    print_integer(output,
+                                  (printf_unsigned_value_t)va_arg(args, unsigned long),
+                                  false,
+                                  base,
+                                  precision,
+                                  width,
+                                  flags);
+                } else {
+                    const unsigned int value = (flags & FLAGS_CHAR)
+                        ? (unsigned char)va_arg(args, unsigned int)
+                        : (flags & FLAGS_SHORT)
+                        ? (unsigned short int)va_arg(args, unsigned int)
+                        : va_arg(args, unsigned int);
+                    print_integer(output, (printf_unsigned_value_t)value, false, base, precision, width, flags);
+                }
+            }
+            break;
+        }
 #if PRINTF_SUPPORT_DECIMAL_SPECIFIERS
         case 'f':
-        case 'F':
-            {
-                floating_point_t value =
-                    (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
-                if (*format == 'F') {
-                    flags |= FLAGS_UPPERCASE;
-                }
-                print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_DECIMAL);
-                format++;
-                break;
+        case 'F': {
+            floating_point_t value =
+                (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
+            if (*format == 'F') {
+                flags |= FLAGS_UPPERCASE;
             }
+            print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_DECIMAL);
+            format++;
+            break;
+        }
 #endif
 #if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
         case 'e':
         case 'E':
         case 'g':
-        case 'G':
-            {
-                floating_point_t value =
-                    (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
-                if ((*format == 'g') || (*format == 'G')) {
-                    flags |= FLAGS_ADAPT_EXP;
-                }
-                if ((*format == 'E') || (*format == 'G')) {
-                    flags |= FLAGS_UPPERCASE;
-                }
-                print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_EXPONENTIAL);
-                format++;
-                break;
+        case 'G': {
+            floating_point_t value =
+                (floating_point_t)(flags & FLAGS_LONG_DOUBLE ? va_arg(args, long double) : va_arg(args, double));
+            if ((*format == 'g') || (*format == 'G')) {
+                flags |= FLAGS_ADAPT_EXP;
             }
+            if ((*format == 'E') || (*format == 'G')) {
+                flags |= FLAGS_UPPERCASE;
+            }
+            print_floating_point(output, value, precision, width, flags, PRINTF_PREFER_EXPONENTIAL);
+            format++;
+            break;
+        }
 #endif // PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
-        case 'c':
-            {
-                printf_size_t l = 1U;
+        case 'c': {
+            printf_size_t l = 1U;
+            // pre padding
+            if (!(flags & FLAGS_LEFT)) {
+                while (l++ < width) {
+                    putchar_via_gadget(output, ' ');
+                }
+            }
+            // char output
+            putchar_via_gadget(output, (char)va_arg(args, int));
+            // post padding
+            if (flags & FLAGS_LEFT) {
+                while (l++ < width) {
+                    putchar_via_gadget(output, ' ');
+                }
+            }
+            format++;
+            break;
+        }
+
+        case 's': {
+            const char *p = va_arg(args, char *);
+            if (p == nullptr) {
+                out_rev_(output, ")llun(", 6, width, flags);
+            } else {
+                printf_size_t l = strnlen_s_(p, precision ? precision : PRINTF_MAX_POSSIBLE_BUFFER_SIZE);
                 // pre padding
+                if (flags & FLAGS_PRECISION) {
+                    l = (l < precision ? l : precision);
+                }
                 if (!(flags & FLAGS_LEFT)) {
                     while (l++ < width) {
                         putchar_via_gadget(output, ' ');
                     }
                 }
-                // char output
-                putchar_via_gadget(output, (char)va_arg(args, int));
+                // string output
+                while ((*p != 0) && (!(flags & FLAGS_PRECISION) || precision)) {
+                    putchar_via_gadget(output, *(p++));
+                    --precision;
+                }
                 // post padding
                 if (flags & FLAGS_LEFT) {
                     while (l++ < width) {
                         putchar_via_gadget(output, ' ');
                     }
                 }
-                format++;
-                break;
             }
+            format++;
+            break;
+        }
 
-        case 's':
-            {
-                const char *p = va_arg(args, char *);
-                if (p == nullptr) {
-                    out_rev_(output, ")llun(", 6, width, flags);
-                } else {
-                    printf_size_t l = strnlen_s_(p, precision ? precision : PRINTF_MAX_POSSIBLE_BUFFER_SIZE);
-                    // pre padding
-                    if (flags & FLAGS_PRECISION) {
-                        l = (l < precision ? l : precision);
-                    }
-                    if (!(flags & FLAGS_LEFT)) {
-                        while (l++ < width) {
-                            putchar_via_gadget(output, ' ');
-                        }
-                    }
-                    // string output
-                    while ((*p != 0) && (!(flags & FLAGS_PRECISION) || precision)) {
-                        putchar_via_gadget(output, *(p++));
-                        --precision;
-                    }
-                    // post padding
-                    if (flags & FLAGS_LEFT) {
-                        while (l++ < width) {
-                            putchar_via_gadget(output, ' ');
-                        }
-                    }
-                }
-                format++;
-                break;
-            }
-
-        case 'p':
-            {
-                width = sizeof(void *) * 2U + 2; // 2 hex chars per byte + the "0x" prefix
-                flags |= FLAGS_ZEROPAD | FLAGS_POINTER;
-                uintptr_t value = (uintptr_t)va_arg(args, void *);
-                (value == (uintptr_t)0)
-                    ? out_rev_(output, ")lin(", 5, width, flags)
-                    : print_integer(output, (printf_unsigned_value_t)value, false, BASE_HEX, precision, width, flags);
-                format++;
-                break;
-            }
+        case 'p': {
+            width = sizeof(void *) * 2U + 2; // 2 hex chars per byte + the "0x" prefix
+            flags |= FLAGS_ZEROPAD | FLAGS_POINTER;
+            uintptr_t value = (uintptr_t)va_arg(args, void *);
+            (value == (uintptr_t)0)
+                ? out_rev_(output, ")lin(", 5, width, flags)
+                : print_integer(output, (printf_unsigned_value_t)value, false, BASE_HEX, precision, width, flags);
+            format++;
+            break;
+        }
 
         case '%':
             putchar_via_gadget(output, '%');
@@ -1444,26 +1455,25 @@ static inline void format_string_loop(output_gadget_t *output, const char *forma
             // engineer a write to an arbitrary location, of a value the caller
             // effectively controls - which could be a security concern in some cases.
 #if PRINTF_SUPPORT_WRITEBACK_SPECIFIER
-        case 'n':
-            {
-                if (flags & FLAGS_CHAR) {
-                    *(va_arg(args, char *)) = (char)output->pos;
-                } else if (flags & FLAGS_SHORT) {
-                    *(va_arg(args, short *)) = (short)output->pos;
-                } else if (flags & FLAGS_LONG) {
-                    *(va_arg(args, long *)) = (long)output->pos;
-                }
-#if PRINTF_SUPPORT_LONG_LONG
-                else if (flags & FLAGS_LONG_LONG) {
-                    *(va_arg(args, long long *)) = (long long int)output->pos;
-                }
-#endif // PRINTF_SUPPORT_LONG_LONG
-                else {
-                    *(va_arg(args, int *)) = (int)output->pos;
-                }
-                format++;
-                break;
+        case 'n': {
+            if (flags & FLAGS_CHAR) {
+                *(va_arg(args, char *)) = (char)output->pos;
+            } else if (flags & FLAGS_SHORT) {
+                *(va_arg(args, short *)) = (short)output->pos;
+            } else if (flags & FLAGS_LONG) {
+                *(va_arg(args, long *)) = (long)output->pos;
             }
+#if PRINTF_SUPPORT_LONG_LONG
+            else if (flags & FLAGS_LONG_LONG) {
+                *(va_arg(args, long long *)) = (long long int)output->pos;
+            }
+#endif // PRINTF_SUPPORT_LONG_LONG
+            else {
+                *(va_arg(args, int *)) = (int)output->pos;
+            }
+            format++;
+            break;
+        }
 #endif // PRINTF_SUPPORT_WRITEBACK_SPECIFIER
 
         default:
@@ -1520,8 +1530,18 @@ int printf(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
+
+    const int locking = cons.locking;
+    if (locking) {
+        acquire(&cons.lock);
+    }
+
     const int ret = vprintf(format, args);
     va_end(args);
+
+    if (locking) {
+        release(&cons.lock);
+    }
 
     return ret;
 }
