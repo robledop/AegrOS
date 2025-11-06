@@ -106,6 +106,9 @@ qemu-nobuild:
 qemu-perf: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
 
+qemu-perf-net-default: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host
+
 qemu-perf-no-net: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host -nic none
 
