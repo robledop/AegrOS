@@ -48,6 +48,7 @@ int disk_stream_read(struct disk_stream *stream, void *out, const uint32_t size)
         // }
 
         memcpy(out_bytes, buf->data + offset, chunk);
+        brelse(buf);
 
         out_bytes += chunk;
         stream->position += chunk;
