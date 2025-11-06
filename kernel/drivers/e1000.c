@@ -37,6 +37,7 @@ u32 wait_for_network_timeout = 15'000;
 
 void wait_for_network()
 {
+    boot_message(WARNING_LEVEL_ERROR, "Waiting for DHCP response...");
     u32 budget = wait_for_network_timeout;
     while (!network_is_ready() && budget-- > 0) {
         e1000_receive();  // poll RX ring while interrupts are unavailable
@@ -47,7 +48,6 @@ void wait_for_network()
         boot_message(WARNING_LEVEL_ERROR, "Network failed to start");
     }
 }
-
 
 /**
  * @brief Write a 32-bit value to an e1000 register via MMIO or IO space.
