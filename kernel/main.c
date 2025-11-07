@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "termcolors.h"
 #include "types.h"
 #include "string.h"
@@ -21,7 +22,7 @@ static void mpmain(void) __attribute__
 /** @brief Kernel page directory */
 extern pde_t *kpgdir;
 /** @brief First address after kernel loaded from ELF file */
-extern char end[]; // first address after kernel loaded from ELF file
+extern char end[]; // first address after kernel loaded from ELF file. See kernel.ld
 
 
 #define STACK_CHK_GUARD 0xe2dee396
@@ -37,6 +38,7 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
  */
 int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
+    ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC, "Invalid multiboot magic number: 0x%x", magic);
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
     kernel_page_directory_init();                       // kernel page table
@@ -48,16 +50,16 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     consoleinit();                                      // console hardware
     uartinit();                                         // serial port
     cpu_print_info();
-    pinit();                                            // process table
-    tvinit();                                           // trap vectors
-    binit();                                            // buffer cache
-    fileinit();                                         // file table
-    ideinit();                                          // disk
-    startothers();                                      // start other processors
-    kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP));         // must come after startothers()
+    pinit();                                    // process table
+    tvinit();                                   // trap vectors
+    binit();                                    // buffer cache
+    fileinit();                                 // file table
+    ideinit();                                  // disk
+    startothers();                              // start other processors
+    kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
     pci_scan();
-    user_init();                                        // first user process
-    mpmain();                                           // finish this processor's setup
+    user_init(); // first user process
+    mpmain();    // finish this processor's setup
 }
 
 /**
@@ -82,7 +84,7 @@ static void mpmain(void)
     // boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
-    scheduler(); // start running processes
+    scheduler();                        // start running processes
 }
 
 /** @brief Boot-time page directory referenced from assembly. */

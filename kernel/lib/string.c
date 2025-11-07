@@ -9,8 +9,9 @@ void *memset(void *dst, int c, u32 n)
     if ((int)dst % 4 == 0 && n % 4 == 0) {
         c &= 0xFF;
         stosl(dst, (c << 24) | (c << 16) | (c << 8) | c, n / 4);
-    } else
+    } else {
         stosb(dst, c, n);
+    }
     return dst;
 }
 
@@ -20,8 +21,9 @@ int memcmp(const void *v1, const void *v2, u32 n)
     const u8 *s1 = v1;
     const u8 *s2 = v2;
     while (n-- > 0) {
-        if (*s1 != *s2)
+        if (*s1 != *s2) {
             return *s1 - *s2;
+        }
         s1++, s2++;
     }
 
@@ -36,11 +38,14 @@ void *memmove(void *dst, const void *src, u32 n)
     if (s < d && s + n > d) {
         s += n;
         d += n;
-        while (n-- > 0)
+        while (n-- > 0) {
             *--d = *--s;
-    } else
-        while (n-- > 0)
+        }
+    } else {
+        while (n-- > 0) {
             *d++ = *s++;
+        }
+    }
 
     return dst;
 }
@@ -55,10 +60,12 @@ void *memcpy(void *dst, const void *src, u32 n)
 /** @brief Compare n characters of strings */
 int strncmp(const char *p, const char *q, u32 n)
 {
-    while (n > 0 && *p && *p == *q)
+    while (n > 0 && *p && *p == *q) {
         n--, p++, q++;
-    if (n == 0)
+    }
+    if (n == 0) {
         return 0;
+    }
     return (u8)*p - (u8)*q;
 }
 
@@ -68,8 +75,9 @@ char *strncpy(char *s, const char *t, int n)
     char *os = s;
     while (n-- > 0 && (*s++ = *t++) != 0) {
     }
-    while (n-- > 0)
+    while (n-- > 0) {
         *s++ = 0;
+    }
     return os;
 }
 
@@ -129,7 +137,7 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
-char* strncat(char dest[static 1], const char src[static 1], u32 n)
+char *strncat(char dest[static 1], const char src[static 1], u32 n)
 {
     char *d = dest;
     while (*d != '\0') {

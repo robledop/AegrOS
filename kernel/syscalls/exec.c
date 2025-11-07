@@ -7,6 +7,7 @@
 #include "elf.h"
 #include "string.h"
 #include "file.h"
+#include "printf.h"
 #include "status.h"
 
 
@@ -61,7 +62,7 @@ int exec(char *path, char **argv)
 
     struct inode *ip;
     if ((ip = namei(path_buffer)) == nullptr) {
-        cprintf("exec: fail\n");
+        printf("exec: fail\n");
         return -1;
     }
 
@@ -77,31 +78,29 @@ int exec(char *path, char **argv)
         goto bad;
     }
 
-
     if ((pgdir = setup_kernel_page_directory()) == nullptr) {
         goto bad;
     }
 
-
     // Load program into memory.
     int sz = 0;
     u32 i, off;
-    struct proghdr ph;
+    struct elf32_phdr ph;
     for (i = 0, off = elf.e_phoff; i < elf.e_phnum; i++, off += sizeof(ph)) {
         if (ip->iops->readi(ip, (char *)&ph, off, sizeof(ph)) != sizeof(ph)) {
             goto bad;
         }
-        if (ph.type != PT_LOAD) {
+        if (ph.p_type != PT_LOAD) {
             continue;
         }
-        if (ph.memsz < ph.filesz) {
+        if (ph.p_memsz < ph.p_filesz) {
             goto bad;
         }
-        if (ph.vaddr + ph.memsz < ph.vaddr) {
+        if (ph.p_vaddr + ph.p_memsz < ph.p_vaddr) {
             goto bad;
         }
 
-        u32 seg_end   = ph.vaddr + ph.memsz;
+        u32 seg_end   = ph.p_vaddr + ph.p_memsz;
         u32 alloc_end = PGROUNDUP(seg_end);
         if (alloc_end < seg_end) {
             goto bad;
@@ -110,7 +109,7 @@ int exec(char *path, char **argv)
             goto bad;
         }
 
-        if (loaduvm(pgdir, (char *)ph.vaddr, ip, ph.off, ph.filesz) < 0) {
+        if (loaduvm(pgdir, (char *)ph.p_vaddr, ip, ph.p_offset, ph.p_filesz) < 0) {
             goto bad;
         }
     }
@@ -118,7 +117,7 @@ int exec(char *path, char **argv)
     ip = nullptr;
 
     // Allocate two pages at the next page boundary.
-    // Make the first inaccessible (stack guard page).  Use the second as the user stack.
+    // Make the first inaccessible (stack guard page). Use the second as the user stack.
     sz = PGROUNDUP(sz);
     if ((sz = allocvm(pgdir, sz, sz + 2 * PGSIZE, PTE_W | PTE_U)) == 0) {
         goto bad;

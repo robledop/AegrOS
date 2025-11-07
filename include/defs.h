@@ -162,7 +162,7 @@ void kernel_page_directory_init();
 pde_t *setup_kernel_page_directory();
 char *uva2ka(pde_t *, char *);
 int allocvm(pde_t *, u32, u32, int);
-int deallocvm(pde_t *, u32, u32);
+u32 deallocvm(pde_t *, u32, u32);
 void freevm(pde_t *);
 void inituvm(pde_t *, const char *, u32);
 int loaduvm(pde_t *, char *, struct inode *, u32, u32);

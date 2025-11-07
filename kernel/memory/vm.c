@@ -7,6 +7,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "file.h"
+#include "printf.h"
 #include "string.h"
 
 /** @brief End of kernel text; defined in linker script. */
@@ -318,7 +319,6 @@ void switch_kernel_page_directory(void)
     lcr3(V2P(kpgdir)); // switch to the kernel page table
 }
 
-
 /**
  * @brief Grow or shrink a page directory's address space.
  *
@@ -469,13 +469,13 @@ int allocvm(pde_t *pgdir, u32 oldsz, u32 newsz, int perm)
     for (u32 a = PGROUNDUP(oldsz); a < newsz; a += PGSIZE) {
         char *mem = kalloc_page();
         if (mem == nullptr) {
-            cprintf("allocvm out of memory\n");
+            printf("allocvm out of memory\n");
             deallocvm(pgdir, newsz, oldsz);
             return 0;
         }
         memset(mem, 0, PGSIZE);
         if (mappages(pgdir, (char *)a, PGSIZE, V2P(mem), perm) < 0) {
-            cprintf("allocvm out of memory (2)\n");
+            printf("allocvm out of memory (2)\n");
             deallocvm(pgdir, newsz, oldsz);
             kfree_page(mem);
             return 0;
@@ -494,13 +494,13 @@ int allocvm(pde_t *pgdir, u32 oldsz, u32 newsz, int perm)
  * @param newsz Desired size in bytes.
  * @return The resulting size after deallocation.
  */
-int deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
+u32 deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
 {
-    if (newsz >= oldsz)
+    if (newsz >= oldsz) {
         return oldsz;
+    }
 
-    u32 a = PGROUNDUP(newsz);
-    for (; a < oldsz; a += PGSIZE) {
+    for (u32 a = PGROUNDUP(newsz); a < oldsz; a += PGSIZE) {
         pte_t *pte = walkpgdir(pgdir, (char *)a, 0);
         if (!pte) {
             a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;

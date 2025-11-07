@@ -5,39 +5,6 @@
 
 #define ELF_MAGIC 0x464C457FU  // "\x7FELF" in little endian
 
-// File header
-struct elfhdr
-{
-    u32 magic; // must equal ELF_MAGIC
-    u8 elf[12];
-    u16 type;
-    u16 machine;
-    u32 version;
-    u32 entry;
-    u32 phoff;
-    u32 shoff;
-    u32 flags;
-    u16 ehsize;
-    u16 phentsize;
-    u16 phnum;
-    u16 shentsize;
-    u16 shnum;
-    u16 shstrndx;
-};
-
-// Program section header
-struct proghdr
-{
-    u32 type;
-    u32 off;
-    u32 vaddr;
-    u32 paddr;
-    u32 filesz;
-    u32 memsz;
-    u32 flags;
-    u32 align;
-};
-
 // Values for Proghdr type
 #define ELF_PROG_LOAD           1
 
@@ -106,8 +73,10 @@ typedef int elf32_off;
 #define ELFDATA2LSB 1
 #define ELFDATA2MSB 2
 
+
 /// @brief Program header
-struct elf32_phdr {
+struct elf32_phdr
+{
     elf32_word p_type;   // Type of segment
     elf32_off p_offset;  // Offset in file
     elf32_addr p_vaddr;  // Virtual address in memory
@@ -119,7 +88,8 @@ struct elf32_phdr {
 } __attribute__((packed));
 
 /// @brief Section header
-struct elf32_shdr {
+struct elf32_shdr
+{
     elf32_word sh_name;
     elf32_word sh_type;
     elf32_word sh_flags;
@@ -132,7 +102,8 @@ struct elf32_shdr {
     elf32_word sh_entsize;
 } __attribute__((packed));
 
-struct elf_header {
+struct elf_header
+{
     unsigned char e_ident[EI_NIDENT];
     elf32_half e_type;
     elf32_half e_machine;
@@ -150,9 +121,12 @@ struct elf_header {
 } __attribute__((packed));
 
 /// @brief Dynamic section entry
-struct elf32_dyn {
+struct elf32_dyn
+{
     elf32_sword d_tag;
-    union {
+
+    union
+    {
         elf32_word d_val;
         elf32_addr d_ptr;
     } d_un;
@@ -160,7 +134,8 @@ struct elf32_dyn {
 } __attribute__((packed));
 
 /// @brief Symbol table entry
-struct elf32_sym {
+struct elf32_sym
+{
     elf32_word st_name;
     elf32_addr st_value;
     elf32_word st_size;

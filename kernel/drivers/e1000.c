@@ -37,7 +37,7 @@ u32 wait_for_network_timeout = 1'000;
 
 void wait_for_network()
 {
-    boot_message(WARNING_LEVEL_INFO, "Waiting for DHCP response...");
+    boot_message(WARNING_LEVEL_INFO, "Waiting for DHCP offer...");
     u32 budget = wait_for_network_timeout;
     while (!network_is_ready() && budget-- > 0) {
         e1000_receive();  // poll RX ring while interrupts are unavailable

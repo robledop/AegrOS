@@ -80,8 +80,9 @@ void lapicinit(void)
 
     // Disable performance counter overflow interrupts
     // on machines that provide that interrupt entry.
-    if (((lapic[VER] >> 16) & 0xFF) >= 4)
+    if (((lapic[VER] >> 16) & 0xFF) >= 4) {
         lapicw(PCINT, MASKED);
+    }
 
     // Map error interrupt to IRQ_ERROR.
     lapicw(ERROR, T_IRQ0 + IRQ_ERROR);

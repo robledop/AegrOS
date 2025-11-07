@@ -5,6 +5,7 @@
 #include "defs.h"
 #include "elf.h"
 #include "debug.h"
+#include "printf.h"
 
 typedef struct stack_frame
 {
@@ -22,21 +23,21 @@ static char *reserved_symbol_end = nullptr;
 
 void stack_trace(void)
 {
-    cprintf("Stack trace:\n");
+    printf("Stack trace:\n");
 
     const stack_frame_t *stack = __builtin_frame_address(0);
     int max                    = 10;
     while (stack && stack->eip != 0 && max-- > 0) {
         auto const symbol = debug_function_symbol_lookup(stack->eip);
-        cprintf("\t" KBCYN "0x%x" KBLU " [" KBWHT "%s" KWHT " + 0x%x" KBLU "]\n" KWHT,
-                stack->eip,
-                (symbol.name == nullptr) ? "[unknown]" : symbol.name,
-                stack->eip - symbol.address);
+        printf("\t" KBCYN "0x%x" KBLU " [" KBWHT "%s" KWHT " + 0x%x" KBLU "]\n" KWHT,
+               stack->eip,
+               (symbol.name == nullptr) ? "[unknown]" : symbol.name,
+               stack->eip - symbol.address);
         stack = stack->ebp;
     }
 
-    cprintf(KWHT "run " KBBLU "addr2line -e build/kernel <address>" KWHT " to get line numbers\n");
-    cprintf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
+    printf(KWHT "run " KBBLU "addr2line -e build/kernel <address>" KWHT " to get line numbers\n");
+    printf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
 }
 
 char *debug_reserved_end(void)

@@ -436,7 +436,8 @@ static inline output_gadget_t extern_putchar_gadget(void)
 static inline printf_size_t strnlen_s_(const char *str, printf_size_t maxsize)
 {
     const char *s;
-    for (s = str; *s && maxsize--; ++s);
+    for (s = str; *s && maxsize--; ++s) {
+    }
     return (printf_size_t)(s - str);
 }
 

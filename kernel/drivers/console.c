@@ -118,7 +118,7 @@ void panic(char *s)
 {
     cli();
     cons.locking = 0;
-    cprintf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), s);
+    printf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), s);
     debug_stats();
     panicked = 1; // freeze other CPU
     for (;;) {
