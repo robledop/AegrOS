@@ -15,7 +15,7 @@ extern u32 vectors[]; // in vectors.asm: array of 256 entry pointers
 /** @brief Spinlock protecting ticks. */
 struct spinlock tickslock;
 /** @brief Global tick counter incremented by the timer interrupt. */
-u32 ticks;
+volatile u32 ticks;
 
 char *exception_messages[] = {
     "Division By Zero",
@@ -119,7 +119,7 @@ void timer_handler([[maybe_unused]] struct trapframe *tf)
     if (cpu_index() == 0) {
         acquire(&tickslock);
         ticks++;
-        wakeup(&ticks);
+        wakeup((void *)&ticks);
         release(&tickslock);
     }
     lapiceoi(); // Acknowledge the interrupt
@@ -196,39 +196,42 @@ void trap(struct trapframe *tf)
     } else {
         if (current_process() == nullptr || (tf->cs & 3) == 0) {
             // In kernel, it must be our mistake.
-            cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
-                    tf->trapno,
-                    cpu_index(),
-                    tf->eip,
-                    rcr2());
+            printf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+                   tf->trapno,
+                   cpu_index(),
+                   tf->eip,
+                   rcr2());
             panic("trap");
         }
         // In user space, assume the process misbehaved.
-        cprintf("pid %d %s: trap %d err %d on cpu %d "
-                "eip 0x%x addr 0x%x--kill proc\n",
-                current_process()->pid,
-                current_process()->name,
-                tf->trapno,
-                tf->err,
-                cpu_index(),
-                tf->eip,
-                rcr2());
+        printf("pid %d %s: trap %d err %d on cpu %d "
+               "eip 0x%x addr 0x%x--kill proc\n",
+               current_process()->pid,
+               current_process()->name,
+               tf->trapno,
+               tf->err,
+               cpu_index(),
+               tf->eip,
+               rcr2());
         current_process()->killed = 1;
     }
 
     // Force process exit if it has been killed and is in user space.
     // (If it is still executing in the kernel, let it keep running
     // until it gets to the regular system call return.)
-    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER)
+    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER) {
         exit();
+    }
 
     // Force the process to give up CPU on clock tick.
     // If interrupts were on while locks held, would need to check nlock.
     if (current_process() && current_process()->state == RUNNING &&
-        tf->trapno == T_IRQ0 + IRQ_TIMER)
+        tf->trapno == T_IRQ0 + IRQ_TIMER) {
         yield();
+    }
 
     // Check if the process has been killed since we yielded
-    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER)
+    if (current_process() && current_process()->killed && (tf->cs & 3) == DPL_USER) {
         exit();
+    }
 }

@@ -9,6 +9,7 @@
 #include "proc.h"
 #include "ext2.h"
 #include "io.h"
+#include "scheduler.h"
 
 extern struct ptable_t ptable;
 
@@ -73,9 +74,11 @@ static struct proc *alloc_proc(void)
 
     acquire(&ptable.lock);
 
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-        if (p->state == UNUSED)
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if (p->state == UNUSED) {
             goto found;
+        }
+    }
 
     release(&ptable.lock);
     return nullptr;
@@ -144,11 +147,12 @@ void user_init()
     // run this process. the acquire forces the above
     // writes to be visible, and the lock is also needed
     // because the assignment might not be atomic.
-    acquire(&ptable.lock);
+    // acquire(&ptable.lock);
 
     p->state = RUNNABLE;
+    enqueue_runnable(p);
 
-    release(&ptable.lock);
+    // release(&ptable.lock);
 }
 
 /**
@@ -175,7 +179,6 @@ int resize_proc(int n)
     activate_process(curproc);
     return 0;
 }
-
 
 
 /**
@@ -223,6 +226,7 @@ int fork(void)
     acquire(&ptable.lock);
 
     np->state = RUNNABLE;
+    enqueue_runnable(np);
 
     release(&ptable.lock);
 

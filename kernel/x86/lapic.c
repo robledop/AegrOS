@@ -41,6 +41,21 @@
 #define TCCR (0x0390 / 4)   // Timer Current Count
 #define TDCR (0x03E0 / 4)   // Timer Divide Configuration
 
+#define PIT_CHANNEL2_DATA 0x42
+#define PIT_MODE_COMMAND 0x43
+#define PIT_SPEAKER_PORT 0x61
+#define PIT_BASE_FREQUENCY 1193182
+#define PIT_CMD_CHANNEL2 0x80
+#define PIT_CMD_ACCESS_LOHI 0x30
+#define PIT_CMD_MODE0 0x00
+#define PIT_SPEAKER_ENABLE 0x02
+#define PIT_GATE_ENABLE 0x01
+#define PIT_OUT_STATUS 0x20
+
+#define LAPIC_TIMER_TARGET_HZ 100
+#define LAPIC_TIMER_INTERVAL_MS (1000 / LAPIC_TIMER_TARGET_HZ)
+#define LAPIC_TIMER_DEFAULT_INIT_COUNT 10000000
+
 /** @brief Memory-mapped base address of the local APIC. */
 volatile u32 *lapic; // Initialized in mp.c
 
@@ -57,6 +72,81 @@ static void lapicw(int index, int value)
     lapic[ID]; // wait for write to finish by reading
 }
 
+static u32 lapic_ticks_per_ms;
+
+/**
+ * @brief Measure LAPIC ticks per millisecond using PIT channel 2 as a reference.
+ *
+ * The LAPIC timer is set to one-shot mode and allowed to run while PIT channel 2
+ * counts down a precise interval. Once the PIT signals completion, the LAPIC
+ * current count reveals how many bus cycles elapsed during that span.
+ *
+ * @return LAPIC ticks per millisecond, or 0 if calibration failed.
+ */
+static u32 calibrate_lapic_timer(void)
+{
+    constexpr int sample_ms       = 10;
+    constexpr u32 pit_reload_calc = (PIT_BASE_FREQUENCY * (u32)sample_ms) / 1000;
+    if (pit_reload_calc == 0 || pit_reload_calc > 0xFFFF) {
+        return 0;
+    }
+    constexpr u16 pit_reload = (u16)pit_reload_calc;
+
+    lapicw(TDCR, X1);
+    lapicw(TIMER, (T_IRQ0 + IRQ_TIMER)); // one-shot during calibration
+    lapicw(TICR, 0xFFFFFFFF);
+
+    const u8 speaker_orig = inb(PIT_SPEAKER_PORT);
+    outb(PIT_SPEAKER_PORT, speaker_orig & ~(PIT_GATE_ENABLE | PIT_SPEAKER_ENABLE));
+    outb(PIT_MODE_COMMAND, PIT_CMD_CHANNEL2 | PIT_CMD_ACCESS_LOHI | PIT_CMD_MODE0);
+    outb(PIT_CHANNEL2_DATA, pit_reload & 0xFF);
+    outb(PIT_CHANNEL2_DATA, pit_reload >> 8);
+    outb(PIT_SPEAKER_PORT, (speaker_orig & ~PIT_SPEAKER_ENABLE) | PIT_GATE_ENABLE);
+
+    u32 timeout = PIT_BASE_FREQUENCY; // ~1 second safety bound
+    while (((inb(PIT_SPEAKER_PORT) & PIT_OUT_STATUS) == 0) && timeout-- > 0) {
+        __asm__ volatile("pause");
+    }
+
+    u32 elapsed = 0;
+    if ((inb(PIT_SPEAKER_PORT) & PIT_OUT_STATUS) != 0) {
+        elapsed = 0xFFFFFFFFU - lapic[TCCR];
+    }
+
+    outb(PIT_SPEAKER_PORT, speaker_orig);
+
+    if (elapsed == 0) {
+        return 0;
+    }
+
+    return (elapsed + (sample_ms / 2)) / (u32)sample_ms;
+}
+
+/**
+ * @brief Configure the LAPIC timer for periodic interrupts using calibrated ticks.
+ */
+static void lapic_configure_timer(void)
+{
+    if (lapic_ticks_per_ms == 0) {
+        lapic_ticks_per_ms = calibrate_lapic_timer();
+        if (lapic_ticks_per_ms == 0) {
+            lapic_ticks_per_ms = LAPIC_TIMER_DEFAULT_INIT_COUNT / LAPIC_TIMER_INTERVAL_MS;
+            if (lapic_ticks_per_ms == 0) {
+                lapic_ticks_per_ms = LAPIC_TIMER_DEFAULT_INIT_COUNT;
+            }
+        }
+    }
+
+    u32 initial_count = lapic_ticks_per_ms * LAPIC_TIMER_INTERVAL_MS;
+    if (initial_count == 0) {
+        initial_count = LAPIC_TIMER_DEFAULT_INIT_COUNT;
+    }
+
+    lapicw(TDCR, X1);
+    lapicw(TIMER, PERIODIC | (T_IRQ0 + IRQ_TIMER));
+    lapicw(TICR, initial_count);
+}
+
 /** @brief Initialize and enable the local APIC on the current CPU. */
 void lapicinit(void)
 {
@@ -66,13 +156,8 @@ void lapicinit(void)
     // Enable local APIC; set spurious interrupt vector.
     lapicw(SVR, ENABLE | (T_IRQ0 + IRQ_SPURIOUS));
 
-    // The timer repeatedly counts down at bus frequency
-    // from lapic[TICR] and then issues an interrupt.
-    // If xv6 cared more about precise timekeeping,
-    // TICR would be calibrated using an external time source.
-    lapicw(TDCR, X1);
-    lapicw(TIMER, PERIODIC | (T_IRQ0 + IRQ_TIMER));
-    lapicw(TICR, 10000000);
+    // Program the LAPIC timer using a PIT-calibrated interval for stable ticks.
+    lapic_configure_timer();
 
     // Disable logical interrupt lines.
     lapicw(LINT0, MASKED);
@@ -97,7 +182,8 @@ void lapicinit(void)
     // Send an Init Level De-Assert to synchronise arbitration ID's.
     lapicw(ICRHI, 0);
     lapicw(ICRLO, BCAST | INIT | LEVEL);
-    while (lapic[ICRLO] & DELIVS) {}
+    while (lapic[ICRLO] & DELIVS) {
+    }
 
     // Enable interrupts on the APIC (but not on the processor).
     lapicw(TPR, 0);
@@ -110,16 +196,18 @@ void lapicinit(void)
  */
 int lapicid(void)
 {
-    if (!lapic)
+    if (!lapic) {
         return 0;
+    }
     return lapic[ID] >> 24;
 }
 
 /** @brief Acknowledge completion of the current interrupt to the LAPIC. */
 void lapiceoi(void)
 {
-    if (lapic)
+    if (lapic) {
         lapicw(EOI, 0);
+    }
 }
 
 /**

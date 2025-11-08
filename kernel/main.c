@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "mbr.h"
 #include "pci.h"
+#include "scheduler.h"
 #include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */

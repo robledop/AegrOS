@@ -16,6 +16,7 @@
 #include "printf.h"
 #include "termcolors.h"
 #include "io.h"
+#include "scheduler.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -114,11 +115,17 @@ void cprintf(char *fmt, ...)
 }
 
 /** @brief Panic and print the message */
-void panic(char *s)
+void panic(const char *fmt, ...)
 {
     cli();
     cons.locking = 0;
-    printf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), s);
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    printf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), buf);
+
     debug_stats();
     panicked = 1; // freeze other CPU
     for (;;) {

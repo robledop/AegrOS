@@ -363,12 +363,15 @@ u32 resize_kernel_page_directory(int n)
  */
 void activate_process(struct proc *p)
 {
-    if (p == nullptr)
+    if (p == nullptr) {
         panic("activate_process: no process");
-    if (p->kstack == nullptr)
+    }
+    if (p->kstack == nullptr) {
         panic("activate_process: no kstack");
-    if (p->page_directory == nullptr)
+    }
+    if (p->page_directory == nullptr) {
         panic("activate_process: no pgdir");
+    }
 
     pushcli();
     current_cpu()->gdt[SEG_TSS] = SEG16(STS_T32A, &current_cpu()->task_state, sizeof(current_cpu()->task_state) - 1, 0);

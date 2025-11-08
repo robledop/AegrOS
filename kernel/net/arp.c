@@ -9,7 +9,6 @@
 u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 struct arp_cache_entry *arp_cache;
-extern u32 ticks;
 
 void arp_init()
 {

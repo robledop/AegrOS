@@ -50,6 +50,7 @@ struct proc
     pde_t *page_directory;        // Page table
     char *kstack;                 // Bottom of the kernel stack for this process
     enum procstate state;         // Process state
+    u64 time_used;
     int pid;                      // Process ID
     struct proc *parent;          // Parent process
     struct trapframe *trap_frame; // Trap frame for current syscall
@@ -58,6 +59,7 @@ struct proc
     int killed;                   // If non-zero, have been killed
     struct file *ofile[NOFILE];   // Open files
     struct inode *cwd;            // Current directory
+    struct proc *next;
     char cwd_path[MAX_FILE_PATH];
     char name[16]; // Process name (debugging)
 };

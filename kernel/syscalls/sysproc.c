@@ -99,7 +99,7 @@ int sys_sleep(void)
             release(&tickslock);
             return -1;
         }
-        sleep(&ticks, &tickslock);
+        sleep((void *)&ticks, &tickslock);
     }
     release(&tickslock);
     return 0;

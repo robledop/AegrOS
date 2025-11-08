@@ -32,7 +32,7 @@ void consoleinit(void);
 void cprintf(char *, ...);
 void consputc(int c);
 void consoleintr(int (*)(void));
-void panic(char *) __attribute__ ((noreturn));
+void panic(const char* fmt, ...) __attribute__((noreturn));
 void boot_message(warning_level_t level, const char *fmt, ...);
 
 // exec.c
@@ -105,18 +105,13 @@ int kill(int);
 struct cpu *current_cpu();
 struct proc *current_process();
 void pinit(void);
-void procdump(void);
-void scheduler(void) __attribute__ ((noreturn));
-void switch_to_scheduler(void);
+// void on_timer();
 void setproc(struct proc *);
 void sleep(void *, struct spinlock *);
 void user_init(void);
 int wait(void);
 void wakeup(void *);
 void yield(void);
-
-// swtch.asm
-void switch_context(struct context **, struct context *);
 
 // spinlock.c
 void acquire(struct spinlock *);
@@ -147,7 +142,7 @@ void timerinit(void);
 
 // trap.c
 void idtinit(void);
-extern u32 ticks;
+extern volatile u32 ticks;
 void tvinit(void);
 extern struct spinlock tickslock;
 
