@@ -29,6 +29,7 @@ struct kernel_mmio_range
 
 static struct kernel_mmio_range kernel_mmio_ranges[MAX_KERNEL_MMIO_RANGES];
 static int kernel_mmio_count;
+static int mmio_propagation_enabled;
 
 /**
  * @brief Replicate kernel mappings from kpgdir into another page directory.
@@ -199,7 +200,11 @@ void kernel_map_mmio(u32 pa, u32 size)
         }
     }
 
-    propagate_kernel_range(start, end);
+    if (mmio_propagation_enabled) {
+        propagate_kernel_range(start, end);
+    } else {
+        switch_kernel_page_directory();
+    }
 
     // Record the MMIO range so future page directories inherit the mapping.
     int merged = 0;
@@ -232,6 +237,11 @@ void kernel_map_mmio(u32 pa, u32 size)
     }
 }
 
+void kernel_enable_mmio_propagation(void)
+{
+    mmio_propagation_enabled = 1;
+}
+
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
 // current process's page table during system calls and interrupts;
@@ -261,10 +271,10 @@ static struct kmap
     u32 phys_end;
     int perm;
 } kmap[] = {
-    {(void *)KERNBASE, 0, EXTMEM, PTE_W},            // I/O space
-    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0}, // kern text+rodata
-    {(void *)data, V2P(data), PHYSTOP, PTE_W},       // kern data+memory
-    {(void *)DEVSPACE, DEVSPACE, 0, PTE_W},          // more devices
+    {(void *)KERNBASE, 0, EXTMEM, PTE_W},                       // I/O space
+    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0},            // kern text+rodata
+    {(void *)data, V2P(data), PHYSTOP, PTE_W},                  // kern data+memory
+    {(void *)MMIOBASE, MMIOBASE, 0, PTE_W | PTE_PCD | PTE_PWT}, // MMIO devices (framebuffer, lapic, etc.)
 };
 
 /**
@@ -281,7 +291,7 @@ pde_t *setup_kernel_page_directory(void)
     }
     memset(pgdir, 0, PGSIZE);
 
-#if (PHYSTOP + KERNBASE) > DEVSPACE
+#if (PHYSTOP + KERNBASE) > MMIOBASE
     panic("PHYSTOP too high");
 #endif
 

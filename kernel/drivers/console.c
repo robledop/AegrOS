@@ -17,6 +17,7 @@
 #include "termcolors.h"
 #include "io.h"
 #include "scheduler.h"
+#include "vesa_terminal.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -294,10 +295,18 @@ void consputc(int c)
     }
 #endif
 
+#ifdef GRAPHICS
+    if (c == BACKSPACE) {
+        putchar('\b');
+    } else {
+        putchar(c);
+    }
+#else
     if (handle_ansi_escape(c)) {
         return;
     }
     cgaputc(c);
+#endif
 }
 
 
@@ -574,8 +583,9 @@ int consolewrite(struct inode *ip, char *buf, int n)
 {
     ip->iops->iunlock(ip);
     acquire(&cons.lock);
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; i++) {
         consputc(buf[i] & 0xff);
+    }
     release(&cons.lock);
     ip->iops->ilock(ip);
 
@@ -591,8 +601,10 @@ void consoleinit(void)
     devsw[CONSOLE].read  = consoleread;
     cons.locking         = 1;
 
+#ifndef GRAPHICS
     terminal_clear();
-
     enable_cursor();
+#endif
+
     ioapicenable(IRQ_KBD, 0);
 }

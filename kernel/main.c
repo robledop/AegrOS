@@ -13,6 +13,7 @@
 #include "mbr.h"
 #include "pci.h"
 #include "scheduler.h"
+#include "vesa.h"
 #include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */
@@ -20,6 +21,11 @@ static void startothers(void);
 /** @brief Common CPU setup code. */
 static void mpmain(void) __attribute__
 ((noreturn));
+
+void set_vbe_info(const multiboot_info_t *mbd);
+#ifdef GRAPHICS
+static void map_framebuffer_mmio(void);
+#endif
 /** @brief Kernel page directory */
 extern pde_t *kpgdir;
 /** @brief First address after kernel loaded from ELF file */
@@ -40,9 +46,17 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
 int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
     ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC, "Invalid multiboot magic number: 0x%x", magic);
+
+#ifdef GRAPHICS
+    set_vbe_info(mbinfo);
+#endif
+
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
     kernel_page_directory_init();                       // kernel page table
+#ifdef GRAPHICS
+    map_framebuffer_mmio();
+#endif
     mpinit();                                           // detect other processors
     lapicinit();                                        // interrupt controller
     seginit();                                          // segment descriptors
@@ -58,6 +72,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     ideinit();                                  // disk
     startothers();                              // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
+    kernel_enable_mmio_propagation();
     pci_scan();
     user_init(); // first user process
     mpmain();    // finish this processor's setup
@@ -130,6 +145,36 @@ static void startothers(void)
         while (c->started == 0);
     }
 }
+
+
+void set_vbe_info(const multiboot_info_t *mbd)
+{
+    vbe_info->height      = mbd->framebuffer_height;
+    vbe_info->width       = mbd->framebuffer_width;
+    vbe_info->bpp         = mbd->framebuffer_bpp;
+    vbe_info->pitch       = mbd->framebuffer_pitch;
+    vbe_info->framebuffer = (u32)mbd->framebuffer_addr;
+}
+
+#ifdef GRAPHICS
+/**
+ * @brief Identity-map the framebuffer provided by Multiboot so VirtualBox VMs
+ *        (which place VRAM at 0xE0000000) don't fault when we touch it.
+ */
+static void map_framebuffer_mmio(void)
+{
+    if (vbe_info->framebuffer == 0 || vbe_info->pitch == 0 || vbe_info->height == 0) {
+        return;
+    }
+
+    const u32 fb_size = (u32)vbe_info->pitch * (u32)vbe_info->height;
+    if (fb_size == 0) {
+        return;
+    }
+
+    kernel_map_mmio(vbe_info->framebuffer, fb_size);
+}
+#endif
 
 // /**
 //  * @brief Boot page table image used while bringing up processors.

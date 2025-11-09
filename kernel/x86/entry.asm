@@ -23,10 +23,12 @@
 %include "mmu.asm"
 %include "param.asm"
 
+%define BOOT_STACK_SIZE (KSTACKSIZE)
+
 ; Declare constants for the multiboot header.
 MBALIGN  equ  1 << 0            ; align loaded modules on page boundaries
 MEMINFO  equ  1 << 1            ; provide memory map
-%ifdef PIXEL_RENDERING
+%ifdef GRAPHICS
 VIDEOMODE equ  1 << 2            ; request video mode
 MBFLAGS equ MBALIGN | MEMINFO | VIDEOMODE
 %else
@@ -40,7 +42,7 @@ align 4
 	dd MAGIC
 	dd MBFLAGS
 	dd CHECKSUM
-%ifdef PIXEL_RENDERING
+%ifdef GRAPHICS
     ; Video mode fields (required when VIDEOMODE flag is set)
 	dd 0    ; header_addr (not used)
 	dd 0    ; load_addr (not used)
@@ -80,8 +82,7 @@ _start:
     or      eax, (CR0_PG|CR0_WP)
     mov     cr0, eax
 
-    ; Set up the stack pointer.
-    mov esp, (stack + KSTACKSIZE)
+    mov esp, (stack + BOOT_STACK_SIZE)
 
     ; Manually set up the call frame for kernel_main
     push esi        ; Second parameter (magic number)
@@ -98,4 +99,4 @@ _start:
 
 section .bss
 global stack
-stack: resb KSTACKSIZE
+stack: resb BOOT_STACK_SIZE
