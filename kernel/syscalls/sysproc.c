@@ -48,6 +48,9 @@ int sys_getcwd(void)
     if (argint(1, &n) < 0 || argptr(0, &p, n) < 0) {
         return -1;
     }
+    if (p == nullptr || n <= 0) {
+        return -1;
+    }
 
     const char *cwd = current_process()->cwd_path;
     if (cwd[0] == '\0') {

@@ -3,6 +3,7 @@
 #include "user.h"
 #include "fs.h"
 #include "stat.h"
+#include "file.h"
 #include "fcntl.h"
 #include "dirwalk.h"
 #include "syscall.h"
@@ -13,6 +14,33 @@
 char buf[8192];
 char name[3];
 char *echoargv[] = {"echo", "ALL", "TESTS", "PASSED", nullptr};
+
+static int readfile(const char *path, char *out, int max)
+{
+    if (max <= 0) {
+        return -1;
+    }
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+    int total = 0;
+    int limit = max - 1;
+    while (total < limit) {
+        int n = read(fd, out + total, limit - total);
+        if (n < 0) {
+            close(fd);
+            return -1;
+        }
+        if (n == 0) {
+            break;
+        }
+        total += n;
+    }
+    close(fd);
+    out[total] = '\0';
+    return total;
+}
 
 // does chdir() call iput(p->cwd) in a transaction?
 void iputtest(void)
@@ -879,7 +907,7 @@ void fstattest(void)
 void mknodtest(void)
 {
     struct stat st;
-    printf("mknod test");
+    printf("mknod test\n");
 
     unlink("mknod.tmp");
     unlink("/dev/mknod-null");
@@ -940,6 +968,108 @@ void mknodtest(void)
         printf(KBRED "\nunlink %s failed\n" KRESET, devpath);
         exit();
     }
+
+    struct stat devtab_stat;
+    if (stat("/etc/devtab", &devtab_stat) < 0) {
+        printf(KBRED "\nstat /etc/devtab failed\n" KRESET);
+        exit();
+    }
+    int devtab_backup_cap = devtab_stat.size + 1;
+    if (devtab_backup_cap < 1) {
+        devtab_backup_cap = 1;
+    }
+    char *devtab_backup = malloc(devtab_backup_cap);
+    if (devtab_backup == nullptr) {
+        printf(KBRED "\nmalloc devtab backup failed\n" KRESET);
+        exit();
+    }
+    int devtab_backup_len = readfile("/etc/devtab", devtab_backup, devtab_backup_cap);
+    if (devtab_backup_len < 0) {
+        printf(KBRED "\nread /etc/devtab failed\n" KRESET);
+        exit();
+    }
+
+    const char *badmajor = "/dev/mknod-badmajor";
+    unlink(badmajor);
+    if (mknod(badmajor, NDEV + 1, 0) != 0) {
+        printf(KBRED "\nmknod %s with invalid major failed\n" KRESET, badmajor);
+        exit();
+    }
+    int badfd = open(badmajor, O_RDWR);
+    if (badfd < 0) {
+        printf(KBRED "\nopen %s failed\n" KRESET, badmajor);
+        exit();
+    }
+    if (write(badfd, &ch, 1) >= 0) {
+        printf(KBRED "\nwrite to %s unexpectedly succeeded\n" KRESET, badmajor);
+        exit();
+    }
+    if (read(badfd, &ch, 1) >= 0) {
+        printf(KBRED "\nread from %s unexpectedly succeeded\n" KRESET, badmajor);
+        exit();
+    }
+    close(badfd);
+    if (unlink(badmajor) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, badmajor);
+        exit();
+    }
+
+    char consoledev[64];
+    snprintf(consoledev, sizeof(consoledev), "/dev/mknod-console.%d", getpid());
+    unlink(consoledev);
+    if (mknod(consoledev, CONSOLE, 0) != 0) {
+        printf(KBRED "\nmknod %s console failed\n" KRESET, consoledev);
+        exit();
+    }
+    int consolefd = open(consoledev, O_WRONLY);
+    if (consolefd < 0) {
+        printf(KBRED "\nopen %s failed\n" KRESET, consoledev);
+        exit();
+    }
+    const char *msg = "console device test";
+    if (write(consolefd, msg, strlen(msg)) != (int)strlen(msg)) {
+        printf(KBRED "\nwrite to %s failed\n" KRESET, consoledev);
+        exit();
+    }
+    close(consolefd);
+
+    int devtab_contents_cap = devtab_backup_len + 128;
+    if (devtab_contents_cap < devtab_backup_cap + 1) {
+        devtab_contents_cap = devtab_backup_cap + 1;
+    }
+    char *devtab_contents = malloc(devtab_contents_cap);
+    if (devtab_contents == nullptr) {
+        printf(KBRED "\nmalloc devtab contents failed\n" KRESET);
+        exit();
+    }
+    int devtab_len = readfile("/etc/devtab", devtab_contents, devtab_contents_cap);
+    if (devtab_len < 0) {
+        printf(KBRED "\nre-read /etc/devtab failed\n" KRESET);
+        exit();
+    }
+    if (devtab_len <= devtab_backup_len) {
+        printf(KBRED "\n/etc/devtab did not grow after mknod\n" KRESET);
+        exit();
+    }
+    int found   = 0;
+    int namelen = strlen(consoledev);
+    for (int i = 0; i + namelen <= devtab_len; i++) {
+        if (strncmp(devtab_contents + i, consoledev, namelen) == 0) {
+            found = 1;
+            break;
+        }
+    }
+    if (!found) {
+        printf(KBRED "\n/etc/devtab missing %s entry\n" KRESET, consoledev);
+        exit();
+    }
+
+    if (unlink(consoledev) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, consoledev);
+        exit();
+    }
+    free(devtab_contents);
+    free(devtab_backup);
 
     printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
@@ -1485,6 +1615,97 @@ void getcwdtest(void)
     }
     if (unlink(top) != 0) {
         printf(KBRED "\nunlink %s failed\n" KRESET, top);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
+void cwdrobusttest(void)
+{
+    printf("cwd robust test");
+
+    if (chdir("/") != 0) {
+        printf(KBRED "\nchdir / failed\n" KRESET);
+        exit();
+    }
+
+    char buf[32];
+    if (getcwd(nullptr, sizeof(buf)) >= 0) {
+        printf(KBRED "\ngetcwd accepted null buffer\n" KRESET);
+        exit();
+    }
+    memset(buf, 'z', sizeof(buf));
+    if (getcwd(buf, 0) >= 0) {
+        printf(KBRED "\ngetcwd accepted zero length\n" KRESET);
+        exit();
+    }
+    if (buf[0] != 'z') {
+        printf(KBRED "\ngetcwd zero length corrupted buffer\n" KRESET);
+        exit();
+    }
+    if (getcwd(buf, -1) >= 0) {
+        printf(KBRED "\ngetcwd accepted negative length\n" KRESET);
+        exit();
+    }
+
+    char fulldir[64];
+    int pid = getpid();
+    snprintf(fulldir, sizeof(fulldir), "cwdchild.%d", pid);
+    unlink(fulldir);
+    if (mkdir(fulldir) != 0) {
+        printf(KBRED "\nmkdir %s failed\n" KRESET, fulldir);
+        exit();
+    }
+    if (chdir(fulldir) != 0) {
+        printf(KBRED "\nchdir %s failed\n" KRESET, fulldir);
+        exit();
+    }
+    char expected[128];
+    if (getcwd(expected, sizeof(expected)) < 0) {
+        printf(KBRED "\ngetcwd in child setup failed\n" KRESET);
+        exit();
+    }
+    int forkpid = fork();
+    if (forkpid < 0) {
+        printf(KBRED "\nfork failed\n" KRESET);
+        exit();
+    }
+    if (forkpid == 0) {
+        char childbuf[128];
+        if (getcwd(childbuf, sizeof(childbuf)) < 0 || strcmp(childbuf, expected) != 0) {
+            printf(KBRED "\nchild cwd mismatch\n" KRESET);
+            exit();
+        }
+        exit();
+    }
+    wait();
+    if (chdir("/") != 0) {
+        printf(KBRED "\nparent return to / failed\n" KRESET);
+        exit();
+    }
+    if (unlink(fulldir) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, fulldir);
+        exit();
+    }
+
+    char before[128];
+    if (getcwd(before, sizeof(before)) < 0) {
+        printf(KBRED "\ngetcwd before long path failed\n" KRESET);
+        exit();
+    }
+    char longpath[MAX_FILE_PATH + 32];
+    for (int i = 0; i < (int)sizeof(longpath) - 1; i++) {
+        longpath[i] = 'a';
+    }
+    longpath[sizeof(longpath) - 1] = '\0';
+    if (chdir(longpath) >= 0) {
+        printf(KBRED "\nchdir overly long path unexpectedly succeeded\n" KRESET);
+        exit();
+    }
+    char after[128];
+    if (getcwd(after, sizeof(after)) < 0 || strcmp(before, after) != 0) {
+        printf(KBRED "\ngetcwd changed after failed chdir\n" KRESET);
         exit();
     }
 
@@ -2237,6 +2458,7 @@ int main(int argc, char *argv[])
     bigfile();
     subdir();
     getcwdtest();
+    cwdrobusttest();
     linktest();
     unlinkread();
     fstattest();

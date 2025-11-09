@@ -495,6 +495,7 @@ static struct inode *create(char *path, short type, short major, short minor)
 
         filewrite(file, buf, n);
         fileclose(file);
+        current_process()->ofile[fd] = nullptr;
 
         bool found = false;
         for (int i = 0; i < NDEV; i++) {
