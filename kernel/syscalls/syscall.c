@@ -4,6 +4,7 @@
 #include "x86.h"
 #include "syscall.h"
 
+#include "printf.h"
 #include "../../include/defs.h"
 
 // User code makes a system call with INT T_SYSCALL.
@@ -165,10 +166,10 @@ void syscall(void)
     if (num > 0 && num < (int)NELEM(syscalls) && syscalls[num]) {
         curproc->trap_frame->eax = syscalls[num]();
     } else {
-        cprintf("%d %s: unknown sys call %d\n",
-                curproc->pid,
-                curproc->name,
-                num);
+        printf("%d %s: unknown sys call %d\n",
+               curproc->pid,
+               curproc->name,
+               num);
         curproc->trap_frame->eax = -1;
     }
 }

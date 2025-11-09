@@ -18,6 +18,7 @@
  */
 
 #include "defs.h"
+#include "printf.h"
 #include "termcolors.h"
 #include "types.h"
 
@@ -35,11 +36,11 @@ struct undefined_behavior
 
 void scram(const int event, const struct undefined_behavior *info)
 {
-    cprintf(KBWHT "Event:" KWHT " %d\n", event);
-    cprintf(KBWHT "File:" KWHT " %s\n", info->filename);
-    cprintf(KBWHT "Line:" KWHT " %d\n", info->line);
-    cprintf(KBWHT "Column:" KWHT " %d\n", info->column);
-    cprintf(KBWHT "Violation:" KYEL " %s\n" KWHT, info->violation);
+    printf(KBWHT "Event:" KWHT " %d\n", event);
+    printf(KBWHT "File:" KWHT " %s\n", info->filename);
+    printf(KBWHT "Line:" KWHT " %lu\n", info->line);
+    printf(KBWHT "Column:" KWHT " %lu\n", info->column);
+    printf(KBWHT "Violation:" KYEL " %s\n" KWHT, info->violation);
     panic("Undefined behavior detected");
 
     __builtin_unreachable();

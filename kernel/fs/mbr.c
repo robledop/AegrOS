@@ -2,6 +2,7 @@
 #include "string.h"
 #include "mbr.h"
 #include "buf.h"
+#include "printf.h"
 
 // MBR Partition Types
 #define MBR_TYPE_EMPTY 0x00        // Empty or unused partition
@@ -32,10 +33,10 @@ void mbr_init_fs()
             break;
         case MBR_TYPE_FAT16_LBA:
             //vfs_insert_file_system(i, fat16_init());
-            cprintf("FAT16 LBA partition found at MBR partition %d\n", i);
+            printf("FAT16 LBA partition found at MBR partition %d\n", i);
             break;
         default:
-            cprintf("Unsupported partition type: %d\n", mbr.part[i].type);
+            printf("Unsupported partition type: %d\n", mbr.part[i].type);
             break;
         }
     }
@@ -52,7 +53,7 @@ void mbr_load()
     memmove(&mbr, buf->data, sizeof(mbr));
     brelse(buf);
     if (mbr.signature != 0xAA55) {
-        cprintf("Invalid MBR signature: 0x%X\n", mbr.signature);
+        printf("Invalid MBR signature: 0x%X\n", mbr.signature);
         panic("Invalid MBR signature");
     }
     mbr_init_fs();

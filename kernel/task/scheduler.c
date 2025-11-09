@@ -1,19 +1,14 @@
 #include "defs.h"
 #include "mmu.h"
 #include "proc.h"
-#include "types.h"
 #include "x86.h"
 #include "file.h"
 #include "string.h"
-#include <x86gprintrin.h>
 #include "scheduler.h"
-#include "printf.h"
 #include "assert.h"
 
 struct ptable_t ptable;
 extern struct proc *initproc;
-
-// enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 /* macro to create a new named task_list and associated helper functions */
 #define TASK_QUEUE(name)                      \
@@ -28,8 +23,6 @@ extern struct proc *initproc;
     }
 
 TASK_QUEUE(runnable)
-// TASK_QUEUE(sleeping)
-// TASK_QUEUE(zombie)
 
 /**
  * @brief Per-CPU scheduler loop that selects and runs processes.
@@ -260,9 +253,7 @@ void sleep(void *chan, struct spinlock *lk)
         return;
     }
 
-    if (lk == nullptr) {
-        panic("sleep without lk");
-    }
+    ASSERT(lk != nullptr, "sleep called without a lock");
 
     // Must acquire ptable.lock in order to
     // change p->state and then call switch_to_scheduler.
@@ -318,9 +309,8 @@ int cpu_index()
  */
 struct cpu *current_cpu(void)
 {
-    if (read_eflags() & FL_IF) {
-        panic("current_cpu called with interrupts enabled\n");
-    }
+    ASSERT(!(read_eflags() & FL_IF), "current_cpu called with interrupts enabled\n");
+
 
     int apicid = lapicid();
     // APIC IDs are not guaranteed to be contiguous. Maybe we should have
@@ -337,9 +327,7 @@ void enqueue_task(struct process_queue *queue, struct proc *task)
 {
     acquire(&queue->lock);
 
-    if (task->next != nullptr) {
-        panic("enqueue_task: task '%s' already in a queue", task->name);
-    }
+    ASSERT(task->next == nullptr, "enqueue_task: task '%s' already in a queue", task->name);
 
     if (queue->head == nullptr) {
         queue->head = task;
@@ -380,9 +368,8 @@ struct proc *dequeue_task(struct process_queue *queue)
 
 void remove_task(struct process_queue *queue, struct proc *task, struct proc *previous)
 {
-    if (previous != nullptr && previous->next != task) {
-        panic("Bogus arguments to remove_task.");
-    }
+    ASSERT(previous == nullptr || previous->next == task, "Bogus arguments to remove_task.");
+
     acquire(&queue->lock);
 
     if (queue->head == task) {

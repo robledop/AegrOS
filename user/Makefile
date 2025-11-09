@@ -11,7 +11,7 @@ ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
 CFLAGS += -fno-pie -no-pie
 
-ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o build/crt0.o build/crt1.o build/math.o build/time.o
+ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o build/crt0.o build/crt1.o build/math.o build/time.o build/errno.o
 
 $(ULIB):
 	$(AS) $(ASFLAGS) -f elf usys.asm -o build/usys.o
@@ -23,6 +23,7 @@ $(ULIB):
 	$(CC) $(CFLAGS) -c -o build/dirwalk.o dirwalk.c
 	$(CC) $(CFLAGS) -c -o build/math.o math.c
 	$(CC) $(CFLAGS) -c -o build/time.o time.c
+	$(CC) $(CFLAGS) -c -o build/errno.o errno.c
 
 build/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -52,6 +53,7 @@ UPROGS=\
 	build/wc\
 	build/zombie\
 	build/fib\
+	build/touch\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

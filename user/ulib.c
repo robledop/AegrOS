@@ -7,7 +7,8 @@
 char *strcpy(char *s, const char *t)
 {
     char *os = s;
-    while ((*s++ = *t++) != 0) {}
+    while ((*s++ = *t++) != 0) {
+    }
     return os;
 }
 
@@ -34,7 +35,8 @@ u32 strlen(const char *s)
 {
     int n;
 
-    for (n = 0; s[n]; n++) {}
+    for (n = 0; s[n]; n++) {
+    }
     return n;
 }
 
@@ -178,7 +180,7 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
-char* strncat(char dest[static 1], const char src[static 1], u32 n)
+char *strncat(char dest[static 1], const char src[static 1], u32 n)
 {
     char *d = dest;
     while (*d != '\0') {
@@ -193,3 +195,4 @@ char* strncat(char dest[static 1], const char src[static 1], u32 n)
     *d = '\0';
     return dest;
 }
+

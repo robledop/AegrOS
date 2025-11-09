@@ -29,92 +29,28 @@
 #define KEY_PGDN        0xE7
 #define KEY_INS         0xE8
 #define KEY_DEL         0xE9
-
-bool handle_ansi_escape(int c);
-/** @brief Flag indicating if the system has panicked */
-static int panicked = 0;
+#define BACKSPACE 0x100
+#define CRTPORT 0x3d4
 
 #define VGA_WIDTH 80
-
+#define VGA_HEIGHT 25
+#define VIDEO_MEMORY P2V(0xB8000)
+#define DEFAULT_ATTRIBUTE 0x07 // Light grey on black background
+#define BYTES_PER_CHAR 2       // 1 byte for character, 1 byte for attribute (color)
+#define SCREEN_SIZE (VGA_WIDTH * VGA_HEIGHT * BYTES_PER_CHAR)
+#define ROW_SIZE (VGA_WIDTH * BYTES_PER_CHAR)
+u8 attribute = DEFAULT_ATTRIBUTE;
+static int cursor_y;
+static int cursor_x;
+bool param_escaping = false;
+bool param_inside   = false;
+int params[10]      = {0};
+int param_count     = 1;
+static int panicked = 0;
 struct console_lock cons;
 
-/** @brief Print an integer in the given base */
-static void printint(int xx, int base, int sign)
-{
-    static char digits[] = "0123456789abcdef";
-    char buf[16];
-    u32 x;
+bool handle_ansi_escape(int c);
 
-    if (sign && ((sign = xx < 0)))
-        x              = -xx;
-    else
-        x = xx;
-
-    int i = 0;
-    do {
-        buf[i++] = digits[x % base];
-    } while ((x /= base) != 0);
-
-    if (sign)
-        buf[i++] = '-';
-
-    while (--i >= 0) {
-        consputc(buf[i]);
-    }
-}
-
-/** @brief Print to the console. Only understands %d, %x, %p, %s. */
-void cprintf(char *fmt, ...)
-{
-    int c;
-    char *s;
-
-    const int locking = cons.locking;
-    if (locking)
-        acquire(&cons.lock);
-
-    if (fmt == nullptr)
-        panic("null fmt");
-
-    const int *argp = (int *)(void *)(&fmt + 1);
-    for (int i = 0; (c = fmt[i] & 0xff) != 0; i++) {
-        if (c != '%') {
-            consputc(c);
-            continue;
-        }
-        c = fmt[++i] & 0xff;
-        if (c == 0)
-            break;
-        switch (c) {
-        case 'd':
-            printint(*argp++, 10, 1);
-            break;
-        case 'x':
-        case 'p':
-            printint(*argp++, 16, 0);
-            break;
-        case 's':
-            if ((s = (char *)*argp++) == nullptr)
-                s  = "(null)";
-            for (; *s; s++)
-                consputc(*s);
-            break;
-        case '%':
-            consputc('%');
-            break;
-        default:
-            // Print an unknown% sequence to draw attention.
-            consputc('%');
-            consputc(c);
-            break;
-        }
-    }
-
-    if (locking)
-        release(&cons.lock);
-}
-
-/** @brief Panic and print the message */
 void panic(const char *fmt, ...)
 {
     cli();
@@ -134,22 +70,6 @@ void panic(const char *fmt, ...)
         hlt();
     }
 }
-
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
-#define VIDEO_MEMORY P2V(0xB8000)
-#define DEFAULT_ATTRIBUTE 0x07 // Light grey on black background
-#define BYTES_PER_CHAR 2       // 1 byte for character, 1 byte for attribute (color)
-#define SCREEN_SIZE (VGA_WIDTH * VGA_HEIGHT * BYTES_PER_CHAR)
-#define ROW_SIZE (VGA_WIDTH * BYTES_PER_CHAR)
-u8 attribute = DEFAULT_ATTRIBUTE;
-static int cursor_y;
-static int cursor_x;
-
-bool param_escaping = false;
-bool param_inside   = false;
-int params[10]      = {0};
-int param_count     = 1;
 
 int ansi_to_vga_foreground[] = {
     0x00, // Black
@@ -173,8 +93,6 @@ int ansi_to_vga_background[] = {
     0x70  // White (Light Grey in VGA)
 };
 
-#define BACKSPACE 0x100
-#define CRTPORT 0x3d4
 
 /** @brief Enable the hardware text cursor using standard scanlines */
 static void enable_cursor(void)
@@ -261,22 +179,21 @@ static void cursor_down()
     update_cursor(cursor_y, cursor_x);
 }
 
-
 /**
  * @brief Write a character cell to video memory.
  *
  * @param c ASCII character to render.
- * @param attribute VGA attribute byte controlling foreground and background colors.
+ * @param attr VGA attribute byte controlling foreground and background colors.
  * @param x Column position or -1 to use the current cursor column.
  * @param y Row position or -1 to use the current cursor row.
  */
-void vga_buffer_write(const char c, const u8 attribute, const int x, const int y)
+void vga_buffer_write(const char c, const u8 attr, const int x, const int y)
 {
     const int pos_x = x == -1 ? cursor_x : x;
     const int pos_y = y == -1 ? cursor_y : y;
 
     volatile u16 *where = (volatile u16 *)VIDEO_MEMORY + (pos_y * VGA_WIDTH + pos_x);
-    *where              = c | (attribute << 8);
+    *where              = c | (attr << 8);
 }
 
 /** @brief Put a character on the CGA screen */
@@ -544,13 +461,13 @@ void boot_message(warning_level_t level, const char *fmt, ...)
 {
     switch (level) {
     case WARNING_LEVEL_INFO:
-        cprintf(KWHT "[ " KBGRN "INFO" KRESET " ] ");
+        printf(KWHT "[ " KBGRN "INFO" KRESET " ] ");
         break;
     case WARNING_LEVEL_WARNING:
-        cprintf(KWHT "[ " KYEL "WARNING" KRESET " ] ");
+        printf(KWHT "[ " KYEL "WARNING" KRESET " ] ");
         break;
     case WARNING_LEVEL_ERROR:
-        cprintf(KWHT "[ " KRED "ERROR" KRESET " ] ");
+        printf(KWHT "[ " KRED "ERROR" KRESET " ] ");
         break;
     }
 
@@ -592,10 +509,6 @@ void consoleintr(int (*getc)(void))
             }
             break;
         case 226: // Up arrow
-            input.buf[input.e++ % INPUT_BUF] = c;
-            input.w = input.e;
-            wakeup(&input.r);
-            break;
         case 227: // Down arrow
             input.buf[input.e++ % INPUT_BUF] = c;
             input.w = input.e;

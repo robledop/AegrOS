@@ -9,6 +9,7 @@
 #include "proc.h"
 #include "ext2.h"
 #include "io.h"
+#include "printf.h"
 #include "scheduler.h"
 
 extern struct ptable_t ptable;
@@ -287,18 +288,18 @@ void procdump(void)
         } else {
             state = "???";
         }
-        cprintf("\n");
-        cprintf(KYEL "%s " KWHT "pid: %d, state: %s", p->name, p->pid, state);
+        printf("\n");
+        printf(KYEL "%s " KWHT "pid: %d, state: %s", p->name, p->pid, state);
         if (p->state == SLEEPING) {
-            cprintf("\nStack trace:\n");
+            printf("\nStack trace:\n");
             getcallerpcs((u32 *)p->context->ebp + 2, pc);
             for (int i = 0; i < 10 && pc[i] != 0; i++) {
                 struct symbol symbol = debug_function_symbol_lookup(pc[i]);
-                cprintf(KBWHT " %s " KBBLU "[" KWHT "%p" KBBLU "]" KWHT,
-                        (symbol.name == nullptr) ? KBRED "[" KWHT "unknown" KBRED "]" KWHT : symbol.name,
-                        pc[i]);
+                printf(KBWHT " %s " KBBLU "[" KWHT "%x" KBBLU "]" KWHT,
+                       (symbol.name == nullptr) ? KBRED "[" KWHT "unknown" KBRED "]" KWHT : symbol.name,
+                       pc[i]);
             }
         }
-        cprintf("\n");
+        printf("\n");
     }
 }

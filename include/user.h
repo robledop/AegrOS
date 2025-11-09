@@ -50,9 +50,10 @@ int atoi(const char *);
 int strncmp(const char *p, const char *q, u32 n);
 bool starts_with(const char pre[static 1], const char str[static 1]);
 char *strcat(char dest[static 1], const char src[static 1]);
-char* strncat(char dest[static 1], const char src[static 1], u32 n);
+char *strncat(char dest[static 1], const char src[static 1], u32 n);
 u32 strnlen(const char *s, u32 maxlen);
 int getkey();
 int getkey_blocking();
-void putchar(char c);
+// void putchar(char c);
 bool str_ends_with(const char *str, const char *suffix);
+

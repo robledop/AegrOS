@@ -148,10 +148,10 @@ void uart_handler([[maybe_unused]] struct trapframe *tf)
 
 void spurious_handler(struct trapframe *tf)
 {
-    cprintf("cpu%d: spurious interrupt at %x:%x\n",
-            cpu_index(),
-            tf->cs,
-            tf->eip);
+    printf("cpu%d: spurious interrupt at %x:%x\n",
+           cpu_index(),
+           tf->cs,
+           tf->eip);
     lapiceoi();
 }
 

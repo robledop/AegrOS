@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "defs.h"
+#include "printf.h"
 #include "traps.h"
 #include "proc.h"
 
@@ -24,7 +25,7 @@
 #define INT_LOGICAL 0x00000800   // Destination is CPU id (vs APIC ID)
 
 /** @brief Memory-mapped base pointer to the I/O APIC. */
-volatile struct ioapic* ioapic;
+volatile struct ioapic *ioapic;
 
 // IO APIC MMIO structure: write reg, then read or write data.
 /** @brief Memory-mapped register layout of the I/O APIC. */
@@ -57,23 +58,22 @@ ioapicread(int reg)
 static void
 ioapicwrite(int reg, u32 data)
 {
-    ioapic->reg = reg;
+    ioapic->reg  = reg;
     ioapic->data = data;
 }
 
 /** @brief Initialize the I/O APIC and mask all interrupts. */
 void ioapicinit(void)
 {
-    ioapic = (volatile struct ioapic*)IOAPIC;
+    ioapic      = (volatile struct ioapic *)IOAPIC;
     int maxintr = (ioapicread(REG_VER) >> 16) & 0xFF;
-    int id = ioapicread(REG_ID) >> 24;
+    int id      = ioapicread(REG_ID) >> 24;
     if (id != ioapicid)
-        cprintf("ioapicinit: id isn't equal to ioapicid; not a MP\n");
+        printf("ioapicinit: id isn't equal to ioapicid; not a MP\n");
 
     // Mark all interrupts edge-triggered, active high, disabled,
     // and not routed to any CPUs.
-    for (int i = 0; i <= maxintr; i++)
-    {
+    for (int i = 0; i <= maxintr; i++) {
         ioapicwrite(REG_TABLE + 2 * i, INT_DISABLED | (T_IRQ0 + i));
         ioapicwrite(REG_TABLE + 2 * i + 1, 0);
     }

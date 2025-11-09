@@ -29,10 +29,10 @@ void bwrite(struct buf *);
 
 // console.c
 void consoleinit(void);
-void cprintf(char *, ...);
+// void cprintf(char *, ...);
 void consputc(int c);
 void consoleintr(int (*)(void));
-void panic(const char* fmt, ...) __attribute__((noreturn));
+void panic(const char *fmt, ...) __attribute__((noreturn));
 void boot_message(warning_level_t level, const char *fmt, ...);
 
 // exec.c
@@ -168,7 +168,6 @@ void switch_kernel_page_directory();
 int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
 void kernel_map_mmio(u32 pa, u32 size);
-
 
 void *kmalloc(u32 nbytes);
 void *kzalloc(u32 nbytes);
