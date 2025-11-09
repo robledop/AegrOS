@@ -9,6 +9,7 @@
 #include "traps.h"
 #include "x86.h"
 #include "io.h"
+#include "param.h"
 
 // Local APIC registers, divided by 4 for use as u32[] indices.
 #define ID (0x0020 / 4)    // ID
@@ -52,8 +53,8 @@
 #define PIT_GATE_ENABLE 0x01
 #define PIT_OUT_STATUS 0x20
 
-#define LAPIC_TIMER_TARGET_HZ 100
-#define LAPIC_TIMER_INTERVAL_MS (1000 / LAPIC_TIMER_TARGET_HZ)
+#define LAPIC_TIMER_TARGET_HZ TIMER_FREQUENCY_HZ
+#define LAPIC_TIMER_INTERVAL_MS TIMER_INTERVAL_MS
 #define LAPIC_TIMER_DEFAULT_INIT_COUNT 10000000
 
 /** @brief Memory-mapped base address of the local APIC. */
@@ -223,7 +224,23 @@ void microdelay(int us)
         return;
     }
 
-    const int loops_per_us = 200; // empirically reasonable for QEMU/Bochs
+    if (lapic && lapic_ticks_per_ms != 0) {
+        // Convert microseconds into LAPIC ticks.
+        const u64 ticks_per_us = ((u64)lapic_ticks_per_ms + 999) / 1000;
+        u64 ticks_needed       = ticks_per_us * (u64)us;
+        if (ticks_needed == 0) {
+            ticks_needed = 1;
+        }
+
+        u32 start = lapic[TCCR];
+        while ((start - lapic[TCCR]) < ticks_needed) {
+            __asm__ volatile("pause");
+        }
+        return;
+    }
+
+    // Fallback: simple spin calibrated for emulators if LAPIC timing unavailable.
+    const int loops_per_us = 200;
     volatile int spins     = us * loops_per_us;
     while (spins-- > 0) {
         __asm__ volatile("pause");

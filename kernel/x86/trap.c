@@ -3,6 +3,7 @@
 #include "mmu.h"
 #include "printf.h"
 #include "proc.h"
+#include "scheduler.h"
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
@@ -16,6 +17,8 @@ extern u32 vectors[]; // in vectors.asm: array of 256 entry pointers
 struct spinlock tickslock;
 /** @brief Global tick counter incremented by the timer interrupt. */
 volatile u32 ticks;
+
+extern struct process_queue runnable_queue;
 
 char *exception_messages[] = {
     "Division By Zero",
@@ -216,6 +219,13 @@ void trap(struct trapframe *tf)
         current_process()->killed = 1;
     }
 
+    if (tf->trapno == T_IRQ0 + IRQ_TIMER) {
+        struct cpu *cpu = current_cpu();
+        if (cpu->proc != nullptr && cpu->time_slice_ticks > 0) {
+            cpu->time_slice_ticks--;
+        }
+    }
+
     // Force process exit if it has been killed and is in user space.
     // (If it is still executing in the kernel, let it keep running
     // until it gets to the regular system call return.)
@@ -226,8 +236,13 @@ void trap(struct trapframe *tf)
     // Force the process to give up CPU on clock tick.
     // If interrupts were on while locks held, would need to check nlock.
     if (current_process() && current_process()->state == RUNNING &&
-        tf->trapno == T_IRQ0 + IRQ_TIMER) {
-        yield();
+        tf->trapno == T_IRQ0 + IRQ_TIMER && runnable_queue.size > 1) {
+        struct cpu *cpu = current_cpu();
+        // Only preempt if the time slice has expired
+        if (cpu->time_slice_ticks <= 0) {
+            cpu->time_slice_ticks = TIME_SLICE_TICKS;
+            yield();
+        }
     }
 
     // Check if the process has been killed since we yielded

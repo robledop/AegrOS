@@ -14,4 +14,9 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define MAX_FILE_PATH 255  // maximum file path length
 // #define FSSIZE       1000  // size of the file system in blocks
-#define TIME_SLICE_SIZE (1 * 1000 * 1000ULL)
+
+#define TIMER_FREQUENCY_HZ 50
+#define TIMER_INTERVAL_MS (1000 / TIMER_FREQUENCY_HZ)
+
+#define TIME_SLICE_MS 50
+#define TIME_SLICE_TICKS ((TIME_SLICE_MS + TIMER_INTERVAL_MS - 1) / TIMER_INTERVAL_MS)

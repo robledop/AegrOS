@@ -16,6 +16,7 @@ struct cpu
 
     // intena
     int interrupts_enabled; // Were interrupts enabled before pushcli?
+    int time_slice_ticks;   // Remaining timer ticks before preemption
     struct proc *proc;      // The process running on this cpu or null
 };
 
@@ -50,7 +51,7 @@ struct proc
     pde_t *page_directory;        // Page table
     char *kstack;                 // Bottom of the kernel stack for this process
     enum procstate state;         // Process state
-    u64 time_used;
+    u64 time_used;                // Time used in milliseconds
     int pid;                      // Process ID
     struct proc *parent;          // Parent process
     struct trapframe *trap_frame; // Trap frame for current syscall
