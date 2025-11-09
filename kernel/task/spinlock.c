@@ -9,6 +9,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#include "assert.h"
+
 /**
  * @brief Initialize a spinlock with the provided debug name.
  *
@@ -31,9 +33,8 @@ void initlock(struct spinlock *lk, char *name)
 void acquire(struct spinlock *lk)
 {
     pushcli(); // disable interrupts to avoid deadlock.
-    if (holding(lk)) {
-        panic("acquire");
-    }
+
+    ASSERT(!holding(lk), "acquire");
 
     // The xchg is atomic.
     while (xchg(&lk->locked, 1) != 0) {
@@ -54,9 +55,7 @@ void acquire(struct spinlock *lk)
  */
 void release(struct spinlock *lk)
 {
-    if (!holding(lk)) {
-        panic("release");
-    }
+    ASSERT(holding(lk), "release");
 
     lk->pcs[0] = 0;
     lk->cpu    = nullptr;
@@ -88,8 +87,9 @@ void getcallerpcs(void *v, u32 pcs[])
 
     u32 *ebp = (u32 *)v - 2;
     for (i = 0; i < 10; i++) {
-        if (ebp == nullptr || ebp < (u32 *)KERNBASE || ebp == (u32 *)0xffffffff)
+        if (ebp == nullptr || ebp < (u32 *)KERNBASE || ebp == (u32 *)0xffffffff) {
             break;
+        }
         pcs[i] = ebp[1];        // saved %eip
         ebp    = (u32 *)ebp[0]; // saved %ebp
     }
@@ -128,12 +128,10 @@ void pushcli(void)
  */
 void popcli(void)
 {
-    if (read_eflags() & FL_IF) {
-        panic("popcli - interruptible");
-    }
-    if (--current_cpu()->ncli < 0) {
-        panic("popcli");
-    }
+    ASSERT((read_eflags() & FL_IF) == 0, "popcli - interruptible");
+    current_cpu()->ncli -= 1;
+    ASSERT(current_cpu()->ncli >= 0, "popcli");
+
     if (current_cpu()->ncli == 0 && current_cpu()->interrupts_enabled) {
         sti();
     }

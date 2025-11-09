@@ -18,6 +18,7 @@
 // * B_DIRTY: the buffer data has been modified
 //     and needs to be written to disk.
 
+#include "assert.h"
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -113,8 +114,8 @@ struct buf* bread(u32 dev, u32 blockno)
 /** @brief Write a locked buffer's contents to disk via the IDE layer. */
 void bwrite(struct buf* b)
 {
-    if (!holdingsleep(&b->lock))
-        panic("bwrite");
+    ASSERT(holdingsleep(&b->lock), "bwrite");
+
     b->flags |= B_DIRTY;
     iderw(b);
 }
@@ -124,8 +125,7 @@ void bwrite(struct buf* b)
  */
 void brelse(struct buf* b)
 {
-    if (!holdingsleep(&b->lock))
-        panic("brelse");
+    ASSERT(holdingsleep(&b->lock), "brelse");
 
     releasesleep(&b->lock);
 

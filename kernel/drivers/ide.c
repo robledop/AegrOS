@@ -1,8 +1,8 @@
 // Simple PIO-based (non-DMA) IDE driver code.
 
+#include "assert.h"
 #include "defs.h"
 #include "proc.h"
-#include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
 #include "fs.h"
@@ -56,8 +56,9 @@ static int idewait(int checkerr)
 
     while (((r = inb(0x1f7)) & (IDE_BSY | IDE_DRDY)) != IDE_DRDY) {
     }
-    if (checkerr && (r & (IDE_DF | IDE_ERR)) != 0)
+    if (checkerr && (r & (IDE_DF | IDE_ERR)) != 0) {
         return -1;
+    }
     return 0;
 }
 
@@ -66,8 +67,9 @@ static int idewait_drq(void)
     int r;
     while (((r = inb(0x1f7)) & (IDE_BSY | IDE_DRDY | IDE_DRQ)) != (IDE_DRDY | IDE_DRQ)) {
     }
-    if (r & (IDE_DF | IDE_ERR))
+    if (r & (IDE_DF | IDE_ERR)) {
         return -1;
+    }
     return 0;
 }
 
@@ -94,8 +96,9 @@ void ideinit(void)
     idewait(0);
     outb(0x1f2, SECTOR_PER_BLOCK);
     outb(0x1f7, IDE_CMD_SETMUL);
-    if (idewait(1) < 0)
+    if (idewait(1) < 0) {
         boot_message(WARNING_LEVEL_WARNING, "ideinit: set multiple failed");
+    }
 #endif
 }
 
@@ -109,9 +112,6 @@ static void idestart(struct buf *b)
     if (b == nullptr) {
         panic("idestart");
     }
-    // if (b->blockno >= FSSIZE)
-    //     panic("incorrect blockno");
-    // int sector_per_block = BSIZE / SECTOR_SIZE;
     u32 sector    = b->blockno * SECTOR_PER_BLOCK;
     int read_cmd  = (SECTOR_PER_BLOCK == 1) ? IDE_CMD_READ : IDE_CMD_RDMUL;
     int write_cmd = (SECTOR_PER_BLOCK == 1) ? IDE_CMD_WRITE : IDE_CMD_WRMUL;
@@ -154,8 +154,9 @@ void ideintr(void)
     idequeue = b->qnext;
 
     // Read data if needed.
-    if (!(b->flags & B_DIRTY) && idewait(1) >= 0)
+    if (!(b->flags & B_DIRTY) && idewait(1) >= 0) {
         insl(0x1f0, b->data, BSIZE / 4);
+    }
 
     // Wake process waiting for this buf.
     b->flags |= B_VALID;
@@ -163,8 +164,9 @@ void ideintr(void)
     wakeup(b);
 
     // Start disk on next buf in queue.
-    if (idequeue != nullptr)
+    if (idequeue != nullptr) {
         idestart(idequeue);
+    }
 
     release(&idelock);
 }
@@ -178,12 +180,8 @@ void iderw(struct buf *b)
 {
     struct buf **pp;
 
-    if (!holdingsleep(&b->lock))
-        panic("iderw: buf not locked");
-    if ((b->flags & (B_VALID | B_DIRTY)) == B_VALID)
-        panic("iderw: nothing to do");
-    // if (b->dev != 0 && !havedisk1)
-    //     panic("iderw: ide disk 1 not present");
+    ASSERT(holdingsleep(&b->lock), "iderw: buf not locked");
+    ASSERT((b->flags & (B_VALID | B_DIRTY)) != B_VALID, "iderw: nothing to do");
 
     acquire(&idelock);
 
@@ -194,8 +192,9 @@ void iderw(struct buf *b)
     *pp = b;
 
     // Start disk if necessary.
-    if (idequeue == b)
+    if (idequeue == b) {
         idestart(b);
+    }
 
     // Wait for request to finish.
     while ((b->flags & (B_VALID | B_DIRTY)) != B_VALID) {

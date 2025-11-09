@@ -5,7 +5,6 @@
 #include "fs.h"
 #include "ext2.h"
 #include <string.h>
-#include "string.h"
 #include "assert.h"
 #include "buf.h"
 #include "file.h"
@@ -109,8 +108,9 @@ static void ext2fs_bfree(int dev, u32 b)
     struct ext2_group_desc bgdesc;
     u32 desc_blockno = first_partition_block + 2; // block group descriptor table starts at block 2
 
-    if (b < ext2_sb.s_first_data_block)
+    if (b < ext2_sb.s_first_data_block) {
         panic("ext2fs_bfree: invalid block\n");
+    }
 
     u32 block_index = b - ext2_sb.s_first_data_block;
     u32 gno         = block_index / ext2_sb.s_blocks_per_group;
@@ -120,12 +120,14 @@ static void ext2fs_bfree(int dev, u32 b)
     memmove(&bgdesc, bp1->data + gno * sizeof(bgdesc), sizeof(bgdesc));
     struct buf *bp2 = bread(dev, bgdesc.bg_block_bitmap + first_partition_block);
     u32 byte_index  = offset / 8;
-    if (byte_index >= EXT2_BSIZE)
+    if (byte_index >= EXT2_BSIZE) {
         panic("ext2fs_bfree: bitmap overflow\n");
+    }
     u8 mask = 1 << (7 - (offset % 8));
 
-    if ((bp2->data[byte_index] & mask) == 0)
+    if ((bp2->data[byte_index] & mask) == 0) {
         panic("ext2fs_bfree: block already free\n");
+    }
     bp2->data[byte_index] &= ~mask;
     bwrite(bp2);
     brelse(bp2);
@@ -137,10 +139,10 @@ void ext2fs_iinit(int dev)
     mbr_load();
     ext2fs_readsb(dev, &ext2_sb);
     boot_message(WARNING_LEVEL_INFO,
-                       "ext2: size %d nblocks %d ninodes %d",
-                       1024 << ext2_sb.s_log_block_size,
-                       ext2_sb.s_blocks_count,
-                       ext2_sb.s_inodes_count);
+                 "ext2: size %d nblocks %d ninodes %d",
+                 1024 << ext2_sb.s_log_block_size,
+                 ext2_sb.s_blocks_count,
+                 ext2_sb.s_inodes_count);
 }
 
 struct inode *ext2fs_ialloc(u32 dev, short type)
@@ -204,8 +206,9 @@ void ext2fs_iupdate(struct inode *ip)
     int bno         = bgdesc.bg_inode_table + ioff / (EXT2_BSIZE / ext2_sb.s_inode_size) + first_partition_block;
     int iindex      = ioff % (EXT2_BSIZE / ext2_sb.s_inode_size);
     struct buf *bp1 = bread(ip->dev, bno);
-    if (ext2_sb.s_inode_size > EXT2_MAX_INODE_SIZE)
+    if (ext2_sb.s_inode_size > EXT2_MAX_INODE_SIZE) {
         panic("ext2fs_iupdate: inode too large");
+    }
 
     u8 raw[EXT2_MAX_INODE_SIZE];
     memmove(raw, bp1->data + iindex * ext2_sb.s_inode_size, ext2_sb.s_inode_size);
@@ -321,8 +324,9 @@ static void ext2fs_ifree(struct inode *ip)
     }
     u8 mask = 1 << (7 - (index % 8));
 
-    if ((bp2->data[byte_index] & mask) == 0)
+    if ((bp2->data[byte_index] & mask) == 0) {
         panic("ext2fs_ifree: inode already free\n");
+    }
     bp2->data[byte_index] &= ~mask;
     bwrite(bp2);
     brelse(bp2);

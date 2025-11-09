@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "types.h"
 #include "defs.h"
 #include "mmu.h"
@@ -59,9 +60,8 @@ static INTERRUPT_CALLBACK_FUNCTION interrupt_callbacks[TOTAL_INTERRUPTS];
 
 void idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback)
 {
-    if (interrupt < 0 || interrupt >= TOTAL_INTERRUPTS) {
-        panic("idt_register_interrupt_callback: interrupt out of bounds");
-    }
+    ASSERT(interrupt >= 0 && interrupt < TOTAL_INTERRUPTS, "idt_register_interrupt_callback: interrupt out of bounds");
+
     interrupt_callbacks[interrupt] = interrupt_callback;
 }
 

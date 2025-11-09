@@ -5,13 +5,10 @@
 #include "stat.h"
 #include "proc.h"
 #include "fs.h"
-#include <assert.h>
 #include <string.h>
 #include "file.h"
 #include "icache.h"
 #include "assert.h"
-#include "printf.h"
-#include "string.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 struct icache icache;
@@ -54,8 +51,9 @@ struct inode *iget(u32 dev, u32 inum)
     }
 
     // Recycle an inode cache entry.
-    if (empty == nullptr)
+    if (empty == nullptr) {
         panic("iget: no inodes");
+    }
 
     ip        = empty;
     ip->dev   = dev;
@@ -108,8 +106,9 @@ struct inode *idup(struct inode *ip)
 static char *skipelem(char *path, char *name)
 {
     constexpr u32 dirlen = EXT2_NAME_LEN;
-    while (*path == '/')
+    while (*path == '/') {
         path++;
+    }
     if (*path == 0) {
         return nullptr;
     }
@@ -153,8 +152,9 @@ static struct inode *namex(char *path, int nameiparent, char *name)
 
     while (true) {
         char *nextp = skipelem(path, name);
-        if (nextp == nullptr)
+        if (nextp == nullptr) {
             break;
+        }
         if (nextp == (char *)-1) {
             ip->iops->iput(ip);
             return nullptr;

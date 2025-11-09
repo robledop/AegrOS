@@ -17,9 +17,9 @@ struct pipe
 {
     struct spinlock lock;
     char data[PIPESIZE];
-    u32 nread; /**< Number of bytes read from the buffer. */
-    u32 nwrite; /**< Number of bytes written to the buffer. */
-    int readopen; /**< Non-zero while the read end remains open. */
+    u32 nread;     /**< Number of bytes read from the buffer. */
+    u32 nwrite;    /**< Number of bytes written to the buffer. */
+    int readopen;  /**< Non-zero while the read end remains open. */
     int writeopen; /**< Non-zero while the write end remains open. */
 };
 
@@ -30,32 +30,32 @@ struct pipe
  * @param f1 Output pointer for the write end file.
  * @return 0 on success, -1 on allocation failure.
  */
-int pipealloc(struct file** f0, struct file** f1)
+int pipealloc(struct file **f0, struct file **f1)
 {
-    struct pipe* p = nullptr;
-    *f0 = *f1 = nullptr;
+    struct pipe *p = nullptr;
+    *f0            = *f1 = nullptr;
     if ((*f0 = filealloc()) == nullptr || (*f1 = filealloc()) == nullptr)
         goto bad;
-    if ((p = (struct pipe*)kalloc_page()) == nullptr)
+    if ((p = (struct pipe *)kalloc_page()) == nullptr)
         goto bad;
-    p->readopen = 1;
+    p->readopen  = 1;
     p->writeopen = 1;
-    p->nwrite = 0;
-    p->nread = 0;
+    p->nwrite    = 0;
+    p->nread     = 0;
     initlock(&p->lock, "pipe");
-    (*f0)->type = FD_PIPE;
+    (*f0)->type     = FD_PIPE;
     (*f0)->readable = 1;
     (*f0)->writable = 0;
-    (*f0)->pipe = p;
-    (*f1)->type = FD_PIPE;
+    (*f0)->pipe     = p;
+    (*f1)->type     = FD_PIPE;
     (*f1)->readable = 0;
     (*f1)->writable = 1;
-    (*f1)->pipe = p;
+    (*f1)->pipe     = p;
     return 0;
 
 bad:
     if (p)
-        kfree_page((char*)p);
+        kfree_page((char *)p);
     if (*f0)
         fileclose(*f0);
     if (*f1)
@@ -69,25 +69,20 @@ bad:
  * @param p Pipe being closed.
  * @param writable Non-zero when closing the write end.
  */
-void pipeclose(struct pipe* p, int writable)
+void pipeclose(struct pipe *p, int writable)
 {
     acquire(&p->lock);
-    if (writable)
-    {
+    if (writable) {
         p->writeopen = 0;
         wakeup(&p->nread);
-    }
-    else
-    {
+    } else {
         p->readopen = 0;
         wakeup(&p->nwrite);
     }
-    if (p->readopen == 0 && p->writeopen == 0)
-    {
+    if (p->readopen == 0 && p->writeopen == 0) {
         release(&p->lock);
-        kfree_page((char*)p);
-    }
-    else
+        kfree_page((char *)p);
+    } else
         release(&p->lock);
 }
 
@@ -99,15 +94,12 @@ void pipeclose(struct pipe* p, int writable)
  * @param n Number of bytes requested.
  * @return Count of bytes written or -1 if interrupted/closed.
  */
-int pipewrite(struct pipe* p, char* addr, int n)
+int pipewrite(struct pipe *p, char *addr, int n)
 {
     acquire(&p->lock);
-    for (int i = 0; i < n; i++)
-    {
-        while (p->nwrite == p->nread + PIPESIZE)
-        {
-            if (p->readopen == 0 || current_process()->killed)
-            {
+    for (int i = 0; i < n; i++) {
+        while (p->nwrite == p->nread + PIPESIZE) {
+            if (p->readopen == 0 || current_process()->killed) {
                 release(&p->lock);
                 return -1;
             }
@@ -129,24 +121,22 @@ int pipewrite(struct pipe* p, char* addr, int n)
  * @param n Maximum number of bytes to copy.
  * @return Count of bytes read or ::-1 if interrupted.
  */
-int piperead(struct pipe* p, char* addr, int n)
+int piperead(struct pipe *p, char *addr, int n)
 {
     int i;
 
     acquire(&p->lock);
-    while (p->nread == p->nwrite && p->writeopen)
-    {
-        if (current_process()->killed)
-        {
+    while (p->nread == p->nwrite && p->writeopen) {
+        if (current_process()->killed) {
             release(&p->lock);
             return -1;
         }
         sleep(&p->nread, &p->lock);
     }
-    for (i = 0; i < n; i++)
-    {
-        if (p->nread == p->nwrite)
+    for (i = 0; i < n; i++) {
+        if (p->nread == p->nwrite) {
             break;
+        }
         addr[i] = p->data[p->nread++ % PIPESIZE];
     }
     wakeup(&p->nwrite);

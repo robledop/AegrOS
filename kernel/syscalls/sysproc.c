@@ -1,8 +1,5 @@
-#include "param.h"
 #include "types.h"
 #include "defs.h"
-#include "ext2.h"
-#include "file.h"
 #include "proc.h"
 #include "string.h"
 #include "x86.h"

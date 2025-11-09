@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "debug.h"
 #include "param.h"
 #include "types.h"
@@ -363,15 +364,9 @@ u32 resize_kernel_page_directory(int n)
  */
 void activate_process(struct proc *p)
 {
-    if (p == nullptr) {
-        panic("activate_process: no process");
-    }
-    if (p->kstack == nullptr) {
-        panic("activate_process: no kstack");
-    }
-    if (p->page_directory == nullptr) {
-        panic("activate_process: no pgdir");
-    }
+    ASSERT(p != nullptr, "activate_process: no process");
+    ASSERT(p->kstack != nullptr, "activate_process: no kstack");
+    ASSERT(p->page_directory != nullptr, "activate_process: no pgdir");
 
     pushcli();
     current_cpu()->gdt[SEG_TSS] = SEG16(STS_T32A, &current_cpu()->task_state, sizeof(current_cpu()->task_state) - 1, 0);
@@ -395,9 +390,8 @@ void activate_process(struct proc *p)
  */
 void inituvm(pde_t *pgdir, const char *init, u32 sz)
 {
-    if (sz >= PGSIZE) {
-        panic("inituvm: more than a page");
-    }
+    ASSERT(sz < PGSIZE, "inituvm: more than a page");
+
     char *mem = kalloc_page();
     memset(mem, 0, PGSIZE);
     mappages(pgdir, nullptr, PGSIZE, V2P(mem), PTE_W | PTE_U);
