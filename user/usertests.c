@@ -2,6 +2,7 @@
 #include "types.h"
 #include "user.h"
 #include "fs.h"
+#include "stat.h"
 #include "fcntl.h"
 #include "dirwalk.h"
 #include "syscall.h"
@@ -481,6 +482,120 @@ void sharedfd(void)
     }
 }
 
+void duptest(void)
+{
+    printf("dup test");
+
+    unlink("dupfile");
+    int fd = open("dupfile", O_CREATE | O_RDWR);
+    if (fd < 0) {
+        printf(KBRED "\nopen dupfile failed\n" KRESET);
+        exit();
+    }
+    if (write(fd, "hello", 5) != 5) {
+        printf(KBRED "\nwrite hello failed\n" KRESET);
+        exit();
+    }
+    int dupfd = dup(fd);
+    if (dupfd < 0) {
+        printf(KBRED "\ndup failed\n" KRESET);
+        exit();
+    }
+    if (write(dupfd, "world", 5) != 5) {
+        printf(KBRED "\nwrite via dup failed\n" KRESET);
+        exit();
+    }
+    if (close(dupfd) < 0) {
+        printf(KBRED "\nclose dupfd failed\n" KRESET);
+        exit();
+    }
+    if (write(fd, "!", 1) != 1) {
+        printf(KBRED "\nwrite after closing dup failed\n" KRESET);
+        exit();
+    }
+    if (close(fd) < 0) {
+        printf(KBRED "\nclose fd failed\n" KRESET);
+        exit();
+    }
+
+    int check = open("dupfile", O_RDONLY);
+    if (check < 0) {
+        printf(KBRED "\nopen dupfile for verify failed\n" KRESET);
+        exit();
+    }
+    if (read(check, buf, sizeof(buf)) != 11 || strncmp(buf, "helloworld!", 11) != 0) {
+        printf(KBRED "\ndupfile contents wrong\n" KRESET);
+        exit();
+    }
+    close(check);
+
+    int rfd = open("dupfile", O_RDONLY);
+    if (rfd < 0) {
+        printf(KBRED "\nopen dupfile for read failed\n" KRESET);
+        exit();
+    }
+    int rdup = dup(rfd);
+    if (rdup < 0) {
+        printf(KBRED "\ndup read fd failed\n" KRESET);
+        exit();
+    }
+    if (read(rfd, buf, 5) != 5 || strncmp(buf, "hello", 5) != 0) {
+        printf(KBRED "\nread from original fd wrong\n" KRESET);
+        exit();
+    }
+    if (read(rdup, buf, 5) != 5 || strncmp(buf, "world", 5) != 0) {
+        printf(KBRED "\nread from dup fd wrong\n" KRESET);
+        exit();
+    }
+    if (close(rfd) < 0) {
+        printf(KBRED "\nclose original read fd failed\n" KRESET);
+        exit();
+    }
+    if (read(rdup, buf, 1) != 1 || buf[0] != '!') {
+        printf(KBRED "\nread after close wrong\n" KRESET);
+        exit();
+    }
+    close(rdup);
+
+    int limitfd = open("dupfile", O_RDONLY);
+    if (limitfd < 0) {
+        printf(KBRED "\nopen dupfile for limit test failed\n" KRESET);
+        exit();
+    }
+    int copies[NOFILE];
+    int copied = 0;
+    for (; copied < NOFILE; copied++) {
+        int d = dup(limitfd);
+        if (d < 0) {
+            break;
+        }
+        copies[copied] = d;
+    }
+    if (copied == 0) {
+        printf(KBRED "\ndup produced no copies\n" KRESET);
+        exit();
+    }
+    if (copied == NOFILE) {
+        printf(KBRED "\ndup exceeded NOFILE limit\n" KRESET);
+        exit();
+    }
+    if (dup(limitfd) >= 0) {
+        printf(KBRED "\ndup unexpectedly succeeded with table full\n" KRESET);
+        exit();
+    }
+    for (int i = 0; i < copied; i++) {
+        close(copies[i]);
+    }
+    close(limitfd);
+
+    if (unlink("dupfile") != 0) {
+        printf(KBRED "\nunlink dupfile failed\n" KRESET);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
 // four processes write different files at the same
 // time, to test block allocation.
 void
@@ -663,8 +778,173 @@ void unlinkread(void)
     printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
-void
-linktest(void)
+void fstattest(void)
+{
+    struct stat st;
+    printf("fstat test");
+
+    unlink("fstatfile");
+    unlink("fstatfile2");
+
+    int fd = open("fstatfile", O_CREATE | O_RDWR);
+    if (fd < 0) {
+        printf(KBRED "\ncreate fstatfile failed\n" KRESET);
+        exit();
+    }
+
+    if (fstat(fd, &st) < 0) {
+        printf(KBRED "\nfstat on new file failed\n" KRESET);
+        exit();
+    }
+    if (st.type != T_FILE) {
+        printf(KBRED "\nnew file wrong type %d\n" KRESET, st.type);
+        exit();
+    }
+    if (st.size != 0) {
+        printf(KBRED "\nnew file wrong size %u\n" KRESET, st.size);
+        exit();
+    }
+    if (st.nlink != 1) {
+        printf(KBRED "\nnew file wrong nlink %d\n" KRESET, st.nlink);
+        exit();
+    }
+
+    if (write(fd, "abc", 3) != 3) {
+        printf(KBRED "\nwrite fstatfile failed\n" KRESET);
+        exit();
+    }
+    if (fstat(fd, &st) < 0 || st.size != 3) {
+        printf(KBRED "\npost-write fstat wrong size %u\n" KRESET, st.size);
+        exit();
+    }
+
+    if (link("fstatfile", "fstatfile2") != 0) {
+        printf(KBRED "\nlink fstatfile2 failed\n" KRESET);
+        exit();
+    }
+    if (fstat(fd, &st) < 0 || st.nlink != 2) {
+        printf(KBRED "\nlink count not incremented (%d)\n" KRESET, st.nlink);
+        exit();
+    }
+
+    if (unlink("fstatfile2") != 0) {
+        printf(KBRED "\nunlink fstatfile2 failed\n" KRESET);
+        exit();
+    }
+    if (fstat(fd, &st) < 0 || st.nlink != 1) {
+        printf(KBRED "\nlink count not decremented (%d)\n" KRESET, st.nlink);
+        exit();
+    }
+
+    int dirfd = open(".", 0);
+    if (dirfd < 0) {
+        printf(KBRED "\nopen . failed\n" KRESET);
+        exit();
+    }
+    if (fstat(dirfd, &st) < 0 || st.type != T_DIR) {
+        printf(KBRED "\nfstat on dir wrong type %d\n" KRESET, st.type);
+        exit();
+    }
+    close(dirfd);
+
+    int closedfd = fd;
+    if (close(fd) != 0) {
+        printf(KBRED "\nclose fstatfile failed\n" KRESET);
+        exit();
+    }
+    if (fstat(closedfd, &st) >= 0) {
+        printf(KBRED "\nfstat on closed fd succeeded\n" KRESET);
+        exit();
+    }
+
+    fd = open("fstatfile", 0);
+    if (fd < 0) {
+        printf(KBRED "\nopen fstatfile for cleanup failed\n" KRESET);
+        exit();
+    }
+    if (fstat(fd, &st) < 0 || st.size != 3 || st.nlink != 1) {
+        printf(KBRED "\nfinal fstat mismatch size=%u nlink=%d\n" KRESET, st.size, st.nlink);
+        exit();
+    }
+    close(fd);
+
+    if (unlink("fstatfile") != 0) {
+        printf(KBRED "\nunlink fstatfile failed\n" KRESET);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
+void mknodtest(void)
+{
+    struct stat st;
+    printf("mknod test");
+
+    unlink("mknod.tmp");
+    unlink("/dev/mknod-null");
+
+    int fd = open("mknod.tmp", O_CREATE | O_RDWR);
+    if (fd < 0) {
+        printf(KBRED "\ncreate mknod.tmp failed\n" KRESET);
+        exit();
+    }
+    close(fd);
+    if (mknod("mknod.tmp", 0, 0) >= 0) {
+        printf(KBRED "\nmknod overwrote existing file\n" KRESET);
+        exit();
+    }
+    unlink("mknod.tmp");
+
+    if (mknod("missing/mknod", 0, 0) >= 0) {
+        printf(KBRED "\nmknod unexpectedly succeeded in missing dir\n" KRESET);
+        exit();
+    }
+
+    const char *devpath = "/dev/mknod-null";
+    if (mknod(devpath, 0, 0) != 0) {
+        printf(KBRED "\nmknod %s failed\n" KRESET, devpath);
+        exit();
+    }
+
+    if (stat(devpath, &st) < 0) {
+        printf(KBRED "\nstat %s failed\n" KRESET, devpath);
+        exit();
+    }
+    if (st.type != T_DEV) {
+        printf(KBRED "\n%s wrong type %d\n" KRESET, devpath, st.type);
+        exit();
+    }
+    if (st.nlink != 1) {
+        printf(KBRED "\n%s wrong nlink %d\n" KRESET, devpath, st.nlink);
+        exit();
+    }
+
+    int devfd = open(devpath, O_RDWR);
+    if (devfd < 0) {
+        printf(KBRED "\nopen %s failed\n" KRESET, devpath);
+        exit();
+    }
+    char ch = 'a';
+    if (write(devfd, &ch, 1) >= 0) {
+        printf(KBRED "\nwrite to %s unexpectedly succeeded\n" KRESET, devpath);
+        exit();
+    }
+    if (read(devfd, &ch, 1) >= 0) {
+        printf(KBRED "\nread from %s unexpectedly succeeded\n" KRESET, devpath);
+        exit();
+    }
+    close(devfd);
+
+    if (unlink(devpath) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, devpath);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
+void linktest(void)
 {
     printf("linktest");
 
@@ -1089,6 +1369,122 @@ subdir(void)
     }
     if (unlink("dd") < 0) {
         printf(KBRED "\nunlink dd failed\n" KRESET);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
+void getcwdtest(void)
+{
+    printf("getcwd test");
+
+    if (chdir("/") < 0) {
+        printf(KBRED "\nchdir / failed\n" KRESET);
+        exit();
+    }
+
+    char path[128];
+    if (getcwd(path, sizeof(path)) < 0 || strcmp(path, "/") != 0) {
+        printf(KBRED "\ngetcwd root mismatch\n" KRESET);
+        exit();
+    }
+
+    char rootbuf[2];
+    if (getcwd(rootbuf, sizeof(rootbuf)) < 0 || strcmp(rootbuf, "/") != 0) {
+        printf(KBRED "\ngetcwd tiny buffer root mismatch\n" KRESET);
+        exit();
+    }
+
+    char top[32];
+    char child[64];
+    char grand[96];
+    int pid = getpid();
+    snprintf(top, sizeof(top), "cwdtest.%d", pid);
+    snprintf(child, sizeof(child), "%s/child", top);
+    snprintf(grand, sizeof(grand), "%s/grand", child);
+
+    char abs_top[64];
+    char abs_child[96];
+    char abs_grand[128];
+    snprintf(abs_top, sizeof(abs_top), "/%s", top);
+    snprintf(abs_child, sizeof(abs_child), "%s/child", abs_top);
+    snprintf(abs_grand, sizeof(abs_grand), "%s/grand", abs_child);
+
+    if (mkdir(top) != 0) {
+        printf(KBRED "\nmkdir %s failed\n" KRESET, top);
+        exit();
+    }
+    if (chdir(top) != 0) {
+        printf(KBRED "\nchdir %s failed\n" KRESET, top);
+        exit();
+    }
+    if (getcwd(path, sizeof(path)) < 0 || strcmp(path, abs_top) != 0) {
+        printf(KBRED "\ngetcwd %s mismatch\n" KRESET, abs_top);
+        exit();
+    }
+
+    if (mkdir("child") != 0 || chdir("child") != 0) {
+        printf(KBRED "\nsetup child dir failed\n" KRESET);
+        exit();
+    }
+    if (getcwd(path, sizeof(path)) < 0 || strcmp(path, abs_child) != 0) {
+        printf(KBRED "\ngetcwd %s mismatch\n" KRESET, abs_child);
+        exit();
+    }
+
+    if (mkdir("grand") != 0 || chdir("./grand") != 0) {
+        printf(KBRED "\nsetup grand dir failed\n" KRESET);
+        exit();
+    }
+    if (getcwd(path, sizeof(path)) < 0 || strcmp(path, abs_grand) != 0) {
+        printf(KBRED "\ngetcwd %s mismatch\n" KRESET, abs_grand);
+        exit();
+    }
+
+    if (chdir("../..") != 0) {
+        printf(KBRED "\nchdir ../.. failed\n" KRESET);
+        exit();
+    }
+    if (getcwd(path, sizeof(path)) < 0 || strcmp(path, abs_top) != 0) {
+        printf(KBRED "\ngetcwd %s mismatch after ../..\n" KRESET, abs_top);
+        exit();
+    }
+
+    if (chdir("/") != 0) {
+        printf(KBRED "\nreturn to / failed\n" KRESET);
+        exit();
+    }
+
+    if (chdir(child) != 0) {
+        printf(KBRED "\nchdir %s failed\n" KRESET, child);
+        exit();
+    }
+    char tiny[8];
+    memset(tiny, 'x', sizeof(tiny));
+    if (getcwd(tiny, sizeof(tiny)) < 0) {
+        printf(KBRED "\ngetcwd tiny buffer failed\n" KRESET);
+        exit();
+    }
+    if (tiny[sizeof(tiny) - 1] != '\0' || strncmp(tiny, abs_child, sizeof(tiny) - 1) != 0) {
+        printf(KBRED "\ntiny buffer contents wrong\n" KRESET);
+        exit();
+    }
+
+    if (chdir("/") != 0) {
+        printf(KBRED "\nfinal return to / failed\n" KRESET);
+        exit();
+    }
+    if (unlink(grand) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, grand);
+        exit();
+    }
+    if (unlink(child) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, child);
+        exit();
+    }
+    if (unlink(top) != 0) {
+        printf(KBRED "\nunlink %s failed\n" KRESET, top);
         exit();
     }
 
@@ -1563,6 +1959,87 @@ void validatetest(void)
     printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
+void uptimeyieldtest(void)
+{
+    printf("uptime/yield test");
+
+    int first = uptime();
+    if (first < 0) {
+        printf(KBRED "\nuptime initial call failed\n" KRESET);
+        exit();
+    }
+    int second = uptime();
+    if (second < first) {
+        printf(KBRED "\nuptime went backwards\n" KRESET);
+        exit();
+    }
+
+    const int sleep_ticks = 20;
+    if (sleep(sleep_ticks) < 0) {
+        printf(KBRED "\nsleep failed\n" KRESET);
+        exit();
+    }
+    int after_sleep = uptime();
+    if (after_sleep - first < sleep_ticks) {
+        printf(KBRED "\nuptime did not advance enough (%d)\n" KRESET, after_sleep - first);
+        exit();
+    }
+
+    int spin_goal = uptime() + 5;
+    int yields    = 0;
+    while (uptime() < spin_goal) {
+        if (yield() < 0) {
+            printf(KBRED "\nyield failed\n" KRESET);
+            exit();
+        }
+        if (++yields > 1000000) {
+            printf(KBRED "\nyield spin exceeded limit\n" KRESET);
+            exit();
+        }
+    }
+
+    int pfds[2];
+    if (pipe(pfds) != 0) {
+        printf(KBRED "\npipe failed\n" KRESET);
+        exit();
+    }
+    int pid = fork();
+    if (pid < 0) {
+        printf(KBRED "\nfork failed\n" KRESET);
+        exit();
+    }
+    if (pid == 0) {
+        close(pfds[0]);
+        for (int i = 0; i < 50; i++) {
+            yield();
+        }
+        if (write(pfds[1], "y", 1) != 1) {
+            printf(KBRED "\nchild pipe write failed\n" KRESET);
+            exit();
+        }
+        close(pfds[1]);
+        exit();
+    }
+
+    close(pfds[1]);
+    for (int i = 0; i < 50; i++) {
+        yield();
+    }
+    char ch;
+    if (read(pfds[0], &ch, 1) != 1) {
+        printf(KBRED "\nparent pipe read failed\n" KRESET);
+        exit();
+    }
+    if (ch != 'y') {
+        printf(KBRED "\nparent pipe wrong data\n" KRESET);
+        exit();
+    }
+    close(pfds[0]);
+    wait();
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+}
+
 // does unintialized data start out zero?
 char uninit[10000];
 
@@ -1731,6 +2208,7 @@ int main(int argc, char *argv[])
     concreate();
     fourfiles();
     sharedfd();
+    duptest();
 
     bigargtest();
     bigwrite();
@@ -1738,6 +2216,7 @@ int main(int argc, char *argv[])
     bsstest();
     sbrktest();
     validatetest();
+    uptimeyieldtest();
 
     opentest();
     writetest();
@@ -1757,8 +2236,11 @@ int main(int argc, char *argv[])
     fourteen();
     bigfile();
     subdir();
+    getcwdtest();
     linktest();
     unlinkread();
+    fstattest();
+    mknodtest();
     dirfile();
     iref();
     forktest();
