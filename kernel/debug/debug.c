@@ -6,6 +6,8 @@
 #include "elf.h"
 #include "debug.h"
 #include "printf.h"
+#include "proc.h"
+#include "x86.h"
 
 typedef struct stack_frame
 {
@@ -23,7 +25,7 @@ static char *reserved_symbol_end = nullptr;
 
 void stack_trace(void)
 {
-    printf("Stack trace:\n");
+    printf(KBWHT "Stack trace:\n" KRESET);
 
     const stack_frame_t *stack = __builtin_frame_address(0);
     int max                    = 10;
@@ -40,6 +42,95 @@ void stack_trace(void)
     printf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
 }
 
+void print_registers()
+{
+    struct proc *current_proc = current_process();
+    if (!current_proc || !current_proc->trap_frame) {
+        printf(KBWHT "No current process or trap frame available.\n" KRESET);
+        return;
+    }
+    struct trapframe *frame = current_proc->trap_frame;
+    printf(KBWHT "Registers for the process '%s' on cpu %d:\n" KWHT, current_proc->name, cpu_index());
+    printf("\tEAX: %#10x", frame->eax);
+    printf("\tEBX: %#10x", frame->ebx);
+    printf("\tECX: %#10x", frame->ecx);
+    printf("\tEDX: %#10x\n", frame->edx);
+    printf("\tESI: %#10x", frame->esi);
+    printf("\tEDI: %#10x", frame->edi);
+    printf("\tEBP: %#10x", frame->ebp);
+    printf("\tESP: %#10x\n", frame->esp);
+    printf("\tEIP: %#10x", frame->eip);
+    printf("\tCS:  %#10x", frame->cs);
+    printf("\tDS:  %#10x", frame->ds);
+    printf("\tSS:  %#10x\n", frame->ss);
+    auto eflags = read_eflags();
+
+    printf("\tEFLAGS: %#10x ", eflags);
+
+    if (eflags & EFLAGS_ALL) {
+        printf("( ");
+    }
+    if (eflags & EFLAGS_CF) {
+        printf("CF ");
+    }
+    if (eflags & EFLAGS_PF) {
+        printf("PF ");
+    }
+    if (eflags & EFLAGS_AF) {
+        printf("AF ");
+    }
+    if (eflags & EFLAGS_ZF) {
+        printf("ZF ");
+    }
+    if (eflags & EFLAGS_SF) {
+        printf("SF ");
+    }
+    if (eflags & EFLAGS_TF) {
+        printf("TF ");
+    }
+    if (eflags & EFLAGS_IF) {
+        printf("IF ");
+    }
+    if (eflags & EFLAGS_DF) {
+        printf("DF ");
+    }
+    if (eflags & EFLAGS_OF) {
+        printf("OF ");
+    }
+    if (eflags & EFLAGS_IOPL) {
+        printf("IOPL ");
+    }
+    if (eflags & EFLAGS_NT) {
+        printf("NT ");
+    }
+    if (eflags & EFLAGS_RF) {
+        printf("RF ");
+    }
+    if (eflags & EFLAGS_VM) {
+        printf("VM ");
+    }
+    if (eflags & EFLAGS_AC) {
+        printf("AC ");
+    }
+    if (eflags & EFLAGS_VIF) {
+        printf("VIF ");
+    }
+    if (eflags & EFLAGS_VIP) {
+        printf("VIP ");
+    }
+    if (eflags & EFLAGS_ID) {
+        printf("ID ");
+    }
+    if (eflags & EFLAGS_AI) {
+        printf("AI ");
+    }
+
+    if (eflags & EFLAGS_ALL) {
+        printf(")");
+    }
+    printf("\n");
+}
+
 char *debug_reserved_end(void)
 {
     if (reserved_symbol_end) {
@@ -50,6 +141,7 @@ char *debug_reserved_end(void)
 
 void debug_stats(void)
 {
+    print_registers();
     stack_trace();
 }
 

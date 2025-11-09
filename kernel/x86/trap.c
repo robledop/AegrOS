@@ -233,7 +233,7 @@ void trap(struct trapframe *tf)
         exit();
     }
 
-    // Force the process to give up CPU on clock tick.
+    // Force the process to give up CPU.
     // If interrupts were on while locks held, would need to check nlock.
     if (current_process() && current_process()->state == RUNNING &&
         tf->trapno == T_IRQ0 + IRQ_TIMER && runnable_queue.size > 1) {

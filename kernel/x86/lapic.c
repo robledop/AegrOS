@@ -95,7 +95,7 @@ static u32 calibrate_lapic_timer(void)
 
     lapicw(TDCR, X1);
     lapicw(TIMER, (T_IRQ0 + IRQ_TIMER)); // one-shot during calibration
-    lapicw(TICR, 0xFFFFFFFF);
+    lapicw(TICR, (int)0xFFFFFFFF);
 
     const u8 speaker_orig = inb(PIT_SPEAKER_PORT);
     outb(PIT_SPEAKER_PORT, speaker_orig & ~(PIT_GATE_ENABLE | PIT_SPEAKER_ENABLE));
@@ -132,9 +132,6 @@ static void lapic_configure_timer(void)
         lapic_ticks_per_ms = calibrate_lapic_timer();
         if (lapic_ticks_per_ms == 0) {
             lapic_ticks_per_ms = LAPIC_TIMER_DEFAULT_INIT_COUNT / LAPIC_TIMER_INTERVAL_MS;
-            if (lapic_ticks_per_ms == 0) {
-                lapic_ticks_per_ms = LAPIC_TIMER_DEFAULT_INIT_COUNT;
-            }
         }
     }
 
@@ -145,7 +142,7 @@ static void lapic_configure_timer(void)
 
     lapicw(TDCR, X1);
     lapicw(TIMER, PERIODIC | (T_IRQ0 + IRQ_TIMER));
-    lapicw(TICR, initial_count);
+    lapicw(TICR, (int)initial_count);
 }
 
 /** @brief Initialize and enable the local APIC on the current CPU. */
@@ -180,7 +177,7 @@ void lapicinit(void)
     // Ack any outstanding interrupts.
     lapicw(EOI, 0);
 
-    // Send an Init Level De-Assert to synchronise arbitration ID's.
+    // Send an Init Level De-Assert to synchronize arbitration ID's.
     lapicw(ICRHI, 0);
     lapicw(ICRLO, BCAST | INIT | LEVEL);
     while (lapic[ICRLO] & DELIVS) {
@@ -240,8 +237,8 @@ void microdelay(int us)
     }
 
     // Fallback: simple spin calibrated for emulators if LAPIC timing unavailable.
-    const int loops_per_us = 200;
-    volatile int spins     = us * loops_per_us;
+    constexpr int loops_per_us = 200;
+    volatile int spins         = us * loops_per_us;
     while (spins-- > 0) {
         __asm__ volatile("pause");
     }

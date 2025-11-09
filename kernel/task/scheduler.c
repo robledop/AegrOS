@@ -7,14 +7,11 @@
 #include "string.h"
 #include <x86gprintrin.h>
 #include "scheduler.h"
-
 #include "printf.h"
+#include "assert.h"
 
 struct ptable_t ptable;
 extern struct proc *initproc;
-
-static u64 instr_per_ns;
-static u64 last_time = 0;
 
 // enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -23,51 +20,16 @@ static u64 last_time = 0;
     struct process_queue name##_queue = {};   \
     void enqueue_##name(struct proc *process) \
     {                                         \
-        name##_queue.size++;                       \
         enqueue_task(&name##_queue, process); \
     }                                         \
     struct proc *dequeue_##name()             \
     {                                         \
-        name##_queue.size--;                       \
-        if (name##_queue.size < 0) {               \
-            name##_queue.size = 0;                 \
-        }                                     \
         return dequeue_task(&name##_queue);   \
     }
 
 TASK_QUEUE(runnable)
 // TASK_QUEUE(sleeping)
 // TASK_QUEUE(zombie)
-
-static void discover_cpu_speed()
-{
-    sti();
-    const u32 curr_tick = ticks;
-    u64 curr_rtsc       = __rdtsc();
-    while (ticks != curr_tick + 1) {
-        // wait for the next tick
-    }
-    curr_rtsc    = __rdtsc() - curr_rtsc;
-    instr_per_ns = curr_rtsc / 1000000;
-    if (instr_per_ns == 0) {
-        instr_per_ns = 1;
-    }
-    cli();
-}
-
-static inline u64 get_cpu_time_ms()
-{
-    return (__rdtsc()) / instr_per_ns / 1000;
-}
-
-void process_update_time()
-{
-    const u64 current_time = get_cpu_time_ms();
-    const u64 delta_ms     = current_time - last_time;
-
-    current_process()->time_used += delta_ms;
-    last_time = current_time;
-}
 
 /**
  * @brief Per-CPU scheduler loop that selects and runs processes.
@@ -76,9 +38,6 @@ void process_update_time()
  */
 void scheduler(void)
 {
-    discover_cpu_speed();
-    last_time = get_cpu_time_ms();
-
     // TODO: Cleanup ZOMBIE processes that have not been waited on.
     struct cpu *cpu = current_cpu();
     cpu->proc       = nullptr;
@@ -98,7 +57,6 @@ void scheduler(void)
         }
 
         cpu->proc = p;
-        process_update_time();
 
         activate_process(p);
         p->state              = RUNNING;
@@ -114,42 +72,6 @@ void scheduler(void)
         cpu->proc = nullptr;
 
         release(&ptable.lock);
-
-        // // Loop over the process table looking for a process to run.
-        // acquire(&ptable.lock);
-        // ptable.active_count = 0;
-        // for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-        //     if (p->state != RUNNABLE)
-        //         continue;
-        //
-        //     // Account for runnable processes for idle detection.
-        //     ptable.active_count++;
-        //
-        //     // Switch to the chosen process.  It is the process's job
-        //     // to release ptable.lock and then reacquire it
-        //     // before jumping back to us.
-        //     cpu->proc = p;
-        //     process_update_time();
-        //
-        //     activate_process(p);
-        //     p->state             = RUNNING;
-        //     cpu->time_slice_ticks = TIME_SLICE_TICKS;
-        //
-        //     switch_context(&(cpu->scheduler), p->context);
-        //     switch_kernel_page_directory();
-        //
-        //     // Process is done running for now.
-        //     // It should have changed its p->state before coming back.
-        //     cpu->proc = nullptr;
-        // }
-        //
-        // release(&ptable.lock);
-        //
-        // // Idle "thread"
-        // if (ptable.active_count == 0) {
-        //     sti();
-        //     hlt();
-        // }
     }
 }
 
@@ -163,19 +85,10 @@ void switch_to_scheduler(void)
 {
     struct proc *p = current_process();
 
-    if (!holding(&ptable.lock)) {
-        panic("switch_to_scheduler ptable.lock");
-    }
-    if (read_eflags() & FL_IF) {
-        panic("switch_to_scheduler interruptible");
-    }
-    if (p->state == RUNNING) {
-        panic("switch_to_scheduler running");
-    }
-
-    if (current_cpu()->ncli != 1) {
-        panic("switch_to_scheduler locks");
-    }
+    ASSERT(holding(&ptable.lock), "switch_to_scheduler called without ptable.lock");
+    ASSERT(!(read_eflags() & FL_IF), "switch_to_scheduler called with interrupts enabled");
+    ASSERT(p->state != RUNNING, "switch_to_scheduler called with RUNNING process");
+    ASSERT(current_cpu()->ncli == 1, "switch_to_scheduler called with multiple locks held");
 
     const int interrupts_enabled = current_cpu()->interrupts_enabled;
     switch_context(&p->context, current_cpu()->scheduler);
@@ -437,6 +350,8 @@ void enqueue_task(struct process_queue *queue, struct proc *task)
     task->next  = nullptr;
     queue->tail = task;
 
+    queue->size++;
+
     release(&queue->lock);
 }
 
@@ -453,6 +368,11 @@ struct proc *dequeue_task(struct process_queue *queue)
         queue->tail = nullptr;
     }
     task->next = nullptr;
+
+    queue->size--;
+    if (queue->size < 0) {
+        queue->size = 0;
+    }
 
     release(&queue->lock);
     return task;
@@ -475,6 +395,11 @@ void remove_task(struct process_queue *queue, struct proc *task, struct proc *pr
         previous->next = task->next;
     }
     task->next = nullptr;
+
+    queue->size--;
+    if (queue->size < 0) {
+        queue->size = 0;
+    }
 
     release(&queue->lock);
 }

@@ -13,8 +13,6 @@
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define MAX_FILE_PATH 255  // maximum file path length
-// #define FSSIZE       1000  // size of the file system in blocks
-
 #define TIMER_FREQUENCY_HZ 50
 #define TIMER_INTERVAL_MS (1000 / TIMER_FREQUENCY_HZ)
 

@@ -14,7 +14,6 @@ struct cpu
     volatile u32 started;         // Has the CPU started?
     int ncli;                     // Depth of pushcli nesting.
 
-    // intena
     int interrupts_enabled; // Were interrupts enabled before pushcli?
     int time_slice_ticks;   // Remaining timer ticks before preemption
     struct proc *proc;      // The process running on this cpu or null

@@ -33,7 +33,7 @@ static struct pci_device pci_device;
 
 #define E1000_MMIO_SIZE 0x20000U
 
-u32 wait_for_network_timeout = 1'000;
+u32 wait_for_network_timeout = 5'000;
 
 void wait_for_network()
 {

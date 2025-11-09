@@ -118,6 +118,7 @@ void cprintf(char *fmt, ...)
 void panic(const char *fmt, ...)
 {
     cli();
+    acquire(&cons.lock);
     cons.locking = 0;
     va_list ap;
     va_start(ap, fmt);
@@ -125,9 +126,10 @@ void panic(const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     printf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), buf);
-
     debug_stats();
+
     panicked = 1; // freeze other CPU
+    release(&cons.lock);
     for (;;) {
         hlt();
     }
@@ -365,6 +367,7 @@ void consputc(int c)
         for (;;);
     }
 
+#ifdef DEBUG
     if (c == BACKSPACE) {
         uartputc('\b');
         uartputc(' ');
@@ -372,6 +375,7 @@ void consputc(int c)
     } else {
         uartputc(c);
     }
+#endif
 
     if (handle_ansi_escape(c)) {
         return;
