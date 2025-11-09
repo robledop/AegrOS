@@ -9,7 +9,13 @@ $(shell mkdir -p rootfs/bin)
 $(shell mkdir -p rootfs/boot/grub)
 $(shell mkdir -p rootfs/dev)
 $(shell mkdir -p rootfs/etc)
+$(shell mkdir -p rootfs/test)
 $(shell touch rootfs/etc/devtab)
+
+# Create a big text file inside the rootfs/test directory for testing purposes.
+ifeq ("$(wildcard rootfs/test/bigfile.txt)","")
+    $(shell base64 /dev/urandom | head -c 10485760 > rootfs/test/bigfile.txt)
+endif
 
 # Create the grub.cfg file if it doesn't exist.
 ifeq ("$(wildcard rootfs/boot/grub/grub.cfg)","")
@@ -19,6 +25,7 @@ ifeq ("$(wildcard rootfs/boot/grub/grub.cfg)","")
             echo '	multiboot /boot/kernel' >> rootfs/boot/grub/grub.cfg && \
             echo '}' >> rootfs/boot/grub/grub.cfg)
 endif
+
 
 SRC_DIRS := $(shell find ./kernel -type d)
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))

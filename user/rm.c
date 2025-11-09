@@ -1,18 +1,17 @@
 #include "user.h"
 
-int main(int argc, char* argv[])
+// BUG: I get page faults when trying to delete big files
+
+int main(int argc, char *argv[])
 {
-    if (argc < 2)
-    {
-        printf( "Usage: rm files...\n");
+    if (argc < 2) {
+        printf("Usage: rm files...\n");
         exit();
     }
 
-    for (int i = 1; i < argc; i++)
-    {
-        if (unlink(argv[i]) < 0)
-        {
-            printf( "rm: %s failed to delete\n", argv[i]);
+    for (int i = 1; i < argc; i++) {
+        if (unlink(argv[i]) < 0) {
+            printf("rm: %s failed to delete\n", argv[i]);
             break;
         }
     }
