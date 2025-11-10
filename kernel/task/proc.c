@@ -38,6 +38,53 @@ struct proc *current_process(void)
     return p;
 }
 
+static void free_vma_list(struct vm_area **head)
+{
+    if (head == nullptr || *head == nullptr) {
+        return;
+    }
+    struct vm_area *vma = *head;
+    while (vma != nullptr) {
+        struct vm_area *next = vma->next;
+        kfree(vma);
+        vma = next;
+    }
+    *head = nullptr;
+}
+
+static struct vm_area *find_vma_with_flag(struct proc *p, int flag)
+{
+    for (struct vm_area *vma = p->vma_list; vma != nullptr; vma = vma->next) {
+        if ((vma->flags & flag) != 0) {
+            return vma;
+        }
+    }
+    return nullptr;
+}
+
+static struct vm_area *ensure_heap_vma(struct proc *p)
+{
+    struct vm_area *heap = find_vma_with_flag(p, VMA_FLAG_HEAP);
+    if (heap != nullptr) {
+        return heap;
+    }
+
+    heap = (struct vm_area *)kzalloc(sizeof(*heap));
+    if (heap == nullptr) {
+        return nullptr;
+    }
+
+    heap->start       = 0;
+    heap->end         = p->brk;
+    heap->prot        = PTE_W | PTE_U;
+    heap->flags       = VMA_FLAG_HEAP;
+    heap->file        = nullptr;
+    heap->file_offset = 0;
+    heap->next        = p->vma_list;
+    p->vma_list       = heap;
+    return heap;
+}
+
 static struct proc *init_proc(struct proc *p)
 {
     // Allocate kernel stack.
@@ -45,6 +92,7 @@ static struct proc *init_proc(struct proc *p)
         p->state = UNUSED;
         return nullptr;
     }
+    free_vma_list(&p->vma_list);
     char *stack_pointer = p->kstack + KSTACKSIZE;
 
     // Leave room for the trap frame.
@@ -93,12 +141,13 @@ found:
     return init_proc(p);
 }
 
-[[maybe_unused]] static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
+static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
 {
     if ((p->kstack = kalloc_page()) == nullptr) {
         p->state = UNUSED;
         return nullptr;
     }
+    free_vma_list(&p->vma_list);
     char *stack_pointer = p->kstack + KSTACKSIZE;
 
     stack_push_pointer(&stack_pointer, (u32)entry_point);
@@ -130,7 +179,7 @@ void user_init()
         panic("user_init: out of memory?");
     }
     inituvm(p->page_directory, _binary_build_initcode_start, (int)_binary_build_initcode_size);
-    p->size = PGSIZE;
+    p->brk = PGSIZE;
     memset(p->trap_frame, 0, sizeof(*p->trap_frame));
     p->trap_frame->cs     = (SEG_UCODE << 3) | DPL_USER;
     p->trap_frame->ds     = (SEG_UDATA << 3) | DPL_USER;
@@ -144,6 +193,10 @@ void user_init()
     p->cwd = namei("/");
     strncpy(p->cwd_path, "/", MAX_FILE_PATH);
 
+    if (ensure_heap_vma(p) == nullptr) {
+        panic("user_init: heap vma");
+    }
+
     // this assignment to p->state lets other cores
     // run this process. the acquire forces the above
     // writes to be visible, and the lock is also needed
@@ -152,8 +205,6 @@ void user_init()
 
     p->state = RUNNABLE;
     enqueue_runnable(p);
-
-    // release(&ptable.lock);
 }
 
 /**
@@ -164,9 +215,13 @@ void user_init()
  */
 int resize_proc(int n)
 {
-    struct proc *curproc = current_process();
+    struct proc *curproc     = current_process();
+    struct vm_area *heap_vma = ensure_heap_vma(curproc);
+    if (heap_vma == nullptr) {
+        return -1;
+    }
 
-    u32 sz = curproc->size;
+    u32 sz = curproc->brk;
     if (n > 0) {
         if ((sz = allocvm(curproc->page_directory, sz, sz + n, PTE_W | PTE_U)) == 0) {
             return -1;
@@ -176,7 +231,9 @@ int resize_proc(int n)
             return -1;
         }
     }
-    curproc->size = sz;
+    curproc->brk    = sz;
+    heap_vma->start = 0;
+    heap_vma->end   = sz;
     activate_process(curproc);
     return 0;
 }
@@ -200,22 +257,24 @@ int fork(void)
     }
 
     // Copy process state from proc.
-    if ((np->page_directory = copyuvm(curproc->page_directory, curproc->size)) == nullptr) {
+    if ((np->page_directory = copyuvm(curproc->page_directory, curproc->brk)) == nullptr) {
         kfree_page(np->kstack);
         np->kstack = nullptr;
         np->state  = UNUSED;
         return -1;
     }
-    np->size        = curproc->size;
+    np->brk         = curproc->brk;
     np->parent      = curproc;
     *np->trap_frame = *curproc->trap_frame;
 
     // Clear %eax so that fork returns 0 in the child.
     np->trap_frame->eax = 0;
 
-    for (int i = 0; i < NOFILE; i++)
-        if (curproc->ofile[i])
+    for (int i = 0; i < NOFILE; i++) {
+        if (curproc->ofile[i]) {
             np->ofile[i] = filedup(curproc->ofile[i]);
+        }
+    }
     np->cwd = idup(curproc->cwd);
     memset(np->cwd_path, 0, MAX_FILE_PATH);
     strncpy(np->cwd_path, curproc->cwd_path, MAX_FILE_PATH);

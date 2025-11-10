@@ -43,24 +43,38 @@ struct context
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+#define VMA_FLAG_HEAP 0x1
+
+struct vm_area
+{
+    u32 start;
+    u32 end;
+    int prot;
+    int flags;
+    struct file *file;
+    u32 file_offset;
+    struct vm_area *next;
+};
+
 // Per-process state
 struct proc
 {
-    u32 size;                     // Size of process memory (bytes)
+    u32 brk;                      // Current end of process memory (heap)
     pde_t *page_directory;        // Page table
     char *kstack;                 // Bottom of the kernel stack for this process
     enum procstate state;         // Process state
     int pid;                      // Process ID
     struct proc *parent;          // Parent process
     struct trapframe *trap_frame; // Trap frame for current syscall
-    struct context *context;      // swtch() here to run process
+    struct context *context;      // switch_context() here to run process
     void *chan;                   // If non-zero, sleeping on chan
     int killed;                   // If non-zero, have been killed
     struct file *ofile[NOFILE];   // Open files
     struct inode *cwd;            // Current directory
-    struct proc *next;
+    struct vm_area *vma_list;     // Head of VM area list
     char cwd_path[MAX_FILE_PATH];
     char name[16]; // Process name (debugging)
+    struct proc *next;
 };
 
 // Process memory is laid out contiguously, low addresses first:

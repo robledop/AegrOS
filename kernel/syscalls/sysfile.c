@@ -295,6 +295,44 @@ int sys_fstat(void)
     return filestat(f, st);
 }
 
+int sys_lseek(void)
+{
+    struct file *f;
+    int offset;
+    int whence;
+
+    if (argfd(0, nullptr, &f) < 0 || argint(1, &offset) < 0 || argint(2, &whence) < 0) {
+        return -1;
+    }
+
+    u32 newpos;
+    switch (whence) {
+    case SEEK_SET:
+        newpos = offset;
+        break;
+    case SEEK_CUR:
+        newpos = f->off + offset;
+        break;
+    case SEEK_END: {
+        struct stat st;
+        if (filestat(f, &st) < 0) {
+            return -1;
+        }
+        newpos = st.size + offset;
+        break;
+    }
+    default:
+        return -1;
+    }
+
+    if (newpos < 0) {
+        return -1;
+    }
+
+    f->off = newpos;
+    return newpos;
+}
+
 /**
  * @brief Create a new hard link to an existing inode.
  *
@@ -702,7 +740,7 @@ int sys_chdir(void)
     safestrcpy(ip->path, resolved, MAX_FILE_PATH);
     safestrcpy(curproc->cwd_path, resolved, MAX_FILE_PATH);
     if (rc > 0 && resolved[0] == '\0') {
-        ip->path[0]        = '\0';
+        ip->path[0]          = '\0';
         curproc->cwd_path[0] = '\0';
     }
     return 0;

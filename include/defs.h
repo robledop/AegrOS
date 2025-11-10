@@ -28,7 +28,7 @@ void brelse(struct buf *);
 void bwrite(struct buf *);
 
 // console.c
-void consoleinit(void);
+void console_init(void);
 // void cprintf(char *, ...);
 void consputc(int c);
 void consoleintr(int (*)(void));

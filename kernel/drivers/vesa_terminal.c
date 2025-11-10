@@ -1,5 +1,5 @@
 #include <string.h>
-#include <vesa.h>
+#include <framebuffer.h>
 #include <vesa_terminal.h>
 
 #define MARGIN 15
@@ -66,7 +66,7 @@ void cursor_up()
         cursor_y -= VESA_LINE_HEIGHT;
     }
 
-    vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+    framebuffer_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
 /**
@@ -78,7 +78,7 @@ void cursor_down()
         cursor_y += VESA_LINE_HEIGHT;
     }
 
-    vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+    framebuffer_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
 /**
@@ -90,7 +90,7 @@ void cursor_left()
         cursor_x -= VESA_CHAR_WIDTH;
     }
 
-    vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+    framebuffer_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
 /**
@@ -102,7 +102,7 @@ void cursor_right()
         cursor_x += VESA_CHAR_WIDTH;
     }
 
-    vesa_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+    framebuffer_draw_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
 }
 
 
@@ -146,7 +146,7 @@ bool v_param_process(const int c)
     case 'J':
         switch (v_params[0]) {
         case 2:
-            vesa_clear_screen(backcolor);
+            framebuffer_clear_screen(backcolor);
             cursor_x = MARGIN;
             cursor_y = MARGIN;
             break;
@@ -243,13 +243,13 @@ void putchar(char c)
         return;
     }
 
-    vesa_erase_cursor(cursor_x, cursor_y);
+    framebuffer_erase_cursor(cursor_x, cursor_y);
 
     if (c == '\n') {
         cursor_x = MARGIN;
         cursor_y += VESA_LINE_HEIGHT;
         if (cursor_y + VESA_LINE_HEIGHT > vbe_info->height) {
-            vesa_scroll_up();
+            framebuffer_scroll_up();
             cursor_y = vbe_info->height - VESA_LINE_HEIGHT;
         }
         return;
@@ -261,14 +261,14 @@ void putchar(char c)
     }
 
     if (c == '\b') {
-        vesa_erase_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
+        framebuffer_erase_cursor(cursor_x + VESA_CHAR_WIDTH, cursor_y);
         cursor_x -= VESA_CHAR_WIDTH;
-        vesa_erase_cursor(cursor_x, cursor_y);
-        vesa_draw_cursor(cursor_x, cursor_y);
+        framebuffer_erase_cursor(cursor_x, cursor_y);
+        framebuffer_draw_cursor(cursor_x, cursor_y);
         return;
     }
 
-    vesa_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
+    framebuffer_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
     cursor_x += VESA_CHAR_WIDTH;
     if (cursor_x + VESA_CHAR_WIDTH + MARGIN > vbe_info->width) {
         cursor_x = MARGIN;
@@ -276,7 +276,7 @@ void putchar(char c)
     }
 
     if (cursor_visible) {
-        vesa_draw_cursor(cursor_x, cursor_y);
+        framebuffer_draw_cursor(cursor_x, cursor_y);
     }
 }
 

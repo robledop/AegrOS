@@ -5,6 +5,10 @@ struct stat;
 struct rtcdate;
 typedef void (*atexit_function)(void);
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 // system calls
 int fork(void);
 int exit(void) __attribute__ ((noreturn));
@@ -20,6 +24,7 @@ int open(const char *, int);
 int mknod(const char *, short, short);
 int unlink(const char *);
 int fstat(int fd, struct stat *);
+int lseek(int, int, int);
 int link(const char *, const char *);
 int mkdir(const char *);
 int chdir(const char *);
@@ -47,6 +52,7 @@ void *memset(void *, int, u32);
 void *malloc(u32);
 void free(void *);
 int atoi(const char *);
+int abs(int x);
 int strncmp(const char *p, const char *q, u32 n);
 bool starts_with(const char pre[static 1], const char str[static 1]);
 char *strcat(char dest[static 1], const char src[static 1]);
@@ -56,4 +62,3 @@ int getkey();
 int getkey_blocking();
 // void putchar(char c);
 bool str_ends_with(const char *str, const char *suffix);
-

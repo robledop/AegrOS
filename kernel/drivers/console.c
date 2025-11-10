@@ -543,7 +543,7 @@ void consoleintr(int (*getc)(void))
 }
 
 /** @brief Read from the console */
-int consoleread(struct inode *ip, char *dst, int n)
+int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset)
 {
     ip->iops->iunlock(ip);
     int target = n;
@@ -579,12 +579,12 @@ int consoleread(struct inode *ip, char *dst, int n)
 }
 
 /** @brief Write to the console */
-int consolewrite(struct inode *ip, char *buf, int n)
+int console_write(struct inode *ip, char *buf, int n, [[maybe_unused]] u32 offset)
 {
     ip->iops->iunlock(ip);
     acquire(&cons.lock);
     for (int i = 0; i < n; i++) {
-        consputc(buf[i] & 0xff);
+        consputc(buf[i]);
     }
     release(&cons.lock);
     ip->iops->ilock(ip);
@@ -593,12 +593,12 @@ int consolewrite(struct inode *ip, char *buf, int n)
 }
 
 /** @brief Initialize console */
-void consoleinit(void)
+void console_init(void)
 {
     initlock(&cons.lock, "console");
 
-    devsw[CONSOLE].write = consolewrite;
-    devsw[CONSOLE].read  = consoleread;
+    devsw[CONSOLE].write = console_write;
+    devsw[CONSOLE].read  = console_read;
     cons.locking         = 1;
 
 #ifndef GRAPHICS

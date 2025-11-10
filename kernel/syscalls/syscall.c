@@ -24,7 +24,7 @@ int fetchint(u32 addr, int *ip)
 {
     struct proc *curproc = current_process();
 
-    if (addr >= curproc->size || addr + 4 > curproc->size)
+    if (addr >= curproc->brk || addr + 4 > curproc->brk)
         return -1;
     *ip = *(int *)(addr);
     return 0;
@@ -41,10 +41,10 @@ int fetchstr(u32 addr, char **pp)
 {
     struct proc *curproc = current_process();
 
-    if (addr >= curproc->size)
+    if (addr >= curproc->brk)
         return -1;
     *pp      = (char *)addr;
-    char *ep = (char *)curproc->size;
+    char *ep = (char *)curproc->brk;
     for (char *s = *pp; s < ep; s++) {
         if (s == nullptr || *s == 0)
             return s - *pp;
@@ -65,21 +65,21 @@ int argint(int n, int *ip)
 }
 
 /**
- * @brief Fetch a pointer-sized argument, validating a buffer of given size.
+ * @brief Fetch a pointer-sized argument, validating a buffer of given brk.
  *
  * @param n Argument index.
  * @param pp Receives the user pointer.
- * @param size Size in bytes that must fit within process memory.
+ * @param brk Size in bytes that must fit within process memory.
  * @return 0 on success, -1 on failure.
  */
-int argptr(int n, char **pp, int size)
+int argptr(int n, char **pp, int brk)
 {
     int i;
     struct proc *curproc = current_process();
 
     if (argint(n, &i) < 0)
         return -1;
-    if (size < 0 || (u32)i >= curproc->size || (u32)i + size > curproc->size)
+    if (brk < 0 || (u32)i >= curproc->brk || (u32)i + brk > curproc->brk)
         return -1;
     *pp = (char *)i;
     return 0;
@@ -107,6 +107,7 @@ extern int sys_exec(void);
 extern int sys_exit(void);
 extern int sys_fork(void);
 extern int sys_fstat(void);
+extern int sys_lseek(void);
 extern int sys_getpid(void);
 extern int sys_kill(void);
 extern int sys_link(void);
@@ -136,6 +137,7 @@ static int (*syscalls[])(void) = {
     [SYS_kill] = sys_kill,
     [SYS_exec] = sys_exec,
     [SYS_fstat] = sys_fstat,
+    [SYS_lseek] = sys_lseek,
     [SYS_chdir] = sys_chdir,
     [SYS_dup] = sys_dup,
     [SYS_getpid] = sys_getpid,

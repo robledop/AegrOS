@@ -117,7 +117,7 @@ int wait(void)
                 p->parent         = nullptr;
                 p->name[0]        = 0;
                 p->killed         = 0;
-                p->size           = 0;
+                p->brk            = 0;
                 p->state          = UNUSED;
                 p->next           = nullptr;
                 release(&ptable.lock);

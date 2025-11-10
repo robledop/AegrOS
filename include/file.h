@@ -5,6 +5,10 @@
 #include "sleeplock.h"
 #include "stat.h"
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 struct file
 {
     enum { FD_NONE, FD_PIPE, FD_INODE } type;
@@ -38,17 +42,17 @@ struct inode_operations
 // in-memory copy of an inode
 struct inode
 {
-    u32 dev;               // Device number
-    u32 inum;              // Inode number
-    int ref;               // Reference count
-    u16 i_uid;         /* Low 16 bits of Owner Uid */
-    u32 i_size;        /* Size in bytes */
-    u32 i_atime;       /* Access time */
-    u32 i_ctime;       /* Creation time */
-    u32 i_mtime;       /* Modification time */
-    u32 i_dtime;       /* Deletion Time */
-    u16 i_gid;         /* Low 16 bits of Group Id */
-    u32 i_flags;       /* File flags */
+    u32 dev;     // Device number
+    u32 inum;    // Inode number
+    int ref;     // Reference count
+    u16 i_uid;   /* Low 16 bits of Owner Uid */
+    u32 i_size;  /* Size in bytes */
+    u32 i_atime; /* Access time */
+    u32 i_ctime; /* Creation time */
+    u32 i_mtime; /* Modification time */
+    u32 i_dtime; /* Deletion Time */
+    u16 i_gid;   /* Low 16 bits of Group Id */
+    u32 i_flags; /* File flags */
 
     struct sleeplock lock; // protects everything below here
     int valid;             // inode has been read from disk?
@@ -67,8 +71,9 @@ struct inode
 // device functions
 struct devsw
 {
-    int (*read)(struct inode *, char *, int);
-    int (*write)(struct inode *, char *, int);
+    int (*read)(struct inode *ip, char *buf, int n, u32 offset);
+    int (*write)(struct inode *ip, char *buf, int n, u32 offset);
+    int offset;
 };
 
 extern struct devsw devsw[];

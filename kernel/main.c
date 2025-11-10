@@ -13,7 +13,7 @@
 #include "mbr.h"
 #include "pci.h"
 #include "scheduler.h"
-#include "vesa.h"
+#include "framebuffer.h"
 #include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */
@@ -57,13 +57,14 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 #ifdef GRAPHICS
     map_framebuffer_mmio();
 #endif
-    mpinit();                                           // detect other processors
-    lapicinit();                                        // interrupt controller
-    seginit();                                          // segment descriptors
-    picinit();                                          // disable pic
-    ioapicinit();                                       // another interrupt controller
-    consoleinit();                                      // console hardware
-    uartinit();                                         // serial port
+    mpinit();           // detect other processors
+    lapicinit();        // interrupt controller
+    seginit();          // segment descriptors
+    picinit();          // disable pic
+    ioapicinit();       // another interrupt controller
+    framebuffer_init(); // framebuffer device
+    console_init();     // console hardware
+    uartinit();         // serial port
     cpu_print_info();
     pinit();                                    // process table
     tvinit();                                   // trap vectors
@@ -202,7 +203,11 @@ static void map_framebuffer_mmio(void)
  * running the low-level bootstrap code, and once at KERNBASE so the kernel can
  * execute from its linked virtual addresses (0x80100000 and above).
  */
-__attribute__((aligned(PGSIZE))) u32 entrypgdir[NPDENTRIES] = {
+__attribute__ ((aligned
+        (PGSIZE)
+    )
+)
+u32 entrypgdir[NPDENTRIES] = {
     [0] = PTE_P | PTE_W | PTE_PS,                    // maps 0x0000_0000 → 0x0000_0000
     [1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS,  // maps 0x0040_0000 → 0x0040_0000
     [KERNBASE >> PDXSHIFT] = PTE_P | PTE_W | PTE_PS, // maps 0x8000_0000 → phys 0

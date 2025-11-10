@@ -33,6 +33,7 @@ SYSCALL open
 SYSCALL mknod
 SYSCALL unlink
 SYSCALL fstat
+SYSCALL lseek
 SYSCALL link
 SYSCALL mkdir
 SYSCALL chdir

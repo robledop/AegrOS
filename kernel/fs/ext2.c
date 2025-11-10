@@ -623,7 +623,7 @@ int ext2fs_readi(struct inode *ip, char *dst, u32 off, u32 n)
         if (major < 0 || major >= NDEV || !devsw[major].read) {
             return -1;
         }
-        return devsw[major].read(ip, dst, n);
+        return devsw[major].read(ip, dst, n, off);
     }
 
     if (off > ip->size || off + n < off) {
@@ -652,7 +652,7 @@ int ext2fs_writei(struct inode *ip, char *src, u32 off, u32 n)
         if (major < 0 || major >= NDEV || !devsw[major].write) {
             return -1;
         }
-        return devsw[major].write(ip, src, n);
+        return devsw[major].write(ip, src, n, off);
     }
 
     if (off > ip->size || off + n < off) {

@@ -204,7 +204,7 @@ struct ext2_inode
             u32 m_i_reserved2[2];
         } masix2;
     } osd2; /* OS dependent 2 */
-};
+} __attribute__((packed));
 
 /*
  * The new version of the directory entry.  Since EXT2 structures are

@@ -165,7 +165,7 @@ int exec(char *path, char **argv)
 
     pde_t *oldpgdir          = curproc->page_directory;
     curproc->page_directory  = pgdir;
-    curproc->size            = sz;
+    curproc->brk             = sz;
     curproc->trap_frame->eip = elf.e_entry; // main
     curproc->trap_frame->esp = sp;
     activate_process(curproc);

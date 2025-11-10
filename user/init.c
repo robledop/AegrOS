@@ -16,22 +16,29 @@ int main(void)
     dup(0); // stdout
     dup(0); // stderr
 
+    int fbfd;
+    if ((fbfd = open("/dev/fb0", O_RDWR)) < 0) {
+        mknod("/dev/fb0", 2, 0);
+    } else {
+        close(fbfd);
+    }
+
     for (;;) {
-        printf( "init: starting sh\n");
+        printf("init: starting sh\n");
         int pid = fork();
         if (pid < 0) {
-            printf( "init: fork failed\n");
+            printf("init: fork failed\n");
             exit();
         }
 
         if (pid == 0) {
             exec("/bin/sh", argv);
-            printf( "init: exec sh failed\n");
+            printf("init: exec sh failed\n");
             exit();
         }
 
         while ((wpid = wait()) >= 0 && wpid != pid) {
-            printf( "zombie!\n");
+            printf("zombie!\n");
         }
     }
 }

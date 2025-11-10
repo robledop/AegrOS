@@ -141,6 +141,11 @@ int atoi(const char *s)
     return n;
 }
 
+int abs(int x)
+{
+    return x < 0 ? -x : x;
+}
+
 void *memmove(void *vdst, const void *vsrc, int n)
 {
     char *dst       = vdst;
@@ -195,4 +200,3 @@ char *strncat(char dest[static 1], const char src[static 1], u32 n)
     *d = '\0';
     return dest;
 }
-

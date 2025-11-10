@@ -54,6 +54,7 @@ UPROGS=\
 	build/zombie\
 	build/fib\
 	build/touch\
+	build/fbline\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

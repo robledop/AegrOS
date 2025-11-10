@@ -73,7 +73,7 @@ int sys_sbrk(void)
     if (argint(0, &n) < 0) {
         return -1;
     }
-    int addr = (int)current_process()->size;
+    int addr = (int)current_process()->brk;
     if (resize_proc(n) < 0) {
         return -1;
     }
