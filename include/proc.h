@@ -90,3 +90,7 @@ struct ptable_t
     int active_count;
     struct proc proc[NPROC];
 };
+
+struct vm_area *proc_ensure_heap_vma(struct proc *p);
+void proc_free_vmas(struct proc *p);
+int proc_clone_vmas(struct proc *dst, struct proc *src);

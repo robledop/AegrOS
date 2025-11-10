@@ -11,6 +11,7 @@
 #include "io.h"
 #include "printf.h"
 #include "scheduler.h"
+#include "file.h"
 
 extern struct ptable_t ptable;
 
@@ -38,18 +39,26 @@ struct proc *current_process(void)
     return p;
 }
 
-static void free_vma_list(struct vm_area **head)
+static void free_vma_chain(struct vm_area *head)
 {
-    if (head == nullptr || *head == nullptr) {
-        return;
-    }
-    struct vm_area *vma = *head;
+    struct vm_area *vma = head;
     while (vma != nullptr) {
         struct vm_area *next = vma->next;
+        if (vma->file != nullptr) {
+            fileclose(vma->file);
+        }
         kfree(vma);
         vma = next;
     }
-    *head = nullptr;
+}
+
+void proc_free_vmas(struct proc *p)
+{
+    if (p == nullptr || p->vma_list == nullptr) {
+        return;
+    }
+    free_vma_chain(p->vma_list);
+    p->vma_list = nullptr;
 }
 
 static struct vm_area *find_vma_with_flag(struct proc *p, int flag)
@@ -62,7 +71,7 @@ static struct vm_area *find_vma_with_flag(struct proc *p, int flag)
     return nullptr;
 }
 
-static struct vm_area *ensure_heap_vma(struct proc *p)
+struct vm_area *proc_ensure_heap_vma(struct proc *p)
 {
     struct vm_area *heap = find_vma_with_flag(p, VMA_FLAG_HEAP);
     if (heap != nullptr) {
@@ -85,6 +94,35 @@ static struct vm_area *ensure_heap_vma(struct proc *p)
     return heap;
 }
 
+int proc_clone_vmas(struct proc *dst, struct proc *src)
+{
+    if (dst == nullptr || src == nullptr) {
+        return -1;
+    }
+
+    struct vm_area *new_head = nullptr;
+    struct vm_area **tail    = &new_head;
+
+    for (struct vm_area *cur = src->vma_list; cur != nullptr; cur = cur->next) {
+        struct vm_area *copy = (struct vm_area *)kzalloc(sizeof(*copy));
+        if (copy == nullptr) {
+            free_vma_chain(new_head);
+            return -1;
+        }
+        *copy = *cur;
+        if (copy->file != nullptr) {
+            copy->file = filedup(copy->file);
+        }
+        copy->next = nullptr;
+        *tail      = copy;
+        tail       = &copy->next;
+    }
+
+    proc_free_vmas(dst);
+    dst->vma_list = new_head;
+    return 0;
+}
+
 static struct proc *init_proc(struct proc *p)
 {
     // Allocate kernel stack.
@@ -92,7 +130,7 @@ static struct proc *init_proc(struct proc *p)
         p->state = UNUSED;
         return nullptr;
     }
-    free_vma_list(&p->vma_list);
+    proc_free_vmas(p);
     char *stack_pointer = p->kstack + KSTACKSIZE;
 
     // Leave room for the trap frame.
@@ -147,7 +185,7 @@ static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
         p->state = UNUSED;
         return nullptr;
     }
-    free_vma_list(&p->vma_list);
+    proc_free_vmas(p);
     char *stack_pointer = p->kstack + KSTACKSIZE;
 
     stack_push_pointer(&stack_pointer, (u32)entry_point);
@@ -193,7 +231,7 @@ void user_init()
     p->cwd = namei("/");
     strncpy(p->cwd_path, "/", MAX_FILE_PATH);
 
-    if (ensure_heap_vma(p) == nullptr) {
+    if (proc_ensure_heap_vma(p) == nullptr) {
         panic("user_init: heap vma");
     }
 
@@ -216,7 +254,7 @@ void user_init()
 int resize_proc(int n)
 {
     struct proc *curproc     = current_process();
-    struct vm_area *heap_vma = ensure_heap_vma(curproc);
+    struct vm_area *heap_vma = proc_ensure_heap_vma(curproc);
     if (heap_vma == nullptr) {
         return -1;
     }
@@ -264,6 +302,14 @@ int fork(void)
         return -1;
     }
     np->brk         = curproc->brk;
+    if (proc_clone_vmas(np, curproc) < 0) {
+        freevm(np->page_directory);
+        proc_free_vmas(np);
+        kfree_page(np->kstack);
+        np->kstack = nullptr;
+        np->state  = UNUSED;
+        return -1;
+    }
     np->parent      = curproc;
     *np->trap_frame = *curproc->trap_frame;
 

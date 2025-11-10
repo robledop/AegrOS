@@ -113,6 +113,7 @@ int wait(void)
                 p->kstack = nullptr;
                 freevm(p->page_directory);
                 p->page_directory = nullptr;
+                proc_free_vmas(p);
                 p->pid            = 0;
                 p->parent         = nullptr;
                 p->name[0]        = 0;
@@ -188,6 +189,7 @@ void exit(void)
     curproc->cwd->iops->iput(curproc->cwd);
     curproc->cwd = nullptr;
     memset(curproc->cwd_path, 0, MAX_FILE_PATH);
+    proc_free_vmas(curproc);
 
     acquire(&ptable.lock);
 
