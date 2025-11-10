@@ -163,10 +163,10 @@ int exec(char *path, char **argv)
 
     // Commit to the user image.
 
-    pde_t *oldpgdir          = curproc->page_directory;
-    curproc->page_directory  = pgdir;
-    curproc->brk             = sz;
+    pde_t *oldpgdir = curproc->page_directory;
     proc_free_vmas(curproc);
+    curproc->page_directory = pgdir;
+    curproc->brk            = sz;
     if (proc_ensure_heap_vma(curproc) == nullptr) {
         panic("exec: heap vma");
     }

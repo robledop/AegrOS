@@ -34,7 +34,7 @@ int pipealloc(struct file **f0, struct file **f1)
 {
     struct pipe *p = nullptr;
     *f0            = *f1 = nullptr;
-    if ((*f0 = filealloc()) == nullptr || (*f1 = filealloc()) == nullptr)
+    if ((*f0 = file_alloc()) == nullptr || (*f1 = file_alloc()) == nullptr)
         goto bad;
     if ((p = (struct pipe *)kalloc_page()) == nullptr)
         goto bad;
@@ -57,9 +57,9 @@ bad:
     if (p)
         kfree_page((char *)p);
     if (*f0)
-        fileclose(*f0);
+        file_close(*f0);
     if (*f1)
-        fileclose(*f1);
+        file_close(*f1);
     return -1;
 }
 

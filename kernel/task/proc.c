@@ -12,6 +12,7 @@
 #include "printf.h"
 #include "scheduler.h"
 #include "file.h"
+#include "mman.h"
 
 extern struct ptable_t ptable;
 
@@ -30,6 +31,8 @@ extern void trapret(void);
  *
  * Interrupts are temporarily disabled to avoid rescheduling during the read.
  */
+static int map_device_vma(struct proc *p, struct vm_area *vma);
+
 struct proc *current_process(void)
 {
     pushcli();
@@ -45,7 +48,7 @@ static void free_vma_chain(struct vm_area *head)
     while (vma != nullptr) {
         struct vm_area *next = vma->next;
         if (vma->file != nullptr) {
-            fileclose(vma->file);
+            file_close(vma->file);
         }
         kfree(vma);
         vma = next;
@@ -56,6 +59,13 @@ void proc_free_vmas(struct proc *p)
 {
     if (p == nullptr || p->vma_list == nullptr) {
         return;
+    }
+    struct vm_area *vma = p->vma_list;
+    while (vma != nullptr) {
+        if ((vma->flags & VMA_FLAG_DEVICE) && p->page_directory != nullptr) {
+            unmap_vm_range(p->page_directory, vma->start, vma->end, 0);
+        }
+        vma = vma->next;
     }
     free_vma_chain(p->vma_list);
     p->vma_list = nullptr;
@@ -89,9 +99,26 @@ struct vm_area *proc_ensure_heap_vma(struct proc *p)
     heap->flags       = VMA_FLAG_HEAP;
     heap->file        = nullptr;
     heap->file_offset = 0;
+    heap->phys_addr   = 0;
     heap->next        = p->vma_list;
     p->vma_list       = heap;
     return heap;
+}
+
+static int map_device_vma(struct proc *p, struct vm_area *vma)
+{
+    if ((vma->flags & VMA_FLAG_DEVICE) == 0) {
+        return 0;
+    }
+
+    u32 perm = PTE_U | PTE_PCD | PTE_PWT;
+    if (vma->prot & PROT_WRITE) {
+        perm |= PTE_W;
+    }
+    if (map_physical_range(p->page_directory, vma->start, vma->phys_addr, vma->end - vma->start, perm) < 0) {
+        return -1;
+    }
+    return 0;
 }
 
 int proc_clone_vmas(struct proc *dst, struct proc *src)
@@ -111,7 +138,7 @@ int proc_clone_vmas(struct proc *dst, struct proc *src)
         }
         *copy = *cur;
         if (copy->file != nullptr) {
-            copy->file = filedup(copy->file);
+            copy->file = file_dup(copy->file);
         }
         copy->next = nullptr;
         *tail      = copy;
@@ -120,6 +147,13 @@ int proc_clone_vmas(struct proc *dst, struct proc *src)
 
     proc_free_vmas(dst);
     dst->vma_list = new_head;
+
+    for (struct vm_area *cur = dst->vma_list; cur != nullptr; cur = cur->next) {
+        if (map_device_vma(dst, cur) < 0) {
+            proc_free_vmas(dst);
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -301,7 +335,7 @@ int fork(void)
         np->state  = UNUSED;
         return -1;
     }
-    np->brk         = curproc->brk;
+    np->brk = curproc->brk;
     if (proc_clone_vmas(np, curproc) < 0) {
         freevm(np->page_directory);
         proc_free_vmas(np);
@@ -318,7 +352,7 @@ int fork(void)
 
     for (int i = 0; i < NOFILE; i++) {
         if (curproc->ofile[i]) {
-            np->ofile[i] = filedup(curproc->ofile[i]);
+            np->ofile[i] = file_dup(curproc->ofile[i]);
         }
     }
     np->cwd = idup(curproc->cwd);

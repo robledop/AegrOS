@@ -5,6 +5,7 @@
 #define PHYSTOP 0x20000000  // Top physical memory (512MB)
 // #define DEVSPACE 0xFE000000 // start of legacy device MMIO window (3.75GB)
 #define MMIOBASE 0xFD000000 // lower bound we need mapped for framebuffer/MMIO (3.69GB)
+#define FB_MMAP_BASE 0x50000000 // User virtual address base for framebuffer mappings
 
 // Key addresses for address space layout (see kmap in vm.c for layout)
 #define KERNBASE 0x80000000          // First kernel virtual address (2GB)

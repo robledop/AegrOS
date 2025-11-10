@@ -117,6 +117,7 @@ extern int sys_open(void);
 extern int sys_pipe(void);
 extern int sys_read(void);
 extern int sys_sbrk(void);
+extern int sys_mmap(void);
 extern int sys_sleep(void);
 extern int sys_yield(void);
 extern int sys_unlink(void);
@@ -153,6 +154,7 @@ static int (*syscalls[])(void) = {
     [SYS_mkdir] = sys_mkdir,
     [SYS_close] = sys_close,
     [SYS_getcwd] = sys_getcwd,
+    [SYS_mmap] = sys_mmap,
     [SYS_reboot] = sys_reboot,
     [SYS_shutdown] = sys_shutdown,
 };

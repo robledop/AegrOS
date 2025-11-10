@@ -1,6 +1,7 @@
 #pragma once
 #include <types.h>
 #include "printf.h"
+#include "mman.h"
 struct stat;
 struct rtcdate;
 typedef void (*atexit_function)(void);
@@ -32,6 +33,7 @@ int getcwd(char *, int);
 int dup(int);
 int getpid(void);
 char *sbrk(int);
+void *mmap(void *addr, u32 length, int prot, int flags, int fd, u32 offset);
 int sleep(int);
 int yield(void);
 int uptime(void);

@@ -175,6 +175,14 @@ static int mappages(pde_t *pgdir, void *va, u32 size, u32 pa, int perm)
     return 0;
 }
 
+int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm)
+{
+    if ((va & (PGSIZE - 1)) != 0 || (pa & (PGSIZE - 1)) != 0) {
+        panic("map_physical_range: unaligned");
+    }
+    return mappages(pgdir, (void *)va, size, pa, perm);
+}
+
 /**
  * @brief Identity-map an MMIO range into the kernel page directory and propagate it.
  *
@@ -542,6 +550,38 @@ void freevm(pde_t *pgdir)
         }
     }
     kfree_page((char *)pgdir);
+}
+
+void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames)
+{
+    if (pgdir == nullptr || start >= end) {
+        return;
+    }
+
+    start = PGROUNDDOWN(start);
+    end   = PGROUNDDOWN(end + PGSIZE - 1);
+
+    for (u32 a = start; a <= end; a += PGSIZE) {
+        pte_t *pte = walkpgdir(pgdir, (char *)a, 0);
+        if (pte == nullptr) {
+            a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
+            continue;
+        }
+        if ((*pte & PTE_P) == 0) {
+            continue;
+        }
+        if (free_frames) {
+            u32 pa = PTE_ADDR(*pte);
+            if (pa == 0) {
+                panic("unmap_vm_range: zero pa");
+            }
+            if (pa < PHYSTOP) {
+                char *v = P2V(pa);
+                kfree_page(v);
+            }
+        }
+        *pte = 0;
+    }
 }
 
 /**

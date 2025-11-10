@@ -26,3 +26,4 @@
 #define SYS_getcwd 24
 #define SYS_reboot 25
 #define SYS_shutdown 26
+#define SYS_mmap 27

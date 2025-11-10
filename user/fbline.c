@@ -1,25 +1,20 @@
 #include "user.h"
 #include "fcntl.h"
+#include "mman.h"
 
 #define FB_WIDTH 1024
 #define FB_HEIGHT 768
 #define FB_BYTES_PER_PIXEL 4
 #define FB_PITCH (FB_WIDTH * FB_BYTES_PER_PIXEL)
 
-static int plot(int fd, int x, int y, u32 color)
+static int plot(volatile u32 *fb, int x, int y, u32 color)
 {
     if (x < 0 || x >= FB_WIDTH || y < 0 || y >= FB_HEIGHT) {
         return 0;
     }
 
-    int offset = y * FB_PITCH + x * FB_BYTES_PER_PIXEL;
-    if (lseek(fd, offset, SEEK_SET) < 0) {
-        return -1;
-    }
-
-    if (write(fd, &color, FB_BYTES_PER_PIXEL) != FB_BYTES_PER_PIXEL) {
-        return -1;
-    }
+    const int stride = FB_PITCH / FB_BYTES_PER_PIXEL;
+    fb[y * stride + x] = color;
     return 0;
 }
 
@@ -67,17 +62,26 @@ int main(int argc, char **argv)
         exit();
     }
 
+    int x1    = atoi(argv[1]);
+    int y1    = atoi(argv[2]);
+    int x2    = atoi(argv[3]);
+    int y2    = atoi(argv[4]);
+    u32 color = parse_color(argv[5]);
+
     int fd = open("/dev/fb0", O_RDWR);
     if (fd < 0) {
         printf("fbline: unable to open /dev/fb0\n");
         exit();
     }
 
-    int x1    = atoi(argv[1]);
-    int y1    = atoi(argv[2]);
-    int x2    = atoi(argv[3]);
-    int y2    = atoi(argv[4]);
-    u32 color = parse_color(argv[5]);
+    void *map = mmap(nullptr, FB_PITCH * FB_HEIGHT, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) {
+        printf("fbline: mmap failed\n");
+        close(fd);
+        exit();
+    }
+    volatile u32 *fb = map;
+    close(fd);
 
     int dx  = abs(x2 - x1);
     int sx  = x1 < x2 ? 1 : -1;
@@ -86,10 +90,7 @@ int main(int argc, char **argv)
     int err = dx + dy;
 
     for (;;) {
-        if (plot(fd, x1, y1, color) < 0) {
-            printf("fbline: write error\n");
-            break;
-        }
+        plot(fb, x1, y1, color);
         if (x1 == x2 && y1 == y2) {
             break;
         }
@@ -104,6 +105,5 @@ int main(int argc, char **argv)
         }
     }
 
-    close(fd);
     exit();
 }

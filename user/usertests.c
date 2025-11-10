@@ -15,6 +15,15 @@ char buf[8192];
 char name[3];
 char *echoargv[] = {"echo", "ALL", "TESTS", "PASSED", nullptr};
 
+static int open_framebuffer(void)
+{
+    int fd = open("/dev/fb0", O_RDWR);
+    if (fd < 0) {
+        printf(KBYEL "\nfb test skipped: /dev/fb0 unavailable\n" KRESET);
+    }
+    return fd;
+}
+
 static int readfile(const char *path, char *out, int max)
 {
     if (max <= 0) {
@@ -2404,6 +2413,61 @@ void argptest()
     printf(" [ " KBGRN "OK" KRESET " ]\n");
 }
 
+void fb_mmap_basic_test(void)
+{
+    printf("fb mmap basic");
+    int fd = open_framebuffer();
+    if (fd < 0) {
+        return;
+    }
+
+    volatile u32 *fb = mmap(nullptr, PGSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (fb == MAP_FAILED) {
+        printf(KBRED "\nfb mmap basic: mmap failed\n" KRESET);
+        close(fd);
+        exit();
+    }
+
+    fb[0] = 0x00FF00;
+    fb[1] = 0x0000FF;
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+    close(fd);
+}
+
+void fb_mmap_multi_test(void)
+{
+    printf("fb mmap multi");
+    int fd = open_framebuffer();
+    if (fd < 0) {
+        return;
+    }
+
+    volatile u32 *first = mmap(nullptr, PGSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (first == MAP_FAILED) {
+        printf(KBRED "\nfb mmap multi: first mmap failed\n" KRESET);
+        close(fd);
+        exit();
+    }
+    volatile u32 *second = mmap(nullptr, PGSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (second == MAP_FAILED || second != first) {
+        printf(KBRED "\nfb mmap multi: second mmap mismatch\n" KRESET);
+        close(fd);
+        exit();
+    }
+
+    second[2] = 0x00ffff;
+
+    u32 color = 0xff00ff;
+    if (write(fd, &color, sizeof(color)) != sizeof(color)) {
+        printf(KBRED "\nfb mmap multi: write failed\n" KRESET);
+        close(fd);
+        exit();
+    }
+
+    printf(" [ " KBGRN "OK" KRESET " ]\n");
+    close(fd);
+}
+
 unsigned long randstate = 1;
 
 unsigned int
@@ -2452,6 +2516,8 @@ int main(int argc, char *argv[])
     pipe1();
     preempt();
     exitwait();
+    fb_mmap_basic_test();
+    fb_mmap_multi_test();
 
     rmdot();
     fourteen();

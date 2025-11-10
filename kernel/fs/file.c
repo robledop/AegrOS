@@ -23,13 +23,13 @@ struct
 } ftable;
 
 
-void fileinit(void)
+void file_init(void)
 {
     initlock(&ftable.lock, "ftable");
 }
 
 // Allocate a file structure.
-struct file *filealloc(void)
+struct file *file_alloc(void)
 {
 
     acquire(&ftable.lock);
@@ -45,7 +45,7 @@ struct file *filealloc(void)
 }
 
 // Increment ref count for file f.
-struct file *filedup(struct file *f)
+struct file *file_dup(struct file *f)
 {
     acquire(&ftable.lock);
     if (f->ref < 1) {
@@ -56,8 +56,21 @@ struct file *filedup(struct file *f)
     return f;
 }
 
+int devtab_lookup_major(struct inode *ip)
+{
+    if (ip == nullptr) {
+        return -1;
+    }
+    for (int i = 0; i < NDEV; i++) {
+        if (devtab[i].inum == ip->inum) {
+            return devtab[i].major;
+        }
+    }
+    return ip->major;
+}
+
 // Close file f.  (Decrement ref count, close when reaches 0.)
-void fileclose(struct file *f)
+void file_close(struct file *f)
 {
     acquire(&ftable.lock);
     if (f->ref < 1) {
@@ -80,7 +93,7 @@ void fileclose(struct file *f)
 }
 
 // Get metadata about file f.
-int filestat(struct file *f, struct stat *st)
+int file_stat(struct file *f, struct stat *st)
 {
     if (f->type == FD_INODE) {
         f->ip->iops->ilock(f->ip);
@@ -92,7 +105,7 @@ int filestat(struct file *f, struct stat *st)
 }
 
 // Read from file f.
-int fileread(struct file *f, char *addr, int n)
+int file_read(struct file *f, char *addr, int n)
 {
     if (f->readable == 0) {
         return -1;
@@ -112,7 +125,7 @@ int fileread(struct file *f, char *addr, int n)
 }
 
 // Write to file f.
-int filewrite(struct file *f, char *addr, int n)
+int file_write(struct file *f, char *addr, int n)
 {
 
     if (f->writable == 0) {

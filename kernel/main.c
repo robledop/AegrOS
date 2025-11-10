@@ -69,7 +69,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     pinit();                                    // process table
     tvinit();                                   // trap vectors
     binit();                                    // buffer cache
-    fileinit();                                 // file table
+    file_init();                                // file table
     ideinit();                                  // disk
     startothers();                              // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()

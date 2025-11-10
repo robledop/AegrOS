@@ -79,3 +79,5 @@ struct devsw
 extern struct devsw devsw[];
 
 #define CONSOLE 1
+
+int devtab_lookup_major(struct inode *ip);

@@ -239,7 +239,7 @@ int sys_dup(void)
     if ((fd = fdalloc(f)) < 0) {
         return -1;
     }
-    filedup(f);
+    file_dup(f);
     return fd;
 }
 
@@ -253,7 +253,7 @@ int sys_read(void)
     if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
         return -1;
     }
-    return fileread(f, p, n);
+    return file_read(f, p, n);
 }
 
 /** @brief Write user memory to a file descriptor. */
@@ -266,7 +266,7 @@ int sys_write(void)
     if (argfd(0, nullptr, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
         return -1;
     }
-    return filewrite(f, p, n);
+    return file_write(f, p, n);
 }
 
 /** @brief Close a file descriptor. */
@@ -279,7 +279,7 @@ int sys_close(void)
         return -1;
     }
     current_process()->ofile[fd] = nullptr;
-    fileclose(f);
+    file_close(f);
     return 0;
 }
 
@@ -292,7 +292,7 @@ int sys_fstat(void)
     if (argfd(0, nullptr, &f) < 0 || argptr(1, (void *)&st, sizeof(*st)) < 0) {
         return -1;
     }
-    return filestat(f, st);
+    return file_stat(f, st);
 }
 
 int sys_lseek(void)
@@ -315,7 +315,7 @@ int sys_lseek(void)
         break;
     case SEEK_END: {
         struct stat st;
-        if (filestat(f, &st) < 0) {
+        if (file_stat(f, &st) < 0) {
             return -1;
         }
         newpos = st.size + offset;
@@ -531,8 +531,8 @@ static struct inode *create(char *path, short type, short major, short minor)
         char buf[64];
         const int n = snprintf(buf, sizeof(buf), "%d\tchar\t%d\t%d\t#%s\n", ip->inum, major, minor, path);
 
-        filewrite(file, buf, n);
-        fileclose(file);
+        file_write(file, buf, n);
+        file_close(file);
         current_process()->ofile[fd] = nullptr;
 
         bool found = false;
@@ -572,8 +572,8 @@ void parse_devtab()
     struct file *file = current_process()->ofile[fd];
     char buf[512];
     struct stat st;
-    filestat(file, &st);
-    const int n = fileread(file, buf, st.size);
+    file_stat(file, &st);
+    const int n = file_read(file, buf, st.size);
     buf[n]      = '\0';
 
     for (char *line = strtok(buf, "\n"); line != nullptr; line = strtok(nullptr, "\n")) {
@@ -619,7 +619,7 @@ void parse_devtab()
             }
         }
     }
-    fileclose(file);
+    file_close(file);
 }
 
 int open_file(char *path, int omode)
@@ -649,9 +649,9 @@ int open_file(char *path, int omode)
         }
     }
 
-    if ((f = filealloc()) == nullptr || (fd = fdalloc(f)) < 0) {
+    if ((f = file_alloc()) == nullptr || (fd = fdalloc(f)) < 0) {
         if (f) {
-            fileclose(f);
+            file_close(f);
         }
         ip->iops->iunlockput(ip);
         return -1;
@@ -794,8 +794,8 @@ int sys_pipe(void)
     if ((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0) {
         if (fd0 >= 0)
             current_process()->ofile[fd0] = nullptr;
-        fileclose(rf);
-        fileclose(wf);
+        file_close(rf);
+        file_close(wf);
         return -1;
     }
     fd[0] = fd0;

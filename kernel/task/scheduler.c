@@ -111,9 +111,9 @@ int wait(void)
                 int pid = p->pid;
                 kfree_page(p->kstack);
                 p->kstack = nullptr;
+                proc_free_vmas(p);
                 freevm(p->page_directory);
                 p->page_directory = nullptr;
-                proc_free_vmas(p);
                 p->pid            = 0;
                 p->parent         = nullptr;
                 p->name[0]        = 0;
@@ -181,7 +181,7 @@ void exit(void)
     // Close all open files.
     for (int fd = 0; fd < NOFILE; fd++) {
         if (curproc->ofile[fd]) {
-            fileclose(curproc->ofile[fd]);
+            file_close(curproc->ofile[fd]);
             curproc->ofile[fd] = nullptr;
         }
     }

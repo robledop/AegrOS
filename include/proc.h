@@ -43,7 +43,8 @@ struct context
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-#define VMA_FLAG_HEAP 0x1
+#define VMA_FLAG_HEAP   0x1
+#define VMA_FLAG_DEVICE 0x2
 
 struct vm_area
 {
@@ -53,6 +54,7 @@ struct vm_area
     int flags;
     struct file *file;
     u32 file_offset;
+    u32 phys_addr;
     struct vm_area *next;
 };
 

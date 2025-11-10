@@ -39,13 +39,13 @@ void boot_message(warning_level_t level, const char *fmt, ...);
 int exec(char *, char **);
 
 // file.c
-struct file *filealloc(void);
-void fileclose(struct file *);
-struct file *filedup(struct file *);
-void fileinit(void);
-int fileread(struct file *, char *, int n);
-int filestat(struct file *, struct stat *);
-int filewrite(struct file *, char *, int n);
+struct file *file_alloc(void);
+void file_close(struct file *);
+struct file *file_dup(struct file *);
+void file_init(void);
+int file_read(struct file *, char *, int n);
+int file_stat(struct file *, struct stat *);
+int file_write(struct file *, char *, int n);
 
 // fs.c
 struct inode *idup(struct inode *);
@@ -160,6 +160,7 @@ int allocvm(pde_t *, u32, u32, int);
 u32 deallocvm(pde_t *, u32, u32);
 void freevm(pde_t *);
 void inituvm(pde_t *, const char *, u32);
+int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm);
 int loaduvm(pde_t *, char *, struct inode *, u32, u32);
 pde_t *copyuvm(pde_t *, u32);
 void activate_process(struct proc *);
@@ -169,6 +170,7 @@ int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
 void kernel_map_mmio(u32 pa, u32 size);
 void kernel_enable_mmio_propagation(void);
+void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames);
 
 void *kmalloc(u32 nbytes);
 void *kzalloc(u32 nbytes);

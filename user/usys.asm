@@ -40,6 +40,7 @@ SYSCALL chdir
 SYSCALL dup
 SYSCALL getpid
 SYSCALL sbrk
+SYSCALL mmap
 SYSCALL sleep
 SYSCALL yield
 SYSCALL uptime
