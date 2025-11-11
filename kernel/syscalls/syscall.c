@@ -118,6 +118,10 @@ extern int sys_pipe(void);
 extern int sys_read(void);
 extern int sys_sbrk(void);
 extern int sys_mmap(void);
+extern int sys_munmap(void);
+extern int sys_tcgetattr(void);
+extern int sys_tcsetattr(void);
+extern int sys_ioctl(void);
 extern int sys_sleep(void);
 extern int sys_yield(void);
 extern int sys_unlink(void);
@@ -155,6 +159,10 @@ static int (*syscalls[])(void) = {
     [SYS_close] = sys_close,
     [SYS_getcwd] = sys_getcwd,
     [SYS_mmap] = sys_mmap,
+    [SYS_munmap] = sys_munmap,
+    [SYS_tcgetattr] = sys_tcgetattr,
+    [SYS_tcsetattr] = sys_tcsetattr,
+    [SYS_ioctl] = sys_ioctl,
     [SYS_reboot] = sys_reboot,
     [SYS_shutdown] = sys_shutdown,
 };

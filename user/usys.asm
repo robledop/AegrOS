@@ -12,7 +12,12 @@ global %1
 %endmacro
 
 SYSCALL fork
-SYSCALL exit
+
+global sys_exit
+sys_exit:
+    mov eax, SYS_exit
+    int T_SYSCALL
+    ret
 
 ; NASM treats "wait" as the legacy FPU instruction mnemonic, so it cannot be
 ; used directly as a label. Provide the wrapper under wait_ and alias it from
@@ -39,8 +44,12 @@ SYSCALL mkdir
 SYSCALL chdir
 SYSCALL dup
 SYSCALL getpid
+SYSCALL tcgetattr
+SYSCALL tcsetattr
+SYSCALL ioctl
 SYSCALL sbrk
 SYSCALL mmap
+SYSCALL munmap
 SYSCALL sleep
 SYSCALL yield
 SYSCALL uptime

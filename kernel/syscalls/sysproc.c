@@ -9,6 +9,9 @@
 #include "mman.h"
 #include "framebuffer.h"
 #include "memlayout.h"
+#include "console.h"
+#include "termios.h"
+#include "sys/ioctl.h"
 
 /** @brief System call wrapper for fork. */
 int sys_fork(void)
@@ -43,6 +46,23 @@ int sys_kill(void)
 int sys_getpid(void)
 {
     return current_process()->pid;
+}
+
+static int fd_is_console(int fd)
+{
+    struct proc *curproc = current_process();
+    if (fd < 0 || fd >= NOFILE) {
+        return 0;
+    }
+    struct file *f = curproc->ofile[fd];
+    if (f == nullptr || f->type != FD_INODE || f->ip == nullptr) {
+        return 0;
+    }
+    if (f->ip->type != T_DEV) {
+        return 0;
+    }
+    int major = devtab_lookup_major(f->ip);
+    return major == CONSOLE;
 }
 
 int sys_getcwd(void)
@@ -83,6 +103,73 @@ int sys_sbrk(void)
         return -1;
     }
     return addr;
+}
+
+int sys_tcgetattr(void)
+{
+    int fd;
+    char *uptr;
+    if (argint(0, &fd) < 0) {
+        return -1;
+    }
+    if (argptr(1, &uptr, sizeof(struct termios)) < 0) {
+        return -1;
+    }
+    if (!fd_is_console(fd)) {
+        return -1;
+    }
+    struct termios t;
+    if (console_tcgetattr(&t) < 0) {
+        return -1;
+    }
+    memmove(uptr, &t, sizeof(struct termios));
+    return 0;
+}
+
+int sys_tcsetattr(void)
+{
+    int fd;
+    int action;
+    char *uptr;
+    if (argint(0, &fd) < 0 || argint(1, &action) < 0) {
+        return -1;
+    }
+    if (argptr(2, &uptr, sizeof(struct termios)) < 0) {
+        return -1;
+    }
+    if (!fd_is_console(fd)) {
+        return -1;
+    }
+    struct termios t;
+    memmove(&t, uptr, sizeof(struct termios));
+    return console_tcsetattr(action, &t);
+}
+
+int sys_ioctl(void)
+{
+    int fd;
+    int request;
+    if (argint(0, &fd) < 0 || argint(1, &request) < 0) {
+        return -1;
+    }
+    if (!fd_is_console(fd)) {
+        return -1;
+    }
+
+    switch (request) {
+    case TIOCGWINSZ: {
+        char *uptr;
+        if (argptr(2, &uptr, sizeof(struct winsize)) < 0) {
+            return -1;
+        }
+        struct winsize ws;
+        console_get_winsize(&ws);
+        memmove(uptr, &ws, sizeof(struct winsize));
+        return 0;
+    }
+    default:
+        return -1;
+    }
 }
 
 static int mmap_framebuffer(struct proc *p, u32 length, int prot, int flags, struct file *f, u32 offset)
@@ -187,6 +274,40 @@ int sys_mmap(void)
         return mmap_framebuffer(p, (u32)length, prot, flags, f, offset);
     }
 
+    return -1;
+}
+
+int sys_munmap(void)
+{
+    int addr;
+    int length;
+    if (argint(0, &addr) < 0 || argint(1, &length) < 0) {
+        return -1;
+    }
+    if (length <= 0) {
+        return -1;
+    }
+
+    struct proc *p        = current_process();
+    struct vm_area **prev = &p->vma_list;
+    struct vm_area *cur   = p->vma_list;
+    while (cur != nullptr) {
+        if (addr == (int)cur->start && (u32)(addr + length) >= cur->end) {
+            if (cur->flags & VMA_FLAG_DEVICE) {
+                unmap_vm_range(p->page_directory, cur->start, cur->end, 0);
+            } else {
+                return -1;
+            }
+            *prev = cur->next;
+            if (cur->file != nullptr) {
+                file_close(cur->file);
+            }
+            kfree(cur);
+            return 0;
+        }
+        prev = &cur->next;
+        cur  = cur->next;
+    }
     return -1;
 }
 

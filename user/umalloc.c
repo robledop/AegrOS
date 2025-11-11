@@ -35,6 +35,9 @@ static Header *freep;
 // ap: pointer to the memory block (not including the header)
 void free(void *ap)
 {
+    if (ap == 0) {
+        return;
+    }
     Header *p;
 
     // Get pointer to the header (one unit before the user data)
@@ -147,4 +150,31 @@ void *malloc(u32 nbytes)
             }
         }
     }
+}
+
+void *realloc(void *ptr, u32 size)
+{
+    if (ptr == nullptr) {
+        return size ? malloc(size) : nullptr;
+    }
+    if (size == 0) {
+        free(ptr);
+        return nullptr;
+    }
+
+    Header *bp        = (Header *)ptr - 1;
+    u32 current_bytes = (bp->s.size - 1) * sizeof(Header);
+    if (size <= current_bytes) {
+        return ptr;
+    }
+
+    void *newptr = malloc(size);
+    if (newptr == nullptr) {
+        return nullptr;
+    }
+
+    u32 copy = current_bytes < size ? current_bytes : size;
+    memmove(newptr, ptr, copy);
+    free(ptr);
+    return newptr;
 }

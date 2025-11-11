@@ -34,7 +34,9 @@ build/%: build/%.o $(ULIB)
 build/forktest: build/forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -Ttext 0 -o build/forktest build/forktest.o build/ulib.o build/usys.o build/crt0.o build/crt1.o build/math.o
+	$(LD) $(LDFLAGS) -Ttext 0 -o build/forktest \
+		build/forktest.o build/ulib.o build/usys.o build/crt0.o \
+		build/crt1.o build/math.o build/printf.o build/umalloc.o build/errno.o
 
 UPROGS=\
 	build/cat\
@@ -55,6 +57,7 @@ UPROGS=\
 	build/fib\
 	build/touch\
 	build/fbline\
+	build/kilo\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

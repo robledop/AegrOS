@@ -13,11 +13,14 @@
 #include "proc.h"
 #include "x86.h"
 #include "debug.h"
+#include "framebuffer.h"
 #include "printf.h"
 #include "termcolors.h"
 #include "io.h"
 #include "scheduler.h"
 #include "vesa_terminal.h"
+#include "termios.h"
+#include "sys/ioctl.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -49,8 +52,93 @@ int params[10]      = {0};
 int param_count     = 1;
 static int panicked = 0;
 struct console_lock cons;
+extern struct vbe_mode_info *vbe_info;
 
 bool handle_ansi_escape(int c);
+static void console_apply_termios(void);
+static void handle_raw_input(int c);
+
+#define INPUT_BUF 128
+
+/** @brief Input buffer for console */
+static struct
+{
+    char buf[INPUT_BUF];
+    u32 r; // Read index
+    u32 w; // Write index
+    u32 e; // Edit index
+} input;
+
+static struct termios console_termios_state;
+static struct winsize console_winsize_state;
+static int console_raw_mode;
+static int console_echo_enabled;
+
+static void reset_input_locked(void)
+{
+    input.r = input.w = input.e = 0;
+}
+
+static void input_push_locked(int c)
+{
+    if (input.e - input.r >= INPUT_BUF) {
+        return;
+    }
+    input.buf[input.e++ % INPUT_BUF] = c;
+    input.w                          = input.e;
+}
+
+static void queue_sequence_locked(const char *seq)
+{
+    while (*seq) {
+        input_push_locked(*seq++);
+    }
+    wakeup(&input.r);
+}
+
+static void handle_raw_input(int c)
+{
+    switch (c) {
+    case KEY_UP:
+        queue_sequence_locked("\x1b[A");
+        return;
+    case KEY_DN:
+        queue_sequence_locked("\x1b[B");
+        return;
+    case KEY_LF:
+        queue_sequence_locked("\x1b[D");
+        return;
+    case KEY_RT:
+        queue_sequence_locked("\x1b[C");
+        return;
+    case KEY_HOME:
+        queue_sequence_locked("\x1b[H");
+        return;
+    case KEY_END:
+        queue_sequence_locked("\x1b[F");
+        return;
+    case KEY_PGUP:
+        queue_sequence_locked("\x1b[5~");
+        return;
+    case KEY_PGDN:
+        queue_sequence_locked("\x1b[6~");
+        return;
+    case KEY_INS:
+        queue_sequence_locked("\x1b[2~");
+        return;
+    case KEY_DEL:
+        queue_sequence_locked("\x1b[3~");
+        return;
+    default:
+        break;
+    }
+
+    if ((console_termios_state.c_iflag & ICRNL) && c == '\r') {
+        c = '\n';
+    }
+    input_push_locked(c);
+    wakeup(&input.r);
+}
 
 void panic(const char *fmt, ...)
 {
@@ -225,9 +313,11 @@ static void cgaputc(int c)
         vga_buffer_write(' ', attribute, cursor_x, cursor_y);
         break;
     case '\n': // Newline
+        cursor_y++;
+        cursor_x = 0;
+        break;
     case '\r':
         cursor_x = 0;
-        cursor_y++;
         break;
     case '\t': // Tab
         cursor_x += 4;
@@ -455,17 +545,6 @@ bool handle_ansi_escape(const int c)
 }
 
 
-#define INPUT_BUF 128
-
-/** @brief Input buffer for console */
-struct
-{
-    char buf[INPUT_BUF];
-    u32 r; // Read index
-    u32 w; // Write index
-    u32 e; // Edit index
-} input;
-
 void boot_message(warning_level_t level, const char *fmt, ...)
 {
     switch (level) {
@@ -498,6 +577,10 @@ void consoleintr(int (*getc)(void))
 
     acquire(&cons.lock);
     while ((c = getc()) >= 0) {
+        if (console_raw_mode) {
+            handle_raw_input(c);
+            continue;
+        }
         switch (c) {
         case CTRL('P'): // Process listing.
             // procdump() locks cons.lock indirectly; invoke later
@@ -525,9 +608,13 @@ void consoleintr(int (*getc)(void))
             break;
         default:
             if (c != 0 && input.e - input.r < INPUT_BUF) {
-                c                                = (c == '\r') ? '\n' : c;
+                if (console_termios_state.c_iflag & ICRNL) {
+                    c = (c == '\r') ? '\n' : c;
+                }
                 input.buf[input.e++ % INPUT_BUF] = c;
-                consputc(c);
+                if (console_echo_enabled) {
+                    consputc(c);
+                }
                 if (c == '\n' || c == CTRL('D') || input.e == input.r + INPUT_BUF) {
                     input.w = input.e;
                     wakeup(&input.r);
@@ -548,6 +635,7 @@ int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset
     ip->iops->iunlock(ip);
     int target = n;
     acquire(&cons.lock);
+    int raw_mode = console_raw_mode;
     while (n > 0) {
         while (input.r == input.w) {
             if (current_process()->killed) {
@@ -558,7 +646,7 @@ int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset
             sleep(&input.r, &cons.lock);
         }
         int c = input.buf[input.r++ % INPUT_BUF];
-        if (c == CTRL('D')) {
+        if (!raw_mode && c == CTRL('D')) {
             // EOF
             if (n < target) {
                 // Save ^D for next time to make sure
@@ -569,8 +657,12 @@ int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset
         }
         *dst++ = c;
         --n;
-        if (c == '\n')
+        if (!raw_mode && c == '\n') {
             break;
+        }
+        if (raw_mode) {
+            break;
+        }
     }
     release(&cons.lock);
     ip->iops->ilock(ip);
@@ -592,6 +684,12 @@ int console_write(struct inode *ip, char *buf, int n, [[maybe_unused]] u32 offse
     return n;
 }
 
+static void console_apply_termios(void)
+{
+    console_raw_mode     = (console_termios_state.c_lflag & ICANON) == 0;
+    console_echo_enabled = (console_termios_state.c_lflag & ECHO) != 0;
+}
+
 /** @brief Initialize console */
 void console_init(void)
 {
@@ -606,5 +704,67 @@ void console_init(void)
     enable_cursor();
 #endif
 
+    memset(&console_termios_state, 0, sizeof(console_termios_state));
+    console_termios_state.c_iflag     = BRKINT | ICRNL | IXON;
+    console_termios_state.c_oflag     = OPOST;
+    console_termios_state.c_cflag     = CS8;
+    console_termios_state.c_lflag     = ECHO | ICANON | IEXTEN | ISIG;
+    console_termios_state.c_cc[VMIN]  = 1;
+    console_termios_state.c_cc[VTIME] = 0;
+    console_apply_termios();
+
+    console_winsize_state.ws_col = VGA_WIDTH;
+    console_winsize_state.ws_row = VGA_HEIGHT;
+#ifdef GRAPHICS
+    if (vbe_info != nullptr && vbe_info->width != 0 && vbe_info->height != 0) {
+        u16 cols = (u16)(vbe_info->width / VESA_CHAR_WIDTH);
+        u16 rows = (u16)(vbe_info->height / VESA_LINE_HEIGHT);
+        if (cols > 0) {
+            console_winsize_state.ws_col = cols;
+        }
+        if (rows > 0) {
+            console_winsize_state.ws_row = rows;
+        }
+    }
+#endif
+    console_winsize_state.ws_xpixel = 0;
+    console_winsize_state.ws_ypixel = 0;
+
     ioapicenable(IRQ_KBD, 0);
+}
+
+int console_tcgetattr(struct termios *out)
+{
+    if (out == nullptr) {
+        return -1;
+    }
+    acquire(&cons.lock);
+    *out = console_termios_state;
+    release(&cons.lock);
+    return 0;
+}
+
+int console_tcsetattr(int action, const struct termios *t)
+{
+    if (t == nullptr) {
+        return -1;
+    }
+    acquire(&cons.lock);
+    if (action == TCSAFLUSH) {
+        reset_input_locked();
+    }
+    console_termios_state = *t;
+    console_apply_termios();
+    release(&cons.lock);
+    return 0;
+}
+
+void console_get_winsize(struct winsize *ws)
+{
+    if (ws == nullptr) {
+        return;
+    }
+    acquire(&cons.lock);
+    *ws = console_winsize_state;
+    release(&cons.lock);
 }

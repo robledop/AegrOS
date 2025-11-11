@@ -81,3 +81,6 @@ extern struct devsw devsw[];
 #define CONSOLE 1
 
 int devtab_lookup_major(struct inode *ip);
+
+struct file *filealloc(void);
+void fileclose(struct file *f);

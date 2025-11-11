@@ -384,7 +384,15 @@ void framebuffer_draw_line(int x1, int y1, int x2, int y2, u32 color)
  */
 void framebuffer_draw_cursor(int x, int y)
 {
-    framebuffer_fill_rect32(x, y + VESA_CHAR_WIDTH - 3, VESA_CHAR_WIDTH, 3, 0xFFFFFF);
+    int top = y + VESA_CHAR_HEIGHT - 1;
+    if (top < y) {
+        top = y;
+    }
+    framebuffer_fill_rect32(x,
+                            top,
+                            VESA_CHAR_WIDTH,
+                            1,
+                            0xFFFFFF);
 }
 
 /**
@@ -392,5 +400,13 @@ void framebuffer_draw_cursor(int x, int y)
  */
 void framebuffer_erase_cursor(int x, int y)
 {
-    framebuffer_fill_rect32(x, y, VESA_CHAR_WIDTH, VESA_CHAR_WIDTH, 0x000000);
+    int top = y + VESA_CHAR_HEIGHT - 1;
+    if (top < y) {
+        top = y;
+    }
+    framebuffer_fill_rect32(x,
+                            top,
+                            VESA_CHAR_WIDTH,
+                            1,
+                            0x000000);
 }

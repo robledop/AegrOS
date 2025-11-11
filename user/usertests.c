@@ -2431,6 +2431,7 @@ void fb_mmap_basic_test(void)
     fb[0] = 0x00FF00;
     fb[1] = 0x0000FF;
     printf(" [ " KBGRN "OK" KRESET " ]\n");
+    munmap((void *)fb, PGSIZE);
     close(fd);
 }
 
@@ -2465,6 +2466,7 @@ void fb_mmap_multi_test(void)
     }
 
     printf(" [ " KBGRN "OK" KRESET " ]\n");
+    munmap((void *)first, PGSIZE);
     close(fd);
 }
 

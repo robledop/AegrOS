@@ -27,3 +27,7 @@
 #define SYS_reboot 25
 #define SYS_shutdown 26
 #define SYS_mmap 27
+#define SYS_munmap 28
+#define SYS_tcgetattr 29
+#define SYS_tcsetattr 30
+#define SYS_ioctl 31

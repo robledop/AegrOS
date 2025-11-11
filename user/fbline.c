@@ -105,5 +105,6 @@ int main(int argc, char **argv)
         }
     }
 
+    munmap((void *)fb, FB_PITCH * FB_HEIGHT);
     exit();
 }

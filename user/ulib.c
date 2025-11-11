@@ -1,8 +1,57 @@
+#include <stdarg.h>
+
 #include "types.h"
 #include "stat.h"
 #include "fcntl.h"
 #include "user.h"
 #include "x86.h"
+#include "errno.h"
+#include "status.h"
+
+extern void sys_exit(void);
+
+static atexit_function atexit_slots[32];
+
+void atexit_init(void)
+{
+    for (int i = 0; i < (int)(sizeof(atexit_slots) / sizeof(atexit_slots[0])); i++) {
+        atexit_slots[i] = nullptr;
+    }
+}
+
+int atexit(atexit_function func)
+{
+    if (func == nullptr) {
+        errno = -EINVARG;
+        return -1;
+    }
+    for (int i = 0; i < (int)(sizeof(atexit_slots) / sizeof(atexit_slots[0])); i++) {
+        if (atexit_slots[i] == nullptr) {
+            atexit_slots[i] = func;
+            return 0;
+        }
+    }
+    errno = -ENOMEM;
+    return -1;
+}
+
+static void run_atexit_handlers(void)
+{
+    for (int i = (int)(sizeof(atexit_slots) / sizeof(atexit_slots[0])) - 1; i >= 0; i--) {
+        if (atexit_slots[i] != nullptr) {
+            atexit_function fn = atexit_slots[i];
+            atexit_slots[i]    = nullptr;
+            fn();
+        }
+    }
+}
+
+void exit(void)
+{
+    run_atexit_handlers();
+    sys_exit();
+    __builtin_unreachable();
+}
 
 char *strcpy(char *s, const char *t)
 {
@@ -30,6 +79,39 @@ int strcmp(const char *p, const char *q)
     return (u8)*p - (u8)*q;
 }
 
+int isspace(int c)
+{
+    switch (c) {
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\r':
+    case '\v':
+    case '\f':
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+int iscntrl(int c)
+{
+    if (c < 0) {
+        return 0;
+    }
+    return (u32)c < 0x20 || c == 0x7f;
+}
+
+int isdigit(int c)
+{
+    return c >= '0' && c <= '9';
+}
+
+int isprint(int c)
+{
+    return c >= 0x20 && c <= 0x7e;
+}
+
 
 u32 strlen(const char *s)
 {
@@ -38,6 +120,20 @@ u32 strlen(const char *s)
     for (n = 0; s[n]; n++) {
     }
     return n;
+}
+
+char *strdup(const char *s)
+{
+    if (s == nullptr) {
+        return nullptr;
+    }
+    u32 len  = strlen(s);
+    char *p  = malloc(len + 1);
+    if (p == nullptr) {
+        return nullptr;
+    }
+    memmove(p, s, len + 1);
+    return p;
 }
 
 
@@ -155,6 +251,34 @@ void *memmove(void *vdst, const void *vsrc, int n)
     return vdst;
 }
 
+void *memcpy(void *dst, const void *src, u32 n)
+{
+    return memmove(dst, src, (int)n);
+}
+
+int memcmp(const void *v1, const void *v2, u32 n)
+{
+    const u8 *s1 = v1;
+    const u8 *s2 = v2;
+    while (n-- > 0) {
+        if (*s1 != *s2) {
+            return *s1 - *s2;
+        }
+        s1++;
+        s2++;
+    }
+    return 0;
+}
+
+int isatty(int fd)
+{
+    if (fd >= 0 && fd <= 2) {
+        return 1;
+    }
+    errno = -ENOTTY;
+    return 0;
+}
+
 
 int strncmp(const char *p, const char *q, u32 n)
 {
@@ -185,6 +309,63 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
+int sscanf(const char *str, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    const char *s = str;
+    const char *f = format;
+    int assigned  = 0;
+
+    while (*f && *s) {
+        if (*f == '%') {
+            f++;
+            if (*f == 'd') {
+                int *int_ptr = va_arg(args, int *);
+                int value    = 0;
+                int sign     = 1;
+
+                while (isspace(*s)) {
+                    s++;
+                }
+                if (*s == '-') {
+                    sign = -1;
+                    s++;
+                } else if (*s == '+') {
+                    s++;
+                }
+                while (*s >= '0' && *s <= '9') {
+                    value = value * 10 + (*s - '0');
+                    s++;
+                }
+                *int_ptr = value * sign;
+                assigned++;
+            } else if (*f == 's') {
+                char *str_ptr = va_arg(args, char *);
+                while (isspace(*s)) {
+                    s++;
+                }
+                while (*s && !isspace(*s)) {
+                    *str_ptr++ = *s++;
+                }
+                *str_ptr = '\0';
+                assigned++;
+            }
+            f++;
+        } else {
+            if (*f != *s) {
+                break;
+            }
+            f++;
+            s++;
+        }
+    }
+
+    va_end(args);
+    return assigned;
+}
+
 char *strncat(char dest[static 1], const char src[static 1], u32 n)
 {
     char *d = dest;
@@ -199,4 +380,29 @@ char *strncat(char dest[static 1], const char src[static 1], u32 n)
     }
     *d = '\0';
     return dest;
+}
+
+char *strstr(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle) {
+        return nullptr;
+    }
+    if (*needle == '\0') {
+        return (char *)haystack;
+    }
+    for (; *haystack; haystack++) {
+        if (*haystack != *needle) {
+            continue;
+        }
+        const char *h = haystack + 1;
+        const char *n = needle + 1;
+        while (*n && *h == *n) {
+            h++;
+            n++;
+        }
+        if (*n == '\0') {
+            return (char *)haystack;
+        }
+    }
+    return nullptr;
 }
