@@ -19,8 +19,10 @@
 #include "io.h"
 #include "scheduler.h"
 #include "vesa_terminal.h"
+#include "vga_terminal.h"
 #include "termios.h"
 #include "sys/ioctl.h"
+#include "ansi.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -34,27 +36,10 @@
 #define KEY_INS         0xE8
 #define KEY_DEL         0xE9
 #define BACKSPACE 0x100
-#define CRTPORT 0x3d4
 
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
-#define VIDEO_MEMORY P2V(0xB8000)
-#define DEFAULT_ATTRIBUTE 0x07 // Light grey on black background
-#define BYTES_PER_CHAR 2       // 1 byte for character, 1 byte for attribute (color)
-#define SCREEN_SIZE (VGA_WIDTH * VGA_HEIGHT * BYTES_PER_CHAR)
-#define ROW_SIZE (VGA_WIDTH * BYTES_PER_CHAR)
-u8 attribute = DEFAULT_ATTRIBUTE;
-static int cursor_y;
-static int cursor_x;
-bool param_escaping = false;
-bool param_inside   = false;
-int params[10]      = {0};
-int param_count     = 1;
 static int panicked = 0;
 struct console_lock cons;
-extern struct vbe_mode_info *vbe_info;
 
-bool handle_ansi_escape(int c);
 static void console_apply_termios(void);
 static void handle_raw_input(int c);
 
@@ -73,6 +58,7 @@ static struct termios console_termios_state;
 static struct winsize console_winsize_state;
 static int console_raw_mode;
 static int console_echo_enabled;
+static int console_opost_enabled;
 
 static void reset_input_locked(void)
 {
@@ -96,8 +82,31 @@ static void queue_sequence_locked(const char *seq)
     wakeup(&input.r);
 }
 
+void console_queue_input(const char *seq)
+{
+    if (seq == nullptr) {
+        return;
+    }
+    acquire(&cons.lock);
+    queue_sequence_locked(seq);
+    release(&cons.lock);
+}
+
+void console_queue_input_locked(const char *seq)
+{
+    if (seq == nullptr) {
+        return;
+    }
+    queue_sequence_locked(seq);
+}
+
 static void handle_raw_input(int c)
 {
+    // Filter out 0 bytes (key releases, E0 escapes)
+    if (c == 0) {
+        return;
+    }
+
     switch (c) {
     case KEY_UP:
         queue_sequence_locked("\x1b[A");
@@ -160,215 +169,10 @@ void panic(const char *fmt, ...)
     }
 }
 
-int ansi_to_vga_foreground[] = {
-    0x00, // Black
-    0x04, // Red
-    0x02, // Green
-    0x0E, // Yellow (Brown in VGA)
-    0x01, // Blue
-    0x05, // Magenta
-    0x03, // Cyan
-    0x07  // White (Light Grey in VGA)
-};
-
-int ansi_to_vga_background[] = {
-    0x00, // Black
-    0x40, // Red
-    0x20, // Green
-    0xE0, // Yellow (Brown in VGA)
-    0x10, // Blue
-    0x50, // Magenta
-    0x30, // Cyan
-    0x70  // White (Light Grey in VGA)
-};
-
-
-/** @brief Enable the hardware text cursor using standard scanlines */
-static void enable_cursor(void)
-{
-    outb(CRTPORT, 0x0A);
-    outb(CRTPORT + 1, (inb(CRTPORT + 1) & 0xC0) | 14);
-    outb(CRTPORT, 0x0B);
-    outb(CRTPORT + 1, (inb(CRTPORT + 1) & 0xE0) | 15);
-}
-
-
-/**
- * @brief Move the hardware cursor to the given position.
- *
- * @param row Zero-based row index within the VGA text buffer.
- * @param col Zero-based column index within the VGA text buffer.
- */
-void update_cursor(const int row, const int col)
-{
-    const u16 position = (row * VGA_WIDTH) + col;
-
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, (position & 0xFF));
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (position >> 8) & 0xFF);
-}
-
-/**
- * @brief Scroll the visible text buffer up by one row and clear the final line.
- */
-void scroll_screen()
-{
-    auto const video_memory = (u8 *)VIDEO_MEMORY;
-
-    // Move all rows up by one
-    memmove(video_memory, video_memory + ROW_SIZE, SCREEN_SIZE - ROW_SIZE);
-
-    // Clear the last line (fill with spaces and default attribute)
-    for (u32 i = SCREEN_SIZE - ROW_SIZE; i < SCREEN_SIZE; i += BYTES_PER_CHAR) {
-        video_memory[i]     = ' ';
-        video_memory[i + 1] = DEFAULT_ATTRIBUTE;
-    }
-
-    if (cursor_y > 0) {
-        cursor_y--;
-    }
-    update_cursor(cursor_y, cursor_x);
-}
-
-
-/**
- * @brief Move the cursor one column to the left.
- */
-static void cursor_left()
-{
-    cursor_x--;
-    update_cursor(cursor_y, cursor_x);
-}
-
-/**
- * @brief Move the cursor one column to the right.
- */
-static void cursor_right()
-{
-    cursor_x++;
-    update_cursor(cursor_y, cursor_x);
-}
-
-/**
- * @brief Move the cursor one row up.
- */
-static void cursor_up()
-{
-    cursor_y--;
-    update_cursor(cursor_y, cursor_x);
-}
-
-/**
- * @brief Move the cursor one row down.
- */
-static void cursor_down()
-{
-    cursor_y++;
-    update_cursor(cursor_y, cursor_x);
-}
-
-/**
- * @brief Write a character cell to video memory.
- *
- * @param c ASCII character to render.
- * @param attr VGA attribute byte controlling foreground and background colors.
- * @param x Column position or -1 to use the current cursor column.
- * @param y Row position or -1 to use the current cursor row.
- */
-void vga_buffer_write(const char c, const u8 attr, const int x, const int y)
-{
-    const int pos_x = x == -1 ? cursor_x : x;
-    const int pos_y = y == -1 ? cursor_y : y;
-
-    volatile u16 *where = (volatile u16 *)VIDEO_MEMORY + (pos_y * VGA_WIDTH + pos_x);
-    *where              = c | (attr << 8);
-}
-
-/** @brief Put a character on the CGA screen */
-static void cgaputc(int c)
-{
-    switch (c) {
-    case BACKSPACE: // Backspace
-        if (cursor_x > 0) {
-            cursor_x--;
-            if (cursor_x == 0 && cursor_y > 0) {
-                cursor_x = VGA_WIDTH - 1;
-                cursor_y--;
-            }
-            vga_buffer_write(' ', attribute, cursor_x, cursor_y);
-        }
-        break;
-    case KEY_LF: // Left arrow
-        if (cursor_x > 0) {
-            cursor_x--;
-        }
-        break;
-    case KEY_RT: // Right arrow
-        if (cursor_x < VGA_WIDTH - 1) {
-            cursor_x++;
-        }
-        break;
-    case KEY_DEL: // Delete
-        vga_buffer_write(' ', attribute, cursor_x, cursor_y);
-        break;
-    case '\n': // Newline
-        cursor_y++;
-        cursor_x = 0;
-        break;
-    case '\r':
-        cursor_x = 0;
-        break;
-    case '\t': // Tab
-        cursor_x += 4;
-        if (cursor_x >= VGA_WIDTH) {
-            cursor_x = 0;
-            cursor_y++;
-        }
-        break;
-    case '\b':
-        cursor_left();
-        vga_buffer_write(' ', attribute, cursor_x, cursor_y);
-        break;
-    default:
-        vga_buffer_write(c, attribute, -1, -1);
-        cursor_x++;
-        if (cursor_x >= VGA_WIDTH) {
-            cursor_x = 0;
-            cursor_y++;
-        }
-    }
-
-    // Scroll if needed
-    if (cursor_y >= VGA_HEIGHT) {
-        scroll_screen();
-        cursor_y = VGA_HEIGHT - 1;
-    }
-
-    update_cursor(cursor_y, cursor_x);
-}
-
-
-/**
- * @brief Clear the entire text terminal and reset the cursor.
- */
-void terminal_clear()
-{
-    cursor_x = 0;
-    cursor_y = 0;
-    for (int y = 0; y < VGA_HEIGHT; y++) {
-        for (int x = 0; x < VGA_WIDTH; x++) {
-            vga_buffer_write(' ', attribute, x, y);
-        }
-    }
-
-    enable_cursor();
-}
 
 /** @brief Put a character on the console (screen and serial) */
 void consputc(int c)
 {
-
     if (panicked) {
         cli();
         // ReSharper disable once CppDFAEndlessLoop
@@ -392,158 +196,12 @@ void consputc(int c)
         putchar(c);
     }
 #else
-    if (handle_ansi_escape(c)) {
+    if (ansi_handle_escape(c)) {
         return;
     }
-    cgaputc(c);
+    vga_putc(c);
 #endif
 }
-
-
-void ansi_reset()
-{
-    param_escaping = false;
-    param_inside   = false;
-
-    param_inside = 0;
-    memset(params, 0, sizeof(params));
-    param_count = 1;
-}
-
-
-/**
- * @brief Process parameters of an ANSI escape sequence.
- *
- * @param c Current character inside the escape sequence.
- * @return true when the escape sequence is complete, false otherwise.
- */
-bool param_process(const int c)
-{
-    if (c >= '0' && c <= '9') {
-        params[param_count - 1] = params[param_count - 1] * 10 + (c - '0');
-
-        return false;
-    }
-
-    if (c == ';') {
-        param_count++;
-
-        return false;
-    }
-
-    switch (c) {
-    case 'A': // Cursor up
-        cursor_up();
-        break;
-    case 'B': // Cursor down
-        cursor_down();
-        break;
-    case 'C': // Cursor forward
-        cursor_left();
-        break;
-    case 'D': // Cursor back
-        cursor_right();
-        break;
-    case 'H':
-        const int row = params[0];
-        const int col = params[1];
-        update_cursor(row, col);
-        break;
-    case 'J':
-        switch (params[0]) {
-        case 2:
-            terminal_clear();
-            break;
-        default:
-            // Not implemented
-            break;
-        }
-        break;
-    case 'm':
-        static bool bold = false;
-        static int blinking = 0;
-
-        for (int i = 0; i < param_count; i++) {
-            switch (params[i]) {
-            case 0:
-                attribute = DEFAULT_ATTRIBUTE;
-                blinking = 0;
-                bold     = false;
-                break;
-            case 1:
-                bold = true;
-                break;
-            case 5:
-                blinking = 1;
-                break;
-            case 22:
-                bold = false;
-                break;
-            case 25:
-                blinking = 0;
-                break;
-            default:
-                if (params[i] >= 30 && params[i] <= 47) {
-                    int forecolor = 0x07;
-                    int backcolor = 0x00;
-                    if (params[i] >= 30 && params[i] <= 37) {
-                        const int color_index = params[i] - 30;
-                        forecolor             = ansi_to_vga_foreground[color_index];
-                        if (bold) {
-                            forecolor |= 0x08; // Set intensity bit for bold text
-                        }
-                    } else if (params[i] >= 40 && params[i] <= 47) {
-                        const int color_index = params[i] - 40;
-                        backcolor             = ansi_to_vga_foreground[color_index]; // Use the same mapping
-                    }
-
-                    attribute = ((blinking & 1) << 7) | ((backcolor & 0x07) << 4) | (forecolor & 0x0F);
-                }
-            }
-        }
-        break;
-
-    default:
-        // Not implemented
-
-
-
-    }
-
-    return true;
-}
-
-/**
- * @brief Detect and interpret ANSI escape sequences.
- *
- * @param c Current incoming character.
- * @return true if the character was consumed as part of an escape sequence.
- */
-bool handle_ansi_escape(const int c)
-{
-    if (c == 0x1B) {
-        ansi_reset();
-        param_escaping = true;
-        return true;
-    }
-
-    if (param_escaping && c == '[') {
-        ansi_reset();
-        param_escaping = true;
-        param_inside   = true;
-        return true;
-    }
-
-    if (param_escaping && param_inside) {
-        if (param_process(c)) {
-            ansi_reset();
-        }
-        return true;
-    }
-
-    return false;
-}
-
 
 void boot_message(warning_level_t level, const char *fmt, ...)
 {
@@ -570,8 +228,7 @@ void boot_message(warning_level_t level, const char *fmt, ...)
 
 #define CTRL(x) ((x) - '@') // Control-x
 
-/** @brief Handle console input */
-void consoleintr(int (*getc)(void))
+void console_input_handler(int (*getc)(void))
 {
     int c, doprocdump = 0;
 
@@ -632,10 +289,19 @@ void consoleintr(int (*getc)(void))
 /** @brief Read from the console */
 int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset)
 {
+    extern volatile u32 ticks;
+    extern struct spinlock tickslock;
+
     ip->iops->iunlock(ip);
     int target = n;
     acquire(&cons.lock);
     int raw_mode = console_raw_mode;
+
+    u32 vtime           = console_termios_state.c_cc[VTIME];
+    u32 vmin            = console_termios_state.c_cc[VMIN];
+    u32 start_ticks     = 0;
+    int started_waiting = 0;
+
     while (n > 0) {
         while (input.r == input.w) {
             if (current_process()->killed) {
@@ -643,6 +309,39 @@ int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset
                 ip->iops->ilock(ip);
                 return -1;
             }
+
+            // Implement VTIME timeout for raw mode
+            if (vmin == 0 && n == target) {
+                // VMIN=0: return immediately if no data
+                release(&cons.lock);
+                ip->iops->ilock(ip);
+                return 0;
+            }
+
+            if (vtime > 0) {
+                // Start timeout on first wait
+                if (!started_waiting) {
+                    acquire(&tickslock);
+                    start_ticks = ticks;
+                    release(&tickslock);
+                    started_waiting = 1;
+                }
+
+                // Check if timeout expired (VTIME is in tenths of second, ticks are ~100Hz)
+                acquire(&tickslock);
+                u32 elapsed = ticks - start_ticks;
+                release(&tickslock);
+
+                // VTIME is in tenths of second, convert to ticks (100 ticks/sec)
+                u32 timeout_ticks = vtime * 10;
+                if (elapsed >= timeout_ticks) {
+                    // Timeout expired
+                    release(&cons.lock);
+                    ip->iops->ilock(ip);
+                    return target - n;
+                }
+            }
+
             sleep(&input.r, &cons.lock);
         }
         int c = input.buf[input.r++ % INPUT_BUF];
@@ -686,8 +385,14 @@ int console_write(struct inode *ip, char *buf, int n, [[maybe_unused]] u32 offse
 
 static void console_apply_termios(void)
 {
-    console_raw_mode     = (console_termios_state.c_lflag & ICANON) == 0;
-    console_echo_enabled = (console_termios_state.c_lflag & ECHO) != 0;
+    console_raw_mode      = (console_termios_state.c_lflag & ICANON) == 0;
+    console_echo_enabled  = (console_termios_state.c_lflag & ECHO) != 0;
+    console_opost_enabled = (console_termios_state.c_oflag & OPOST) != 0;
+}
+
+int console_should_auto_scroll(void)
+{
+    return console_opost_enabled;
 }
 
 /** @brief Initialize console */
@@ -700,8 +405,11 @@ void console_init(void)
     cons.locking         = 1;
 
 #ifndef GRAPHICS
-    terminal_clear();
-    enable_cursor();
+    // Initialize VGA ANSI parser with VGA callbacks
+    vga_terminal_init();
+#else
+    // Initialize VESA ANSI parser with VESA callbacks
+    vesa_terminal_init();
 #endif
 
     memset(&console_termios_state, 0, sizeof(console_termios_state));
@@ -713,20 +421,14 @@ void console_init(void)
     console_termios_state.c_cc[VTIME] = 0;
     console_apply_termios();
 
+#ifdef GRAPHICS
+    console_winsize_state.ws_col = vesa_terminal_columns();
+    console_winsize_state.ws_row = vesa_terminal_rows();
+#else
     console_winsize_state.ws_col = VGA_WIDTH;
     console_winsize_state.ws_row = VGA_HEIGHT;
-#ifdef GRAPHICS
-    if (vbe_info != nullptr && vbe_info->width != 0 && vbe_info->height != 0) {
-        u16 cols = (u16)(vbe_info->width / VESA_CHAR_WIDTH);
-        u16 rows = (u16)(vbe_info->height / VESA_LINE_HEIGHT);
-        if (cols > 0) {
-            console_winsize_state.ws_col = cols;
-        }
-        if (rows > 0) {
-            console_winsize_state.ws_row = rows;
-        }
-    }
 #endif
+
     console_winsize_state.ws_xpixel = 0;
     console_winsize_state.ws_ypixel = 0;
 

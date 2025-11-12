@@ -47,5 +47,5 @@ int kbdgetc(void)
 
 void kbdintr(void)
 {
-    consoleintr(kbdgetc);
+    console_input_handler(kbdgetc);
 }

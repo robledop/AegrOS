@@ -1,7 +1,8 @@
 #pragma once
 #include "types.h"
 
-#ifdef GRAPHICS
+void vesa_terminal_init(void);
 void putchar(char c);
 void vesa_write(const char *data, u32 length);
-#endif
+u16 vesa_terminal_columns(void);
+u16 vesa_terminal_rows(void);

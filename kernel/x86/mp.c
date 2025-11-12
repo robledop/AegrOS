@@ -375,11 +375,10 @@ void mpinit(void)
     lapic    = nullptr;
     ioapicid = 0;
 
-    boot_message(WARNING_LEVEL_INFO, "Initializing multiprocessor support via ACPI");
     int acpi = acpi_init();
     if (!acpi) {
-        boot_message(WARNING_LEVEL_INFO,
-                           "ACPI multiprocessor initialization failed, falling back to legacy MP tables");
+        boot_message(WARNING_LEVEL_WARNING,
+                     "ACPI multiprocessor initialization failed, falling back to legacy MP tables");
         int legacy = mpinit_legacy();
 
         if (!legacy) {

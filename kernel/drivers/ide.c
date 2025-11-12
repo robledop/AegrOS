@@ -74,7 +74,7 @@ static int idewait_drq(void)
 }
 
 /** @brief Initialize the IDE controller and detect attached drives. */
-void ideinit(void)
+void ide_init(void)
 {
     initlock(&idelock, "ide");
     ioapicenable(IRQ_IDE, ncpu - 1);

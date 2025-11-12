@@ -506,6 +506,7 @@ static struct inode *create(char *path, short type, short major, short minor)
 
     ASSERT(ip->addrs != nullptr, "ip->addrs is null in create");
     ip->iops->ilock(ip);
+    ip->type = type;
     ip->major = major;
     ip->minor = minor;
     ip->nlink = 1;

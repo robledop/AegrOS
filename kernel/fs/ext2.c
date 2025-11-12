@@ -66,7 +66,7 @@ static u32 ext2fs_get_free_bit(char *bitmap, u32 nbits)
             u32 bit = i * 8 + j;
             if (bit >= nbits)
                 break;
-            const u8 mask = 1 << (7 - j);
+            const u8 mask = (u8)(1U << j);
             if ((bitmap[i] & mask) != 0)
                 continue;
             bitmap[i] |= mask;
@@ -123,7 +123,7 @@ static void ext2fs_bfree(int dev, u32 b)
     if (byte_index >= EXT2_BSIZE) {
         panic("ext2fs_bfree: bitmap overflow\n");
     }
-    u8 mask = 1 << (7 - (offset % 8));
+    u8 mask = (u8)(1U << (offset % 8));
 
     if ((bp2->data[byte_index] & mask) == 0) {
         panic("ext2fs_bfree: block already free\n");
@@ -322,10 +322,14 @@ static void ext2fs_ifree(struct inode *ip)
     if (byte_index >= EXT2_BSIZE) {
         panic("ext2fs_ifree: bitmap overflow\n");
     }
-    u8 mask = 1 << (7 - (index % 8));
+    u8 mask = (u8)(1U << (index % 8));
 
     if ((bp2->data[byte_index] & mask) == 0) {
-        panic("ext2fs_ifree: inode already free\n");
+        panic("ext2fs_ifree: inode already free (inum=%u type=%d nlink=%d ref=%d)\n",
+              ip->inum,
+              ip->type,
+              ip->nlink,
+              ip->ref);
     }
     bp2->data[byte_index] &= ~mask;
     bwrite(bp2);

@@ -12,7 +12,7 @@
 static int uart;
 
 /** @brief Initialize the 8250-compatible UART and announce availability. */
-void uartinit(void)
+void uart_init(void)
 {
     // Turn off the FIFO
     outb(COM1 + 2, 0);
@@ -78,5 +78,5 @@ static int uartgetc(void)
 /** @brief UART interrupt handler that feeds the console input path. */
 void uartintr(void)
 {
-    consoleintr(uartgetc);
+    console_input_handler(uartgetc);
 }

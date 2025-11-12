@@ -5,6 +5,7 @@ rootfs/
 *.bin
 *.o
 *.a
+*.d
 *.log
 *.img
 *.iso

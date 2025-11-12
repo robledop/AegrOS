@@ -57,7 +57,8 @@ UPROGS=\
 	build/fib\
 	build/touch\
 	build/fbline\
-	build/kilo\
+	build/edit\
+	build/getwinsz\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

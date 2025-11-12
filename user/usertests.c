@@ -15,6 +15,32 @@ char buf[8192];
 char name[3];
 char *echoargv[] = {"echo", "ALL", "TESTS", "PASSED", nullptr};
 
+static int framebuffer_mmap_supported(void)
+{
+    static int cached = -1;
+    if (cached != -1) {
+        return cached;
+    }
+
+    int fd = open("/dev/fb0", O_RDWR);
+    if (fd < 0) {
+        cached = 0;
+        return 0;
+    }
+
+    void *map = mmap(nullptr, PGSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) {
+        close(fd);
+        cached = 0;
+        return 0;
+    }
+
+    munmap(map, PGSIZE);
+    close(fd);
+    cached = 1;
+    return 1;
+}
+
 static int open_framebuffer(void)
 {
     int fd = open("/dev/fb0", O_RDWR);
@@ -2518,8 +2544,12 @@ int main(int argc, char *argv[])
     pipe1();
     preempt();
     exitwait();
-    fb_mmap_basic_test();
-    fb_mmap_multi_test();
+    if (framebuffer_mmap_supported()) {
+        fb_mmap_basic_test();
+        fb_mmap_multi_test();
+    } else {
+        printf(KBYEL "\nfb mmap tests skipped: graphics mode unavailable\n" KRESET);
+    }
 
     rmdot();
     fourteen();

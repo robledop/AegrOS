@@ -57,8 +57,9 @@ QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e10
 
 qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0 -DDEBUG -DGRAPHICS
 qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
-vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DGRAPHICS
+vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DGRAPHICS -DDEBUG
 vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
+vbox-textmode qemu-nox-perf-textmode qemu-perf-textmode qemu-perf-no-net-textmode: CFLAGS += -O3 -DDEBUG
 
 asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include syscall.asm traps.asm memlayout.asm mmu.asm asm.asm param.asm
@@ -109,10 +110,16 @@ qemu-nox-gdb: grub FORCE
 vbox: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
 
+vbox-textmode: grub FORCE
+	./scripts/start_vbox.sh $(MEMORY)
+
 qemu-nobuild:
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-perf: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
+
+qemu-perf-textmode: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
 
 qemu-perf-net-default: grub FORCE
@@ -121,7 +128,13 @@ qemu-perf-net-default: grub FORCE
 qemu-perf-no-net: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host -nic none
 
+qemu-perf-no-net-textmode: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host -nic none
+
 qemu-nox-perf: grub FORCE
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
+
+qemu-nox-perf-textmode: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
 .PHONY: clean

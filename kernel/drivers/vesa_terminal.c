@@ -1,8 +1,14 @@
 #include <string.h>
 #include <framebuffer.h>
 #include <vesa_terminal.h>
+#include <console.h>
+#include <ansi.h>
+#include "printf.h"
 
-#define MARGIN 15
+#ifdef GRAPHICS
+#define MARGIN 0
+#define VESA_TTY_COLS 80
+#define VESA_TTY_ROWS 25
 
 static bool cursor_visible = true;
 static int cursor_x        = MARGIN;
@@ -10,42 +16,43 @@ static int cursor_y        = MARGIN;
 static int cursor_drawn_x  = -1;
 static int cursor_drawn_y  = -1;
 
-static bool v_param_escaping = false;
-static bool v_param_inside   = false;
-static bool v_private_mode   = false;
-static int v_params[10]      = {0};
-static int v_param_count     = 1;
+static u32 forecolor = 0x999999;
+static u32 backcolor = 0x000000;
 
-static int forecolor = 0xFFFFFF;
-static int backcolor = 0x000000;
+u16 vesa_terminal_columns(void)
+{
+    if (vbe_info != nullptr && vbe_info->width >= VESA_CHAR_WIDTH) {
+        return (u16)(vbe_info->width / VESA_CHAR_WIDTH);
+    }
+    return VESA_TTY_COLS;
+}
+
+u16 vesa_terminal_rows(void)
+{
+    if (vbe_info != nullptr && vbe_info->height >= VESA_LINE_HEIGHT) {
+        return (u16)(vbe_info->height / VESA_LINE_HEIGHT);
+    }
+    return VESA_TTY_ROWS;
+}
 
 static inline int vesa_max_cols(void)
 {
-    if (vbe_info == nullptr || vbe_info->width == 0) {
-        return 80;
-    }
-    int usable = (int)vbe_info->width - 2 * MARGIN;
-    if (usable <= 0) {
-        return 1;
-    }
-    return usable / VESA_CHAR_WIDTH;
+    return vesa_terminal_columns();
 }
 
 static inline int vesa_max_rows(void)
 {
-    if (vbe_info == nullptr || vbe_info->height == 0) {
-        return 25;
-    }
-    int usable = (int)vbe_info->height - 2 * MARGIN;
-    if (usable <= 0) {
-        return 1;
-    }
-    return usable / VESA_LINE_HEIGHT;
+    return vesa_terminal_rows();
+}
+
+static inline int vesa_text_width(void)
+{
+    return (int)vesa_terminal_columns() * VESA_CHAR_WIDTH;
 }
 
 static inline int vesa_text_height(void)
 {
-    return vesa_max_rows() * VESA_LINE_HEIGHT;
+    return (int)vesa_terminal_rows() * VESA_LINE_HEIGHT;
 }
 
 static inline int vesa_bottom_limit(void)
@@ -100,14 +107,6 @@ static inline void vesa_show_cursor(void)
     vesa_draw_cursor();
 }
 
-static inline int vesa_param_or_default(int index, int def)
-{
-    if (index < v_param_count && v_params[index] != 0) {
-        return v_params[index];
-    }
-    return def;
-}
-
 static void vesa_cursor_set_position(int row, int col)
 {
     if (row < 1) {
@@ -144,13 +143,13 @@ static void vesa_scroll_up_text_area(void)
     u32 pitch = vbe_info->pitch;
     u8 *dst   = fb + (size_t)MARGIN * pitch;
     u8 *src   = dst + VESA_LINE_HEIGHT * pitch;
-    int rows = text_height - VESA_LINE_HEIGHT;
+    int rows  = text_height - VESA_LINE_HEIGHT;
     if (rows > 0) {
         memmove(dst, src, (size_t)rows * pitch);
     }
-    framebuffer_fill_rect32(0,
+    framebuffer_fill_rect32(MARGIN,
                             MARGIN + text_height - VESA_LINE_HEIGHT,
-                            (int)vbe_info->width,
+                            vesa_text_width(),
                             VESA_LINE_HEIGHT,
                             backcolor);
     cursor_drawn_x = cursor_drawn_y = -1;
@@ -201,7 +200,8 @@ static void vesa_clear_line(int mode)
 static void vesa_clear_screen(int mode)
 {
     switch (mode) {
-    case 0: { // cursor to end of screen
+    case 0: {
+        // cursor to end of screen
         vesa_clear_line(0);
         int remaining = (int)vbe_info->height - (cursor_y + VESA_LINE_HEIGHT);
         if (remaining > 0) {
@@ -225,46 +225,65 @@ static void vesa_clear_screen(int mode)
 }
 
 
-/**
- * @brief Map an ANSI colour code to an RGB value.
- */
-int ansi_to_rgb(int ansi, bool bold)
+static u32 ansi_rgb_from_index(int idx, bool bright)
 {
-    switch (ansi) {
-    case 30:
-        return 0x000000; // Black
-    case 31:
-        return bold ? 0xFF0000 : 0x990000; // Red
-    case 32:
-        return bold ? 0x00FF00 : 0x009900; // Green
-    case 33:
-        return bold ? 0xFFFF22 : 0x999900; // Yellow
-    case 34:
-        return bold ? 0x8888FF : 0x555599; // Blue
-    case 35:
-        return bold ? 0xFF00FF : 0x990099; // Magenta
-    case 36:
-        return bold ? 0x00FFFF : 0x009999; // Cyan
-    case 37:
-        return bold ? 0xFFFFFF : 0x999999; // White
-    default:
-        return 0x000000; // Fallback: black
+    static const u32 normal[8] = {
+        0x000000, // black
+        0x990000, // red
+        0x009900, // green
+        0x999900, // yellow
+        0x555599, // blue
+        0x990099, // magenta
+        0x009999, // cyan
+        0x999999  // white/gray
+    };
+    static const u32 intense[8] = {
+        0x555555,
+        0xFF0000,
+        0x00FF00,
+        0xFFFF22,
+        0x8888FF,
+        0xFF00FF,
+        0x00FFFF,
+        0xFFFFFF
+    };
+    if (idx < 0 || idx > 7) {
+        idx = 7;
     }
+    return bright ? intense[idx] : normal[idx];
 }
 
-/**
- * @brief Reset ANSI parsing state for the pixel terminal.
- */
-void reset()
+static u32 vesa_foreground_from_code(int code, bool bold)
 {
-    v_param_escaping = false;
-    v_param_inside   = false;
-    v_private_mode   = false;
-
-    v_param_inside = 0;
-    memset(v_params, 0, sizeof(v_params));
-    v_param_count = 1;
+    bool bright = false;
+    int idx     = 7;
+    if (code >= 90 && code <= 97) {
+        bright = true;
+        idx    = code - 90;
+    } else if (code >= 30 && code <= 37) {
+        idx = code - 30;
+    } else if (code == 39) {
+        idx = 7;
+    } else {
+        return ansi_rgb_from_index(7, bold);
+    }
+    return ansi_rgb_from_index(idx, bright || bold);
 }
+
+static u32 vesa_background_from_code(int code)
+{
+    int idx = 0;
+    if (code >= 100 && code <= 107) {
+        code -= 60;
+    }
+    if (code >= 40 && code <= 47) {
+        idx = code - 40;
+    } else if (code != 49) {
+        return ansi_rgb_from_index(0, false);
+    }
+    return ansi_rgb_from_index(idx, false);
+}
+
 
 /**
  * @brief Move the on-screen cursor one text line up.
@@ -319,153 +338,187 @@ void cursor_right()
 }
 
 
-/**
- * @brief Process a single character within an ANSI escape sequence.
- */
-bool v_param_process(const int c)
+// VESA-specific ANSI callback implementations
+static void vesa_cursor_up_cb(int n)
 {
-    if (c >= '0' && c <= '9') {
-        v_params[v_param_count - 1] = v_params[v_param_count - 1] * 10 + (c - '0');
-
-        return false;
+    for (int i = 0; i < n; i++) {
+        cursor_up();
     }
+}
 
-    if (c == ';') {
-        v_param_count++;
-
-        return false;
+static void vesa_cursor_down_cb(int n)
+{
+    for (int i = 0; i < n; i++) {
+        cursor_down();
     }
+}
 
-    if (c == '?') {
-        v_private_mode = true;
-        return false;
+static void vesa_cursor_left_cb(int n)
+{
+    for (int i = 0; i < n; i++) {
+        cursor_left();
     }
+}
 
-    switch (c) {
-    case 'A': // Cursor up
-        for (int n = vesa_param_or_default(0, 1); n > 0; n--) {
-            cursor_up();
-        }
-        break;
-    case 'B': // Cursor down
-        for (int n = vesa_param_or_default(0, 1); n > 0; n--) {
-            cursor_down();
-        }
-        break;
-    case 'C': // Cursor forward
-        for (int n = vesa_param_or_default(0, 1); n > 0; n--) {
-            cursor_right();
-        }
-        break;
-    case 'D': // Cursor back
-        for (int n = vesa_param_or_default(0, 1); n > 0; n--) {
-            cursor_left();
-        }
-        break;
-    case 'H':
-    case 'f':
-        vesa_cursor_set_position(vesa_param_or_default(0, 1), vesa_param_or_default(1, 1));
-        break;
-    case 'J':
-        vesa_clear_screen(vesa_param_or_default(0, 0));
-        break;
-    case 'K':
-        vesa_clear_line(vesa_param_or_default(0, 0));
-        break;
-    case 'm':
-        static bool bold = false;
-        // static int blinking = 0;
+static void vesa_cursor_right_cb(int n)
+{
+    for (int i = 0; i < n; i++) {
+        cursor_right();
+    }
+}
 
-        for (int i = 0; i < v_param_count; i++) {
-            switch (v_params[i]) {
-            case 0: // Reset all attributes
-                forecolor = ansi_to_rgb(37, false);
-                backcolor = ansi_to_rgb(40, false);
-                // blinking = 0;
-                bold = false;
-                break;
-            case 1:
-                bold = true;
-                break;
-            case 5:
-                // blinking = 1;
-                break;
-            case 22:
-                bold = false;
-                break;
-            case 25:
-                // blinking = 0;
-                break;
-            default:
-                if (v_params[i] >= 30 && v_params[i] <= 47) {
+static void vesa_cursor_set_position_cb(int row, int col)
+{
+    vesa_cursor_set_position(row, col);
+}
 
-                    if (v_params[i] >= 30 && v_params[i] <= 37) {
-                        forecolor = ansi_to_rgb(v_params[i], bold);
-                    } else if (v_params[i] >= 40 && v_params[i] <= 47) {
-                        backcolor = ansi_to_rgb(v_params[i], false);
-                    }
+static void vesa_clear_screen_cb(int mode)
+{
+    vesa_clear_screen(mode);
+}
 
-                    // attribute = ((blinking & 1) << 7) | ((backcolor & 0x07) << 4) | (forecolor & 0x0F);
-                }
+static void vesa_clear_line_cb(int mode)
+{
+    vesa_clear_line(mode);
+}
+
+static void vesa_set_graphics_mode_cb(int count, const int *params)
+{
+    static bool bold    = false;
+    static bool reverse = false;
+    static int fg_code  = 37;
+    static int bg_code  = 40;
+
+    for (int i = 0; i < count; i++) {
+        const int p = params[i];
+        switch (p) {
+        case 0:
+            bold = false;
+            reverse = false;
+            fg_code = 37;
+            bg_code = 40;
+            break;
+        case 1:
+            bold = true;
+            break;
+        case 7:
+            reverse = true;
+            break;
+        case 22:
+            bold = false;
+            break;
+        case 27:
+            reverse = false;
+            break;
+        case 39:
+            fg_code = 37;
+            break;
+        case 49:
+            bg_code = 40;
+            break;
+        default:
+            if ((p >= 30 && p <= 37) || (p >= 90 && p <= 97)) {
+                fg_code = p;
+            } else if ((p >= 40 && p <= 47) || (p >= 100 && p <= 107)) {
+                bg_code = p;
             }
+            break;
         }
-        break;
-    case 'h':
-        if (v_private_mode && vesa_param_or_default(0, 0) == 25) {
-            vesa_show_cursor();
-        }
-        break;
-    case 'l':
-        if (v_private_mode && vesa_param_or_default(0, 0) == 25) {
-            vesa_hide_cursor();
-        }
-        break;
-
-    default:
-        // Not implemented
-        break;
     }
 
-    v_private_mode = false;
-    return true;
+    // Apply colors (swap if reverse video is active)
+    if (reverse) {
+        forecolor = vesa_background_from_code(bg_code);
+        backcolor = vesa_foreground_from_code(fg_code, bold);
+    } else {
+        forecolor = vesa_foreground_from_code(fg_code, bold);
+        backcolor = vesa_background_from_code(bg_code);
+    }
 }
+
+static void vesa_show_cursor_cb(void)
+{
+    vesa_show_cursor();
+}
+
+static void vesa_hide_cursor_cb(void)
+{
+    vesa_hide_cursor();
+}
+
+static void vesa_report_cursor_position_cb(void)
+{
+    int col = 1;
+    int row = 1;
+    if (cursor_x >= MARGIN) {
+        col = (cursor_x - MARGIN) / VESA_CHAR_WIDTH + 1;
+    }
+    if (cursor_y >= MARGIN) {
+        row = (cursor_y - MARGIN) / VESA_LINE_HEIGHT + 1;
+    }
+    // Build response manually to avoid snprintf issues
+    char resp[32];
+    resp[0] = '\x1b';
+    resp[1] = '[';
+    int pos = 2;
+
+    // Add row number
+    if (row >= 10) {
+        resp[pos++] = '0' + (row / 10);
+        resp[pos++] = '0' + (row % 10);
+    } else {
+        resp[pos++] = '0' + row;
+    }
+
+    resp[pos++] = ';';
+
+    // Add col number
+    if (col >= 100) {
+        resp[pos++] = '0' + (col / 100);
+        resp[pos++] = '0' + ((col / 10) % 10);
+        resp[pos++] = '0' + (col % 10);
+    } else if (col >= 10) {
+        resp[pos++] = '0' + (col / 10);
+        resp[pos++] = '0' + (col % 10);
+    } else {
+        resp[pos++] = '0' + col;
+    }
+
+    resp[pos++] = 'R';
+    resp[pos]   = '\0';
+
+    console_queue_input_locked(resp);
+}
+
+static struct ansi_callbacks vesa_callbacks = {
+    .cursor_up = vesa_cursor_up_cb,
+    .cursor_down = vesa_cursor_down_cb,
+    .cursor_left = vesa_cursor_left_cb,
+    .cursor_right = vesa_cursor_right_cb,
+    .cursor_set_position = vesa_cursor_set_position_cb,
+    .clear_screen = vesa_clear_screen_cb,
+    .clear_line = vesa_clear_line_cb,
+    .set_graphics_mode = vesa_set_graphics_mode_cb,
+    .show_cursor = vesa_show_cursor_cb,
+    .hide_cursor = vesa_hide_cursor_cb,
+    .report_cursor_position = vesa_report_cursor_position_cb,
+};
+
 
 /**
- * @brief Update escape state machine, consuming characters when appropriate.
+ * @brief Initialize VESA terminal
  */
-bool v_handle_ansi_escape(const int c)
+void vesa_terminal_init(void)
 {
-    if (c == 0x1B) {
-        reset();
-        v_param_escaping = true;
-        return true;
-    }
-
-    if (v_param_escaping && c == '[') {
-        reset();
-        v_param_escaping = true;
-        v_param_inside   = true;
-        return true;
-    }
-
-    if (v_param_escaping && v_param_inside) {
-        if (v_param_process(c)) {
-            reset();
-        }
-        return true;
-    }
-
-    return false;
+    ansi_set_callbacks(&vesa_callbacks);
 }
 
-
-#ifdef GRAPHICS
 /**
  * @brief Print a character to the VESA terminal, handling ANSI escapes and cursor.
  */
 void putchar(char c)
 {
-    if (v_handle_ansi_escape(c)) {
+    if (ansi_handle_escape(c)) {
         return;
     }
 
@@ -474,7 +527,10 @@ void putchar(char c)
     if (c == '\n') {
         cursor_x = MARGIN;
         cursor_y += VESA_LINE_HEIGHT;
-        vesa_maybe_scroll();
+        // Only auto-scroll if output post-processing is enabled
+        if (console_should_auto_scroll()) {
+            vesa_maybe_scroll();
+        }
         vesa_clamp_cursor();
         vesa_draw_cursor();
         return;
@@ -509,10 +565,13 @@ void putchar(char c)
 
     framebuffer_put_char8(c, cursor_x, cursor_y, forecolor, backcolor);
     cursor_x += VESA_CHAR_WIDTH;
-    if (cursor_x + VESA_CHAR_WIDTH + MARGIN > vbe_info->width) {
+    if ((cursor_x - MARGIN) / VESA_CHAR_WIDTH >= vesa_max_cols()) {
         cursor_x = MARGIN;
         cursor_y += VESA_LINE_HEIGHT;
-        vesa_maybe_scroll();
+        // Only auto-scroll if output post-processing is enabled
+        if (console_should_auto_scroll()) {
+            vesa_maybe_scroll();
+        }
     }
 
     vesa_clamp_cursor();

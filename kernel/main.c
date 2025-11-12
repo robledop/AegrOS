@@ -56,21 +56,21 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     kernel_page_directory_init();                       // kernel page table
 #ifdef GRAPHICS
     map_framebuffer_mmio();
-#endif
-    mpinit();           // detect other processors
-    lapicinit();        // interrupt controller
-    seginit();          // segment descriptors
-    picinit();          // disable pic
-    ioapicinit();       // another interrupt controller
     framebuffer_init(); // framebuffer device
-    console_init();     // console hardware
-    uartinit();         // serial port
+#endif
+    mpinit();       // detect other processors
+    lapicinit();    // interrupt controller
+    seginit();      // segment descriptors
+    picinit();      // disable pic
+    ioapicinit();   // another interrupt controller
+    console_init(); // console hardware
+    uart_init();    // serial port
     cpu_print_info();
     pinit();                                    // process table
     tvinit();                                   // trap vectors
     binit();                                    // buffer cache
     file_init();                                // file table
-    ideinit();                                  // disk
+    ide_init();                                 // disk
     startothers();                              // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
     kernel_enable_mmio_propagation();

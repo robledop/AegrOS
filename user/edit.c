@@ -301,8 +301,7 @@ int editorReadKey(int fd)
 {
     int nread;
     char c, seq[3];
-    while ((nread = read(fd, &c, 1)) == 0)
-        ;
+    while ((nread = read(fd, &c, 1)) == 0);
     if (nread == -1)
         editorDie("read error");
 
@@ -929,10 +928,10 @@ int editorOpen(char *filename)
         return 1;
     }
 
-    char *line       = nullptr;
-    size_t linecap   = 0;
-    size_t linelen   = 0;
-    const int chunk  = 512;
+    char *line      = nullptr;
+    size_t linecap  = 0;
+    size_t linelen  = 0;
+    const int chunk = 512;
     char buf[chunk];
     int pending_cr = 0;
     int status     = 0;
@@ -953,7 +952,7 @@ int editorOpen(char *filename)
                 ensure_line_capacity(&line, &linecap, linelen + 1);
                 line[linelen] = '\0';
                 editorInsertRow(E.numrows, line, linelen);
-                linelen   = 0;
+                linelen    = 0;
                 pending_cr = 1;
                 continue;
             }
@@ -1072,7 +1071,7 @@ void editorRefreshScreen(void)
                 char welcome[80];
                 int welcomelen = snprintf(welcome,
                                           sizeof(welcome),
-                                          "Kilo editor -- verison %s\x1b[0K\r\n",
+                                          "Edit -- version %s\x1b[0K\r\n",
                                           KILO_VERSION);
                 int padding = (E.screencols - welcomelen) / 2;
                 if (padding) {
@@ -1396,6 +1395,7 @@ void editorProcessKeypress(int fd)
     int c = editorReadKey(fd);
     switch (c) {
     case ENTER: /* Enter */
+    case '\n':  /* Also accept newline (10) */
         editorInsertNewline();
         break;
     case CTRL_C: /* Ctrl-c */
@@ -1403,8 +1403,7 @@ void editorProcessKeypress(int fd)
          * to the edited file. */
         break;
     case CTRL_Q: /* Ctrl-q */
-        /* Quit if the file was already saved. */
-        if (E.dirty && quit_times) {
+        if (E.dirty && quit_times > 0) {
             editorSetStatusMessage("WARNING!!! File has unsaved changes. "
                                    "Press Ctrl-Q %d more times to quit.",
                                    quit_times);
@@ -1454,7 +1453,9 @@ void editorProcessKeypress(int fd)
         break;
     }
 
-    quit_times = KILO_QUIT_TIMES; /* Reset it to the original value. */
+    if (c != CTRL_Q) {
+        quit_times = KILO_QUIT_TIMES; /* Reset countdown after other keys */
+    }
 }
 
 int editorFileWasModified(void)
@@ -1501,7 +1502,7 @@ void initEditor(void)
 int main(int argc, char **argv)
 {
     if (argc != 2) {
-        printf("Usage: kilo <filename>\n");
+        printf("Usage: edit <filename>\n");
         return 0;
     }
 

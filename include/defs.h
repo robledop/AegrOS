@@ -31,7 +31,7 @@ void bwrite(struct buf *);
 void console_init(void);
 // void cprintf(char *, ...);
 void consputc(int c);
-void consoleintr(int (*)(void));
+void console_input_handler(int (*)(void));
 void panic(const char *fmt, ...) __attribute__((noreturn));
 void boot_message(warning_level_t level, const char *fmt, ...);
 
@@ -55,7 +55,7 @@ struct inode *namei(char *);
 struct inode *nameiparent(char *, char *);
 
 // ide.c
-void ideinit(void);
+void ide_init(void);
 void ideintr(void);
 void iderw(struct buf *);
 
@@ -147,7 +147,7 @@ void tvinit(void);
 extern struct spinlock tickslock;
 
 // uart.c
-void uartinit();
+void uart_init();
 void uartintr();
 void uartputc(int);
 
