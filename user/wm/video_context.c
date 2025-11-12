@@ -5,6 +5,162 @@
 #include <types.h>
 #include <wm/desktop.h>
 
+static u32 *framebuffer;
+
+
+static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
+{
+    while (pixel_count--) {
+        *((u32 *)dst) = color;
+        dst += 4;
+    }
+}
+
+static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
+{
+    while (pixel_count--) {
+        *((u32 *)dst) = *src++;
+        dst += 4;
+    }
+}
+
+/**
+ * @brief Fill a rectangle in the framebuffer using 32-bit pixels when possible.
+ */
+void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
+{
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    // if (!framebuffer_supports_32bpp()) {
+    //     for (int j = 0; j < height; j++) {
+    //         for (int i = 0; i < width; i++) {
+    //             framebuffer_putpixel(x + i, y + j, color);
+    //         }
+    //     }
+    //     return;
+    // }
+
+    // const int screen_w = (int)vbe_info->width;
+    // const int screen_h = (int)vbe_info->height;
+
+    const int screen_w = 1024;
+    const int screen_h = 768;
+    const int pitch    = 4096;
+
+    int x0 = x;
+    int y0 = y;
+    int x1 = x + width;
+    int y1 = y + height;
+
+    if (x1 <= 0 || y1 <= 0 || x0 >= screen_w || y0 >= screen_h) {
+        return;
+    }
+
+    if (x0 < 0) {
+        x0 = 0;
+    }
+    if (y0 < 0) {
+        y0 = 0;
+    }
+    if (x1 > screen_w) {
+        x1 = screen_w;
+    }
+    if (y1 > screen_h) {
+        y1 = screen_h;
+    }
+
+    u32 span_pixels = (u32)(x1 - x0);
+    u8 *row         = (u8 *)framebuffer + (u32)y0 * pitch + (u32)x0 * 4U;
+
+    for (int j = y0; j < y1; j++) {
+        framebuffer_fill_span32(row, span_pixels, color);
+        row += pitch;
+    }
+}
+
+/**
+ * @brief Blit a horizontal span of 32-bit pixels to the framebuffer.
+ */
+void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
+{
+    if (!src || pixel_count == 0) {
+        return;
+    }
+
+    // if (!framebuffer_supports_32bpp()) {
+    //     for (u32 i = 0; i < pixel_count; i++) {
+    //         framebuffer_putpixel(x + (int)i, y, src[i]);
+    //     }
+    //     return;
+    // }
+
+    // const int screen_w = (int)vbe_info->width;
+    // const int screen_h = (int)vbe_info->height;
+
+    const int screen_w = 1024;
+    const int screen_h = 768;
+
+    if (y < 0 || y >= screen_h) {
+        return;
+    }
+
+    int x0     = x;
+    u32 offset = 0;
+    if (x0 < 0) {
+        offset = (u32)(-x0);
+        if (offset >= pixel_count) {
+            return;
+        }
+        pixel_count -= offset;
+        x0 = 0;
+    }
+
+    if (x0 >= screen_w) {
+        return;
+    }
+
+    if (x0 + (int)pixel_count > screen_w) {
+        pixel_count = (u32)(screen_w - x0);
+    }
+
+    const int pitch = 4096;
+    u8 *row         = (u8 *)framebuffer + (u32)y * pitch + (u32)x0 * 4U;
+    framebuffer_copy_span32(row, src + offset, pixel_count);
+}
+
+/**
+ * @brief Write a single pixel to the framebuffer.
+ */
+void framebuffer_putpixel(int x, int y, u32 rgb)
+{
+    if (x < 0 || x >= 1024 || y < 0 || y >= 768) {
+        return; // Out of bounds
+    }
+
+    const int pitch     = 4096;
+    auto fb             = (u8 *)framebuffer;
+    u32 bytes_per_pixel = 32 / 8;
+    u8 *pixel           = fb + (y * pitch) + (x * bytes_per_pixel);
+    *((u32 *)pixel)     = rgb;
+}
+
+/**
+ * @brief Read a single pixel from the framebuffer.
+ */
+u32 framebuffer_getpixel(int x, int y)
+{
+    if (x < 0 || x >= 1024 || y < 0 || y >= 768) {
+        return 0; // Out of bounds
+    }
+    const int pitch     = 4096;
+    auto fb             = (u8 *)framebuffer;
+    u32 bytes_per_pixel = 32 / 8;
+    u8 *pixel           = fb + (y * pitch) + (x * bytes_per_pixel);
+    return *((u32 *)pixel);
+}
+
 /**
  * @brief Allocate a drawing context with the given dimensions.
  *
@@ -12,8 +168,9 @@
  * @param height Context height in pixels.
  * @return Newly allocated context or nullptr on failure.
  */
-video_context_t *context_new(u16 width, u16 height)
+video_context_t *context_new(u32 *fb, u16 width, u16 height)
 {
+    framebuffer  = fb;
     auto context = (video_context_t *)malloc(sizeof(video_context_t));
     if (!context) {
         return nullptr;
@@ -94,7 +251,7 @@ void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigne
     for (int draw_y = y; draw_y < max_y; draw_y++) {
         const int src_y    = src_base_y + (draw_y - y);
         const u32 *src_row = pixels + (u32)src_y * stride + (u32)src_base_x;
-        // vesa_blit_span32(x, draw_y, src_row, (u32)span);
+        framebuffer_blit_span32(x, draw_y, src_row, (u32)span);
     }
 }
 
@@ -146,7 +303,7 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
 
     const int width_span  = max_x - x;
     const int height_span = max_y - y;
-    // vesa_fill_rect32(x, y, width_span, height_span, color);
+    framebuffer_fill_rect32(x, y, width_span, height_span, color);
 }
 
 
@@ -532,7 +689,7 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
         u8 shift_line = font8x12[font_y * 128 + character] << off_x;
         for (int font_x = off_x; font_x < count_x; font_x++) {
             if (shift_line & 0x80) {
-                // vesa_putpixel(font_x + x, font_y + y, color);
+                framebuffer_putpixel(font_x + x, font_y + y, color);
             }
             shift_line <<= 1;
         }

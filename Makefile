@@ -89,6 +89,7 @@ apps: asm_headers FORCE
 
 grub: build/kernel apps FORCE
 	cp build/kernel ./rootfs/boot/kernel
+	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
 	./scripts/create_tap.sh

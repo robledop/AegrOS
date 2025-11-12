@@ -1,6 +1,7 @@
 #include <user.h>
 #include <wm/video_context.h>
 #include <wm/desktop.h>
+#include <wm/window.h>
 #include <wm/bmp.h>
 #include <mman.h>
 #include <fcntl.h>
@@ -34,7 +35,7 @@ int main(const int argc, char **argv)
 
     u32 *pixels = nullptr;
     bitmap_load_argb("wpaper.bmp", &pixels);
-    video_context_t *context = context_new(1024, 768);
+    video_context_t *context = context_new(fb, 1024, 768);
     desktop                  = desktop_new(context, pixels);
 
 

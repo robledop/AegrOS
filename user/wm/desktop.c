@@ -1,5 +1,4 @@
 #include <wm/desktop.h>
-#include <wm/rect.h>
 #include <wm/video_context.h>
 #include <wm/window.h>
 #include <types.h>

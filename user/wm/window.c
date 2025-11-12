@@ -2,6 +2,8 @@
 #include <types.h>
 #include <user.h>
 
+#include "wm/desktop.h"
+
 /**
  * @brief Allocate and initialise a window.
  *
@@ -623,8 +625,10 @@ void window_move(window_t *window, int new_x, int new_y)
  */
 void window_process_mouse(window_t *window, u16 mouse_x, u16 mouse_y, u8 mouse_buttons)
 {
-    auto left_click     = mouse_buttons & MOUSE_LEFT;
-    auto was_left_click = window->last_button_state & MOUSE_LEFT;
+    // auto left_click     = mouse_buttons & MOUSE_LEFT;
+    auto left_click = mouse_buttons;
+    // auto was_left_click = window->last_button_state & MOUSE_LEFT;
+    auto was_left_click = window->last_button_state;
 
     // If we had a button depressed, then we need to see if the mouse was
     // over any of the child windows
@@ -635,7 +639,7 @@ void window_process_mouse(window_t *window, u16 mouse_x, u16 mouse_y, u8 mouse_b
 
         // If mouse isn't window bounds, we can't possibly be interacting with it
         if (!(mouse_x >= child->x && mouse_x < (child->x + child->width) && mouse_y >= child->y &&
-              mouse_y < (child->y + child->height))) {
+            mouse_y < (child->y + child->height))) {
             continue;
         }
 
@@ -815,11 +819,11 @@ void window_append_title(window_t *window, char *additional_chars)
 
     // Copy the base string into the new string
     int i;
-    for (i = 0; window->title[i]; i++)
+    for (i            = 0; window->title[i]; i++)
         new_string[i] = window->title[i];
 
     // Copy the appended chars into the new string
-    for (i = 0; additional_chars[i]; i++)
+    for (i                              = 0; additional_chars[i]; i++)
         new_string[original_length + i] = additional_chars[i];
 
     // Add the final zero char

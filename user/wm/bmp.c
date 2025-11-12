@@ -17,23 +17,23 @@ enum { BI_RGB = 0, BI_BITFIELDS = 3 };
  */
 int bitmap_load_argb(const char *path, u32 **out_pixels)
 {
-    const int fd = vfs_open(nullptr, path, O_RDONLY);
+    const int fd = open(path, O_RDONLY);
     if (fd == -1) {
         return -1;
     }
 
-    struct stat stat;
-    vfs_stat(nullptr, fd, &stat);
+    struct stat file_stat;
+    fstat(fd, &file_stat);
 
-    if (stat.st_size < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)) {
-        vfs_close(nullptr, fd);
+    if (file_stat.size < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)) {
+        close(fd);
         return -1;
     }
 
-    u8 *buffer = kzalloc(stat.st_size * sizeof(u8));
+    u8 *buffer = malloc(file_stat.size * sizeof(u8));
 
-    vfs_read(nullptr, buffer, stat.st_size, 1, fd);
-    vfs_close(nullptr, fd);
+    read(fd, buffer, file_stat.size);
+    close(fd);
 
     BITMAPFILEHEADER *fh = (BITMAPFILEHEADER *)buffer;
     BITMAPINFOHEADER ih  = *(BITMAPINFOHEADER *)(buffer + sizeof(BITMAPFILEHEADER));
@@ -68,9 +68,9 @@ int bitmap_load_argb(const char *path, u32 **out_pixels)
 
             int destY = top_down ? y : (height - 1 - y);
             for (int x = 0; x < width; x++) {
-                u8 B = row[x * 3 + 0];
-                u8 G = row[x * 3 + 1];
-                u8 R = row[x * 3 + 2];
+                u8 B                             = row[x * 3 + 0];
+                u8 G                             = row[x * 3 + 1];
+                u8 R                             = row[x * 3 + 2];
                 (*out_pixels)[destY * width + x] =
                     (0xFFu << 24) | ((u32)R << 16) | ((u32)G << 8) | (u32)B;
             }
