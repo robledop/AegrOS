@@ -50,6 +50,7 @@ int yield(void);
 int uptime(void);
 int reboot(void);
 int shutdown(void);
+void panic(const char *);
 
 // ulib.c
 int stat(const char *, struct stat *);

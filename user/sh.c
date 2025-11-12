@@ -67,7 +67,6 @@ static char command_history[COMMAND_HISTORY_SIZE][COMMAND_HISTORY_ENTRY_SIZE];
 static int history_count = 0;
 
 int fork1(void); // Fork but panics on failure.
-void panic(char *);
 struct cmd *parsecmd(char *);
 
 // Execute cmd.  Never returns.
@@ -304,12 +303,6 @@ int main(void)
             wait();
         }
     }
-}
-
-void panic(char *s)
-{
-    printf("%s\n", s);
-    exit();
 }
 
 int fork1(void)

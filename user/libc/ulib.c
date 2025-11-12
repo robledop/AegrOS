@@ -53,6 +53,12 @@ void exit(void)
     __builtin_unreachable();
 }
 
+void panic(const char *s)
+{
+    printf("panic: %s\n", s);
+    exit();
+}
+
 char *strcpy(char *s, const char *t)
 {
     char *os = s;
@@ -127,8 +133,8 @@ char *strdup(const char *s)
     if (s == nullptr) {
         return nullptr;
     }
-    u32 len  = strlen(s);
-    char *p  = malloc(len + 1);
+    u32 len = strlen(s);
+    char *p = malloc(len + 1);
     if (p == nullptr) {
         return nullptr;
     }
