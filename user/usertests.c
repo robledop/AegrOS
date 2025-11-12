@@ -5,7 +5,7 @@
 #include "stat.h"
 #include "file.h"
 #include "fcntl.h"
-#include "dirwalk.h"
+#include "include/dirwalk.h"
 #include "syscall.h"
 #include "traps.h"
 #include "memlayout.h"

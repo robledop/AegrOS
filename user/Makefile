@@ -4,39 +4,41 @@ TOOLPREFIX = i686-elf-
 CC = $(TOOLPREFIX)gcc
 AS = nasm
 LD = $(TOOLPREFIX)ld
-INCLUDE = -I../include
+INCLUDE = -I../include -I./include
 CFLAGS = -nostdlib -ffreestanding -fno-pic -static -fno-builtin -fno-strict-aliasing -O0 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -std=gnu23
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
 CFLAGS += -fno-pie -no-pie
 
-ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o build/crt0.o build/crt1.o build/math.o build/time.o build/errno.o
+LIBC = build/ulib.o build/usys.o build/printf.o build/umalloc.o build/dirwalk.o build/crt0.o build/crt1.o build/math.o build/time.o build/errno.o
 
-$(ULIB):
-	$(AS) $(ASFLAGS) -f elf usys.asm -o build/usys.o
-	$(AS) $(ASFLAGS) -f elf crt0.asm -o build/crt0.o
-	$(CC) $(CFLAGS) -c -o build/crt1.o crt1.c
-	$(CC) $(CFLAGS) -c -o build/ulib.o ulib.c
-	$(CC) $(CFLAGS) -c -o build/printf.o printf.c
-	$(CC) $(CFLAGS) -c -o build/umalloc.o umalloc.c
-	$(CC) $(CFLAGS) -c -o build/dirwalk.o dirwalk.c
-	$(CC) $(CFLAGS) -c -o build/math.o math.c
-	$(CC) $(CFLAGS) -c -o build/time.o time.c
-	$(CC) $(CFLAGS) -c -o build/errno.o errno.c
+$(LIBC):
+	$(AS) $(ASFLAGS) -f elf libc/usys.asm -o build/usys.o
+	$(AS) $(ASFLAGS) -f elf libc/crt0.asm -o build/crt0.o
+	$(CC) $(CFLAGS) -c -o build/crt1.o libc/crt1.c
+	$(CC) $(CFLAGS) -c -o build/ulib.o libc/ulib.c
+	$(CC) $(CFLAGS) -c -o build/printf.o libc/printf.c
+	$(CC) $(CFLAGS) -c -o build/umalloc.o libc/umalloc.c
+	$(CC) $(CFLAGS) -c -o build/dirwalk.o libc/dirwalk.c
+	$(CC) $(CFLAGS) -c -o build/math.o libc/math.c
+	$(CC) $(CFLAGS) -c -o build/time.o libc/time.c
+	$(CC) $(CFLAGS) -c -o build/errno.o libc/errno.c
 
 build/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build/%: build/%.o $(ULIB)
+build/wm/%.o: wm/%.c
+	@mkdir -p build/wm
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+WM_OBJS = build/wm/main.o build/wm/desktop.o build/wm/bmp.o build/wm/rect.o build/wm/video_context.o build/wm/window.o
+
+build/wm: $(WM_OBJS) $(LIBC)
 	$(LD) $(LDFLAGS) -Ttext 0 -o $@ $^
 
-build/forktest: build/forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -Ttext 0 -o build/forktest \
-		build/forktest.o build/ulib.o build/usys.o build/crt0.o \
-		build/crt1.o build/math.o build/printf.o build/umalloc.o build/errno.o
+build/%: build/%.o $(LIBC)
+	$(LD) $(LDFLAGS) -Ttext 0 -o $@ $^
 
 UPROGS=\
 	build/cat\
@@ -59,6 +61,7 @@ UPROGS=\
 	build/fbline\
 	build/edit\
 	build/getwinsz\
+	build/wm\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/

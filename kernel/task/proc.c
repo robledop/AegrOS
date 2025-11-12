@@ -427,7 +427,6 @@ void procdump(void)
         } else {
             state = "???";
         }
-        printf("\n");
         printf(KYEL "%s " KWHT "pid: %d, state: %s", p->name, p->pid, state);
         if (p->state == SLEEPING) {
             printf("\nStack trace:\n");

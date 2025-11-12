@@ -4,48 +4,60 @@
 #include "user.h"
 
 #define N 1000
+#define number 40
 
-void my_printf(int fd, const char *s, ...)
+// Fibonacci recursive
+u64 fib(u64 n)
 {
-    write(fd, s, strlen(s));
+    if (n <= 1) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
 }
 
 void forktest(void)
 {
     int n;
 
-    my_printf(1, "fork test\n");
+    printf("fork test\n");
+    printf("launching a bunch of processes that calculate the 40th fibonacci number using recursion\n");
 
     for (n = 0; n < N; n++) {
         int pid = fork();
         if (pid < 0) {
-            my_printf(1, "0");
+            printf("!");
             break;
         }
         if (pid == 0) {
-            my_printf(1, ".");
+            printf(".");
+            fib((u64)number);
+            printf("+");
             exit();
         }
     }
 
     if (n == N) {
-        my_printf(1, "fork claimed to work N times!\n", N);
+        printf("fork claimed to work %d times!\n", N);
         exit();
     }
 
+    int total = 0;
     for (; n > 0; n--) {
         if (wait() < 0) {
-            my_printf(1, "wait stopped early\n");
+            printf("wait stopped early\n");
             exit();
         }
+        total++;
     }
 
+    printf("\nfork worked %d times\n", total);
+
     if (wait() != -1) {
-        my_printf(1, "wait got too many\n");
+        printf("wait got too many\n");
         exit();
     }
 
-    my_printf(1, "\nfork test OK\n");
+    printf("fork test OK\n");
 }
 
 int main(void)

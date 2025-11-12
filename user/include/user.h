@@ -2,8 +2,8 @@
 #include <types.h>
 #include "printf.h"
 #include "mman.h"
-#include "termios.h"
-#include "sys/ioctl.h"
+#include <termios.h>
+#include <sys/ioctl.h>
 struct stat;
 struct rtcdate;
 typedef void (*atexit_function)(void);

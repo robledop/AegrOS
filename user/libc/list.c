@@ -1,0 +1,151 @@
+#include <list.h>
+#include <user.h>
+
+list_t *list_new()
+{
+    auto list = (list_t *)malloc(sizeof(list_t));
+    if (!list) {
+        return list;
+    }
+
+    list->count     = 0;
+    list->root_node = nullptr;
+
+    return list;
+}
+
+// Insert a payload at the end of the list
+// Zero is fail, one is success
+int list_add(list_t *list, void *payload)
+{
+    auto new_node = list_node_new(payload);
+    if (!new_node) {
+        return 0;
+    }
+
+    // If there aren't any items in the list yet, assign the
+    // new item to the root node
+    if (!list->root_node) {
+
+        list->root_node = new_node;
+    } else {
+
+        // Otherwise, we'll find the last node and add our new node after it
+        list_node_t *current_node = list->root_node;
+
+        // Fast forward to the end of the list
+        while (current_node->next)
+            current_node = current_node->next;
+
+        // Make the last node and first node point to each other
+        current_node->next = new_node;
+        new_node->prev     = current_node;
+    }
+
+    // Update the number of items in the list and return success
+    list->count++;
+
+    return 1;
+}
+
+// Get the payload of the list item at the given index
+// Indices are zero-based
+void *list_get_at(list_t *list, unsigned int index)
+{
+    // If there's nothing in the list or we're requesting beyond the end of
+    // the list, return nothing
+    if (list->count == 0 || index >= list->count) {
+        return nullptr;
+    }
+
+    // Iterate through the items in the list until we hit our index
+    list_node_t *current_node = list->root_node;
+
+    // Iteration, making sure we don't hang on malformed lists
+    for (unsigned int current_index = 0; (current_index < index) && current_node; current_index++)
+        current_node = current_node->next;
+
+    // Return the payload, guarding against malformed lists
+    return current_node ? current_node->payload : nullptr;
+}
+
+int list_find(list_t *list, void *payload)
+{
+    if (list->count == 0) {
+        return -1;
+    }
+
+    list_node_t *current_node = list->root_node;
+
+    for (unsigned int current_index = 0; current_index < list->count && current_node; current_index++) {
+
+        if (current_node->payload == payload) {
+            return (int)current_index;
+        }
+
+        current_node = current_node->next;
+    }
+
+    return -1;
+}
+
+void list_free(list_t *list)
+{
+    while (list->count) {
+        free(list_remove_at(list, 0));
+    }
+    free(list);
+}
+
+// Remove the item at the specified index from the list and return the item that
+// was removed
+// Indices are zero-based
+void *list_remove_at(list_t *list, unsigned int index)
+{
+    // Bounds check
+    if (list->count == 0 || index >= list->count) {
+        return nullptr;
+    }
+
+    // Iterate through the items
+    list_node_t *current_node = list->root_node;
+
+    for (unsigned int current_index = 0; (current_index < index) && current_node; current_index++)
+        current_node = current_node->next;
+
+    // This is where we differ from list_get_at by stashing the payload,
+    // re-pointing the current node's neighbors to each other and
+    // freeing the removed node
+
+    // Return early if we got a null node somehow
+    if (!current_node) {
+        return nullptr;
+    }
+
+    // Stash the payload so we don't lose it when we delete the node
+    void *payload = current_node->payload;
+
+    // Re-point neighbors to each other
+    if (current_node->prev) {
+        current_node->prev->next = current_node->next;
+    }
+
+    if (current_node->next) {
+        current_node->next->prev = current_node->prev;
+    }
+
+    // If the item was the root item, we need to make
+    // the node following it the new root
+    if (index == 0) {
+        list->root_node = current_node->next;
+    }
+
+    // Now that we've clipped the node out of the list, we must free its memory
+    free(current_node);
+
+    // Make sure the count of items is up-to-date
+    list->count--;
+
+    // Finally, return the payload
+    return payload;
+}

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "types.h"
+#include <types.h>
 
 #define time_t long long int
 
-struct tm {
+struct tm
+{
     int tm_sec;   // seconds after the minute - [0, 60] including leap second
     int tm_min;   // minutes after the hour - [0, 59]
     int tm_hour;  // hours since midnight - [0, 23]

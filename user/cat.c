@@ -1,4 +1,4 @@
-#include "user.h"
+#include <user.h>
 
 char buf[512];
 
@@ -8,12 +8,12 @@ void cat(int fd)
 
     while ((n = read(fd, buf, sizeof(buf))) > 0) {
         if (write(1, buf, n) != n) {
-            printf( "cat: write error\n");
+            printf("cat: write error\n");
             exit();
         }
     }
     if (n < 0) {
-        printf( "cat: read error\n");
+        printf("cat: read error\n");
         exit();
     }
 }
@@ -29,11 +29,11 @@ int main(int argc, char *argv[])
 
     for (int i = 1; i < argc; i++) {
         if ((fd = open(argv[i], 0)) < 0) {
-            printf( "cat: cannot open %s\n", argv[i]);
+            printf("cat: cannot open %s\n", argv[i]);
             exit();
         }
         cat(fd);
-        printf( "\n");
+        printf("\n");
         close(fd);
     }
     exit();
