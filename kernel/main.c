@@ -14,6 +14,8 @@
 #include "pci.h"
 #include "scheduler.h"
 #include "framebuffer.h"
+#include "keyboard.h"
+#include "mouse.h"
 #include "x86.h"
 
 /** @brief Start the non-boot (AP) processors. */
@@ -62,7 +64,7 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     lapicinit();    // interrupt controller
     seginit();      // segment descriptors
     picinit();      // disable pic
-    ioapicinit();   // another interrupt controller
+    ioapic_int();   // another interrupt controller
     console_init(); // console hardware
     uart_init();    // serial port
     cpu_print_info();
@@ -76,7 +78,9 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     kernel_enable_mmio_propagation();
     pci_scan();
     user_init(); // first user process
-    mpmain();    // finish this processor's setup
+    // ps2_keyboard_init();
+    mouse_init(nullptr);
+    mpmain(); // finish this processor's setup
 }
 
 /**

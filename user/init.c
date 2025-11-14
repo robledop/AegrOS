@@ -23,6 +23,13 @@ int main(void)
         close(fbfd);
     }
 
+    int mousefd;
+    if ((mousefd = open("/dev/mouse", O_RDWR)) < 0) {
+        mknod("/dev/mouse", 3, 0);
+    } else {
+        close(mousefd);
+    }
+
     for (;;) {
         printf("init: starting sh\n");
         int pid = fork();

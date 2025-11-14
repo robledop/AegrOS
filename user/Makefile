@@ -61,6 +61,7 @@ UPROGS=\
 	build/fbline\
 	build/edit\
 	build/getwinsz\
+	build/mousetest\
 	build/startwm\
 
 all: $(UPROGS)

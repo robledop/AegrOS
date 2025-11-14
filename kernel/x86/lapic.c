@@ -201,7 +201,7 @@ int lapicid(void)
 }
 
 /** @brief Acknowledge completion of the current interrupt to the LAPIC. */
-void lapiceoi(void)
+void lapic_ack_interrupt(void)
 {
     if (lapic) {
         lapicw(EOI, 0);

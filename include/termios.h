@@ -17,9 +17,11 @@
 #define IEXTEN 0x0400
 #define ISIG   0x0001
 
-#define NCCS 2
-#define VMIN 0
-#define VTIME 1
+#define NCCS 4 // Number of control characters
+#define VMIN 0 // Minimum number of bytes for non-canonical read
+#define VTIME 1 // Timeout in deciseconds for non-canonical read
+#define VINTR 2 // Interrupt character
+#define VQUIT 3 // Quit character
 
 #define TCSAFLUSH 0
 

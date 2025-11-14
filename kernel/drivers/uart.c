@@ -35,7 +35,7 @@ void uart_init(void)
     // enable interrupts.
     inb(COM1 + 2);
     inb(COM1 + 0);
-    ioapicenable(IRQ_COM1, 0);
+    enable_ioapic_interrupt(IRQ_COM1, 0);
 
     // Announce that we're here.
     for (char *p = "AegrOS...\n"; *p; p++) {

@@ -33,6 +33,7 @@
 
 #define IRQ_TIMER        0
 #define IRQ_KBD          1
+#define IRQ_MOUSE        12
 #define IRQ_COM1         4
 #define IRQ_IDE         14
 #define IRQ_ERROR       19
@@ -40,6 +41,6 @@
 
 #define TOTAL_INTERRUPTS 256
 
-typedef void (*INTERRUPT_CALLBACK_FUNCTION)(struct trapframe* frame);
+typedef void (*INTERRUPT_CALLBACK_FUNCTION)(struct trapframe *frame);
 
 void idt_register_interrupt_callback(int interrupt, INTERRUPT_CALLBACK_FUNCTION interrupt_callback);

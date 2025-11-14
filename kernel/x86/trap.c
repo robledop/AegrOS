@@ -125,25 +125,25 @@ void timer_handler([[maybe_unused]] struct trapframe *tf)
         wakeup((void *)&ticks);
         release(&tickslock);
     }
-    lapiceoi(); // Acknowledge the interrupt
+    lapic_ack_interrupt(); // Acknowledge the interrupt
 }
 
 void ide_handler([[maybe_unused]] struct trapframe *tf)
 {
     ideintr();
-    lapiceoi(); // Acknowledge the interrupt
+    lapic_ack_interrupt(); // Acknowledge the interrupt
 }
 
 void keyboard_handler([[maybe_unused]] struct trapframe *tf)
 {
-    kbdintr();
-    lapiceoi(); // Acknowledge the interrupt
+    keyboard_interrupt_handler();
+    lapic_ack_interrupt(); // Acknowledge the interrupt
 }
 
 void uart_handler([[maybe_unused]] struct trapframe *tf)
 {
     uartintr();
-    lapiceoi(); // Acknowledge the interrupt
+    lapic_ack_interrupt(); // Acknowledge the interrupt
 }
 
 void spurious_handler(struct trapframe *tf)
@@ -152,7 +152,7 @@ void spurious_handler(struct trapframe *tf)
            cpu_index(),
            tf->cs,
            tf->eip);
-    lapiceoi();
+    lapic_ack_interrupt();
 }
 
 /**

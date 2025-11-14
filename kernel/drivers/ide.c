@@ -77,7 +77,7 @@ static int idewait_drq(void)
 void ide_init(void)
 {
     initlock(&idelock, "ide");
-    ioapicenable(IRQ_IDE, ncpu - 1);
+    enable_ioapic_interrupt(IRQ_IDE, ncpu - 1);
     idewait(0);
 
     // Check if disk 1 is present

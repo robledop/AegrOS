@@ -1,0 +1,627 @@
+#include <wm/video_context.h>
+#include <wm/vterm.h>
+#include <wm/window.h>
+#include <list.h>
+#include "wm/desktop.h"
+#include <user.h>
+#include <types.h>
+
+#define VTERM_WIDTH 800
+#define VTERM_HEIGHT 400
+
+bool vterm_param_escaping = false;
+bool vterm_param_inside   = false;
+int vterm_params[10]      = {0};
+int vterm_param_count     = 1;
+
+int vterm_forecolor = 0xFFFFFF;
+int vterm_backcolor = DESKTOP_BACKGROUND_COLOR;
+
+
+static void vterm_emit_char(vterm_t *vterm, char c, bool batched);
+static void vterm_flush_dirty(vterm_t *vterm);
+
+/**
+ * @brief Reset ANSI escape parsing state for the virtual terminal.
+ */
+void vterm_reset()
+{
+    vterm_param_escaping = false;
+    vterm_param_inside   = false;
+
+    vterm_param_inside = 0;
+    memset(vterm_params, 0, sizeof(vterm_params));
+    vterm_param_count = 1;
+}
+
+
+/**
+ * @brief Convert an ANSI colour code to an RGB value.
+ *
+ * @param ansi ANSI colour code (30-37 or 40-47).
+ * @param bold Whether to return the bright/bold variant.
+ * @return RGB colour mapped from the ANSI code.
+ */
+int vterm_ansi_to_rgb(int ansi, bool bold)
+{
+    switch (ansi) {
+    case 30:
+        return 0x000000; // Black
+    case 31:
+        return bold ? 0xFF0000 : 0x990000; // Red
+    case 32:
+        return bold ? 0x00FF00 : 0x009900; // Green
+    case 33:
+        return bold ? 0xFFFF22 : 0x999900; // Yellow
+    case 34:
+        return bold ? 0x8888FF : 0x555599; // Blue
+    case 35:
+        return bold ? 0xFF00FF : 0x990099; // Magenta
+    case 36:
+        return bold ? 0x00FFFF : 0x009999; // Cyan
+    case 37:
+        return bold ? 0xFFFFFF : 0xaaaaaa; // White
+    default:
+        return 0x000000; // Fallback: black
+    }
+}
+
+/**
+ * @brief Clear the terminal buffer and repaint the window.
+ *
+ * @param vterm Virtual terminal instance.
+ */
+void vterm_clear_screen(struct vterm *vterm)
+{
+    u16 width  = vterm->window.width - (2 * WIN_BORDER_WIDTH);
+    u16 height = vterm->window.height - (WIN_TITLE_HEIGHT + (2 * WIN_BORDER_WIDTH));
+
+    int buffer_width  = width / VESA_CHAR_WIDTH;
+    int buffer_height = height / VESA_LINE_HEIGHT;
+
+    memset(vterm->buffer, 0, buffer_width * buffer_height * sizeof(char));
+    memset(vterm->color_buffer, 0, buffer_width * buffer_height * sizeof(u32));
+    vterm->cursor_x = 0;
+    vterm->cursor_y = 0;
+
+    vterm->needs_full_repaint = true;
+    vterm_flush_dirty(vterm);
+}
+
+/**
+ * @brief Process an ANSI escape parameter byte.
+ *
+ * @param vterm Virtual terminal instance.
+ * @param c Parameter character.
+ * @return true when the escape sequence is complete, false otherwise.
+ */
+bool vterm_param_process(vterm_t *vterm, const int c)
+{
+    if (c >= '0' && c <= '9') {
+        vterm_params[vterm_param_count - 1] = vterm_params[vterm_param_count - 1] * 10 + (c - '0');
+
+        return false;
+    }
+
+    if (c == ';') {
+        vterm_param_count++;
+
+        return false;
+    }
+
+    switch (c) {
+    case 'A': // Cursor up
+        vterm->cursor_y++;
+        break;
+    case 'B': // Cursor down
+        vterm->cursor_y--;
+        break;
+    case 'C': // Cursor forward
+        vterm->cursor_x++;
+        break;
+    case 'D': // Cursor back
+        vterm->cursor_x--;
+        break;
+    case 'H':
+        const int row = vterm_params[0];
+        const int col   = vterm_params[1];
+        vterm->cursor_x = col;
+        vterm->cursor_y = row;
+        break;
+    case 'J':
+        switch (vterm_params[0]) {
+        case 2:
+            vterm_clear_screen(vterm);
+            break;
+        default:
+            // Not implemented
+            break;
+        }
+        break;
+    case 'm':
+        static bool bold = false;
+        // static int blinking = 0;
+
+        for (int i = 0; i < vterm_param_count; i++) {
+            switch (vterm_params[i]) {
+            case 0:
+                // blinking = 0;
+                bold = false;
+                break;
+            case 1:
+                bold = true;
+                break;
+            case 5:
+                // blinking = 1;
+                break;
+            case 22:
+                bold = false;
+                break;
+            case 25:
+                // blinking = 0;
+                break;
+            default:
+                if (vterm_params[i] >= 30 && vterm_params[i] <= 47) {
+
+                    if (vterm_params[i] >= 30 && vterm_params[i] <= 37) {
+                        vterm->color_buffer[vterm->cursor_y * (vterm->buffer_width) + vterm->cursor_x] =
+                            vterm_ansi_to_rgb(vterm_params[i], bold);
+                    } else if (vterm_params[i] >= 40 && vterm_params[i] <= 47) {
+                        vterm_backcolor = vterm_ansi_to_rgb(vterm_params[i], false);
+                    }
+
+                    // attribute = ((blinking & 1) << 7) | ((backcolor & 0x07) << 4) | (forecolor & 0x0F);
+                }
+            }
+        }
+        break;
+
+    default:
+        // Not implemented
+
+
+
+    }
+
+    return true;
+}
+
+/**
+ * @brief Handle ANSI escape state transitions and parameter parsing.
+ *
+ * @param vterm Virtual terminal instance.
+ * @param c Character to handle.
+ * @return true if the character was consumed as part of an escape sequence.
+ */
+bool vterm_handle_ansi_escape(vterm_t *vterm, const int c)
+{
+    if (c == 0x1B) {
+        vterm_reset();
+        vterm_param_escaping = true;
+        return true;
+    }
+
+    if (vterm_param_escaping && c == '[') {
+        vterm_reset();
+        vterm_param_escaping = true;
+        vterm_param_inside   = true;
+        return true;
+    }
+
+    if (vterm_param_escaping && vterm_param_inside) {
+        if (vterm_param_process(vterm, c)) {
+            vterm_reset();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * @brief Scroll the terminal buffer up by one line when the cursor reaches the bottom.
+ */
+static void vterm_scroll_up(vterm_t *vterm)
+{
+    u16 width  = vterm->window.width - (2 * WIN_BORDER_WIDTH);
+    u16 height = vterm->window.height - (WIN_TITLE_HEIGHT + (2 * WIN_BORDER_WIDTH));
+
+    int buffer_width  = width / VESA_CHAR_WIDTH;
+    int buffer_height = height / VESA_LINE_HEIGHT;
+
+    // Move all lines up by one
+    memmove(vterm->buffer, vterm->buffer + buffer_width, (buffer_height - 1) * buffer_width * sizeof(char));
+    memmove(
+        vterm->color_buffer,
+        vterm->color_buffer + buffer_width,
+        (buffer_height - 1) * buffer_width * sizeof(u32));
+
+    // Clear the last line
+    memset(vterm->buffer + (buffer_height - 1) * buffer_width, 0, buffer_width * sizeof(char));
+    memset(vterm->color_buffer + (buffer_height - 1) * buffer_width, 0, buffer_width * sizeof(u32));
+
+    vterm->cursor_y = buffer_height - 2;
+}
+
+/**
+ * @brief Compute the screen rectangle occupied by a character cell.
+ */
+static void vterm_get_char_cell(vterm_t *vterm, int cursor_x, int cursor_y, rect_t *out_rect)
+{
+    out_rect->top    = vterm->window.y + WIN_TITLE_HEIGHT + cursor_y * VESA_LINE_HEIGHT;
+    out_rect->left   = vterm->window.x + WIN_BORDER_WIDTH + cursor_x * VESA_CHAR_WIDTH;
+    out_rect->bottom = out_rect->top + VESA_LINE_HEIGHT;
+    out_rect->right  = out_rect->left + VESA_CHAR_WIDTH;
+
+    // For debugging
+#if 0
+    context_draw_rect(vterm->window.context,
+                      out_rect->left - 1,
+                      out_rect->top - 1,
+                      out_rect->right - out_rect->left + 2,
+                      out_rect->bottom - out_rect->top + 2,
+                      0xFF00FF00);
+#endif
+}
+
+/**
+ * @brief Repaint the previous and current cursor characters after movement.
+ */
+static void vterm_repaint_characters(struct vterm *vterm, int old_cursor_x, int old_cursor_y)
+{
+    rect_t rect_storage[2];
+    list_node_t node_storage[2];
+    list_t dirty_regions = {0};
+    list_node_t *tail    = nullptr;
+
+    // Always repaint the previous cursor position
+    vterm_get_char_cell(vterm, old_cursor_x, old_cursor_y, &rect_storage[0]);
+    node_storage[0].payload = &rect_storage[0];
+    node_storage[0].prev    = nullptr;
+    node_storage[0].next    = nullptr;
+    dirty_regions.root_node = &node_storage[0];
+    dirty_regions.count     = 1;
+    tail                    = &node_storage[0];
+
+    // Repaint the new cursor position if it differs
+    if (old_cursor_x != vterm->cursor_x || old_cursor_y != vterm->cursor_y) {
+        vterm_get_char_cell(vterm, vterm->cursor_x, vterm->cursor_y, &rect_storage[1]);
+        node_storage[1].payload = &rect_storage[1];
+        node_storage[1].prev    = tail;
+        node_storage[1].next    = nullptr;
+        tail->next              = &node_storage[1];
+        dirty_regions.count++;
+    }
+
+    window_paint((window_t *)vterm, &dirty_regions, 1);
+}
+
+/**
+ * @brief Paint callback that renders the terminal buffer to the window.
+ */
+void vterm_paint(window_t *window)
+{
+    auto vterm           = (vterm_t *)window;
+    u16 buffer_width     = window->width / VESA_CHAR_WIDTH;
+    u16 buffer_height    = window->height / VESA_LINE_HEIGHT;
+    vterm->buffer_width  = buffer_width;
+    vterm->buffer_height = buffer_height;
+
+    u32 last_color = 0xFFFFFFFF;
+
+    context_fill_rect(window->context, 0, 0, window->width, window->height, 0xFF000000);
+    for (int y = 0; y < buffer_height; y++) {
+        for (int x = 0; x < buffer_width; x++) {
+            auto cur_char  = vterm->buffer[y * buffer_width + x];
+            auto cur_color = vterm->color_buffer[y * buffer_width + x];
+            if (cur_color == 0) {
+                cur_color = last_color;
+            } else {
+                last_color = cur_color;
+            }
+            if (cur_char != 0) {
+                context_draw_char(window->context, cur_char, x * VESA_CHAR_WIDTH, y * VESA_LINE_HEIGHT, cur_color);
+            }
+        }
+    }
+}
+
+/**
+ * @brief Write a character to the terminal, handling control sequences.
+ *
+ * @param vterm Target virtual terminal.
+ * @param c Character to display.
+ */
+void vterm_putchar(struct vterm *vterm, char c)
+{
+    vterm_emit_char(vterm, c, false);
+}
+
+
+static vterm_t *active_vterm;
+
+static inline int vterm_buffer_columns(const vterm_t *vterm)
+{
+    const int width = vterm->window.width - (2 * WIN_BORDER_WIDTH);
+    return width / VESA_CHAR_WIDTH;
+}
+
+static inline int vterm_buffer_rows(const vterm_t *vterm)
+{
+    const int height = vterm->window.height - (WIN_TITLE_HEIGHT + (2 * WIN_BORDER_WIDTH));
+    return height / VESA_LINE_HEIGHT;
+}
+
+static void vterm_mark_dirty(vterm_t *vterm, int col, int row)
+{
+    if (col < 0 || row < 0) {
+        return;
+    }
+
+    if (!vterm->has_dirty_region) {
+        vterm->dirty_min_col    = col;
+        vterm->dirty_max_col    = col;
+        vterm->dirty_min_row    = row;
+        vterm->dirty_max_row    = row;
+        vterm->has_dirty_region = true;
+        return;
+    }
+
+    if (col < vterm->dirty_min_col) {
+        vterm->dirty_min_col = col;
+    }
+    if (col > vterm->dirty_max_col) {
+        vterm->dirty_max_col = col;
+    }
+    if (row < vterm->dirty_min_row) {
+        vterm->dirty_min_row = row;
+    }
+    if (row > vterm->dirty_max_row) {
+        vterm->dirty_max_row = row;
+    }
+}
+
+static void vterm_emit_char(vterm_t *vterm, char c, bool batched)
+{
+    if (vterm_handle_ansi_escape(vterm, c)) {
+        return;
+    }
+
+    const int cols = vterm_buffer_columns(vterm);
+    const int rows = vterm_buffer_rows(vterm);
+
+    int old_cursor_x = vterm->cursor_x;
+    int old_cursor_y = vterm->cursor_y;
+
+    const bool cursor_was_at_line_end = vterm->cursor_x >= cols;
+
+    if (cursor_was_at_line_end || c == '\n') {
+        vterm->cursor_x = 0;
+        vterm->cursor_y++;
+    } else if (c == '\b') {
+        if (vterm->cursor_x > 0) {
+            vterm->cursor_x--;
+            vterm->buffer[vterm->cursor_y * cols + vterm->cursor_x] = 0;
+        }
+    } else if (c == '\t') {
+        vterm->cursor_x += 4;
+        if (vterm->cursor_x >= cols) {
+            vterm->cursor_x = 0;
+            vterm->cursor_y++;
+        }
+    } else if (c == '\r') {
+        vterm->cursor_x = 0;
+    } else {
+        const int index = vterm->cursor_y * cols + vterm->cursor_x;
+        if (index >= 0 && index < cols * rows) {
+            vterm->buffer[index] = c;
+        }
+        if (batched) {
+            vterm_mark_dirty(vterm, vterm->cursor_x, vterm->cursor_y);
+        }
+        vterm->cursor_x++;
+        if (vterm->cursor_x >= cols) {
+            vterm->cursor_x = 0;
+            vterm->cursor_y++;
+        }
+    }
+
+    if (vterm->cursor_y >= rows - 1) {
+        vterm_scroll_up(vterm);
+        if (batched) {
+            vterm->needs_full_repaint = true;
+        } else {
+            window_paint((window_t *)vterm, nullptr, 1);
+        }
+        return;
+    }
+
+    if (batched) {
+        vterm_mark_dirty(vterm, old_cursor_x, old_cursor_y);
+        vterm_mark_dirty(vterm, vterm->cursor_x, vterm->cursor_y);
+    } else {
+        vterm_repaint_characters(vterm, old_cursor_x, old_cursor_y);
+    }
+}
+
+static void vterm_write_range(vterm_t *vterm, const char *data, size_t length, bool batched)
+{
+    if (!data || length == 0) {
+        return;
+    }
+
+    for (size_t i = 0; i < length; i++) {
+        vterm_emit_char(vterm, data[i], batched);
+    }
+}
+
+static void vterm_flush_dirty(vterm_t *vterm)
+{
+    if (vterm->needs_full_repaint) {
+        window_paint((window_t *)vterm, nullptr, 1);
+        vterm->needs_full_repaint = false;
+        vterm->has_dirty_region   = false;
+        return;
+    }
+
+    if (!vterm->has_dirty_region) {
+        return;
+    }
+
+    rect_t rect;
+    rect.left   = vterm->window.x + WIN_BORDER_WIDTH + vterm->dirty_min_col * VESA_CHAR_WIDTH;
+    rect.top    = vterm->window.y + WIN_TITLE_HEIGHT + vterm->dirty_min_row * VESA_LINE_HEIGHT;
+    rect.right  = vterm->window.x + WIN_BORDER_WIDTH + (vterm->dirty_max_col + 1) * VESA_CHAR_WIDTH;
+    rect.bottom = vterm->window.y + WIN_TITLE_HEIGHT + (vterm->dirty_max_row + 1) * VESA_LINE_HEIGHT;
+
+    list_node_t node = {
+        .payload = &rect,
+        .prev = nullptr,
+        .next = nullptr,
+    };
+    list_t dirty_regions = {
+        .count = 1,
+        .root_node = &node,
+    };
+
+    window_paint((window_t *)vterm, &dirty_regions, 1);
+    vterm->has_dirty_region = false;
+}
+
+void vterm_set_active(vterm_t *vterm)
+{
+    active_vterm = vterm;
+    if (vterm) {
+        vterm->needs_full_repaint = true;
+    }
+}
+
+vterm_t *vterm_active(void)
+{
+    return active_vterm;
+}
+
+static bool should_flush_immediately(const char *data, size_t length)
+{
+    if (length == 0) {
+        return false;
+    }
+
+    // Short inputs (typing) benefit from immediate feedback.
+    if (length <= 4) {
+        return true;
+    }
+
+    // Treat newline-terminated input as short commands; flush immediately.
+    if (data[length - 1] == '\n' && length <= 16) {
+        return true;
+    }
+
+    return false;
+}
+
+void vterm_write(vterm_t *vterm, const char *data, size_t length)
+{
+    if (should_flush_immediately(data, length)) {
+        vterm_write_range(vterm, data, length, false);
+        vterm_flush_dirty(vterm);
+        return;
+    }
+
+    vterm_write_range(vterm, data, length, true);
+}
+
+void vterm_flush(vterm_t *vterm)
+{
+    vterm_flush_dirty(vterm);
+    if (!vterm->has_dirty_region && !vterm->needs_full_repaint) {
+        const int cols = vterm_buffer_columns(vterm);
+        const int rows = vterm_buffer_rows(vterm);
+
+        if (cols > 0 && rows > 0) {
+            int col = vterm->cursor_x;
+            int row = vterm->cursor_y;
+
+            if (col >= cols) {
+                col = cols - 1;
+            }
+            if (row >= rows) {
+                row = rows - 1;
+            }
+
+            if (col >= 0 && row >= 0) {
+                rect_t rect;
+                rect.left   = vterm->window.x + WIN_BORDER_WIDTH + col * VESA_CHAR_WIDTH;
+                rect.top    = vterm->window.y + WIN_TITLE_HEIGHT + row * VESA_LINE_HEIGHT;
+                rect.right  = rect.left + VESA_CHAR_WIDTH;
+                rect.bottom = rect.top + VESA_LINE_HEIGHT;
+
+                list_node_t node = {
+                    .payload = &rect,
+                    .prev = nullptr,
+                    .next = nullptr,
+                };
+                list_t dirty = {
+                    .count = 1,
+                    .root_node = &node,
+                };
+
+                window_paint((window_t *)vterm, &dirty, 1);
+            }
+        }
+    }
+}
+
+/**
+ * @brief Create a new terminal window with backing buffers.
+ *
+ * @return Pointer to the newly allocated terminal or nullptr on failure.
+ */
+vterm_t *vterm_new()
+{
+    auto vterm = (vterm_t *)malloc(sizeof(vterm_t));
+    if (!vterm) {
+        return vterm;
+    }
+
+    u16 width  = VTERM_WIDTH;
+    u16 height = VTERM_HEIGHT;
+
+    if (!window_init((window_t *)vterm,
+                     0,
+                     0,
+                     (2 * WIN_BORDER_WIDTH) + width,
+                     WIN_TITLE_HEIGHT + WIN_BORDER_WIDTH + height,
+                     0,
+                     nullptr)) {
+
+        free(vterm);
+        return nullptr;
+    }
+
+    u16 buffer_width  = width / VESA_CHAR_WIDTH;
+    u16 buffer_height = height / VESA_LINE_HEIGHT;
+
+    vterm->buffer = (char *)malloc(buffer_width * buffer_height * sizeof(char));
+    if (!vterm->buffer) {
+        free(vterm);
+        return nullptr;
+    }
+
+    memset(vterm->buffer, 0, buffer_width * buffer_height * sizeof(char));
+
+    vterm->color_buffer = (u32 *)malloc(buffer_width * buffer_height * sizeof(u32));
+    if (!vterm->color_buffer) {
+        free(vterm->buffer);
+        free(vterm);
+        return nullptr;
+    }
+
+    window_set_title((window_t *)vterm, "Terminal");
+    vterm->putchar               = vterm_putchar;
+    vterm->window.paint_function = vterm_paint;
+    vterm->clear_screen          = vterm_clear_screen;
+
+    vterm_set_active(vterm);
+    return vterm;
+}

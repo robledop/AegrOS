@@ -23,6 +23,7 @@
 #include "termios.h"
 #include "sys/ioctl.h"
 #include "ansi.h"
+#include "proc.h"
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -419,6 +420,8 @@ void console_init(void)
     console_termios_state.c_lflag     = ECHO | ICANON | IEXTEN | ISIG;
     console_termios_state.c_cc[VMIN]  = 1;
     console_termios_state.c_cc[VTIME] = 0;
+    console_termios_state.c_cc[VINTR] = CTRL('C');
+    console_termios_state.c_cc[VQUIT] = CTRL('\\');
     console_apply_termios();
 
 #ifdef GRAPHICS
@@ -432,7 +435,7 @@ void console_init(void)
     console_winsize_state.ws_xpixel = 0;
     console_winsize_state.ws_ypixel = 0;
 
-    ioapicenable(IRQ_KBD, 0);
+    enable_ioapic_interrupt(IRQ_KBD, 0);
 }
 
 int console_tcgetattr(struct termios *out)

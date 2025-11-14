@@ -4,6 +4,7 @@
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
+#include "printf.h"
 #include "termcolors.h"
 
 
@@ -64,7 +65,8 @@ struct backcmd
 
 
 static char command_history[COMMAND_HISTORY_SIZE][COMMAND_HISTORY_ENTRY_SIZE];
-static int history_count = 0;
+static int history_count         = 0;
+static volatile int intr_pending = 0;
 
 int fork1(void); // Fork but panics on failure.
 struct cmd *parsecmd(char *);
@@ -156,6 +158,14 @@ void shell_terminal_readline(char *out, const int max, const bool output_while_t
             continue;
         }
 
+        // if (key == 3) {
+        //     // Ctrl-C
+        //     printf("^C\n");
+        //     intr_pending = 1;
+        //     out[0]       = 0;
+        //     return;
+        // }
+
         // Up arrow
         if (key == 226) {
             if (current_history_index == 0) {
@@ -226,6 +236,7 @@ void shell_terminal_readline(char *out, const int max, const bool output_while_t
 int main(void)
 {
     int fd;
+    int child_pid = -1;
 
     // Ensure that three file descriptors are open.
     while ((fd = open("/dev/console", O_RDWR)) >= 0) {
@@ -245,6 +256,14 @@ int main(void)
 
         char buf[MAX_COMMAND_LENGTH] = {0};
         shell_terminal_readline(buf, sizeof(buf), false);
+
+        // if (intr_pending) {
+        //     intr_pending = 0;
+        //     if (child_pid > 0) {
+        //         kill(child_pid);
+        //     }
+        //     continue;
+        // }
 
         if (strlen((char *)buf) != 0) {
             u32 copy_len = sizeof(command_history[0]);
@@ -296,7 +315,8 @@ int main(void)
             buf[strlen((char *)buf) - 2] = 0x00;
         }
 
-        if (fork1() == 0) {
+        child_pid = fork1();
+        if (child_pid == 0) {
             runcmd(parsecmd(buf));
         }
         if (!return_immediately) {

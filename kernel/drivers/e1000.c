@@ -298,7 +298,7 @@ void e1000_interrupt_handler(struct trapframe *frame)
         }
 
         e1000_write_command(REG_IMS, E1000_IMS_ENABLE_MASK);
-        lapiceoi();
+        lapic_ack_interrupt();
     }
 }
 
@@ -339,7 +339,7 @@ bool e1000_start()
         e1000_write_command(REG_MTA + i * 4, 0);
     }
 
-    ioapicenable(pci_device.header.irq, 0);
+    enable_ioapic_interrupt(pci_device.header.irq, 0);
     idt_register_interrupt_callback(IRQ0 + pci_device.header.irq, e1000_interrupt_handler);
     e1000_enable_interrupt();
     e1000_rx_init();

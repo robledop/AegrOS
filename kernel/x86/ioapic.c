@@ -44,7 +44,7 @@ struct ioapic
  * @return Contents of the requested register.
  */
 static u32
-ioapicread(int reg)
+ioapic_read(int reg)
 {
     ioapic->reg = reg;
     return ioapic->data;
@@ -56,19 +56,18 @@ ioapicread(int reg)
  * @param reg Register index to write.
  * @param data Value to store.
  */
-static void
-ioapicwrite(int reg, u32 data)
+static void ioapic_write(int reg, u32 data)
 {
     ioapic->reg  = reg;
     ioapic->data = data;
 }
 
 /** @brief Initialize the I/O APIC and mask all interrupts. */
-void ioapicinit(void)
+void ioapic_int(void)
 {
     ioapic      = (volatile struct ioapic *)IOAPIC;
-    int maxintr = (ioapicread(REG_VER) >> 16) & 0xFF;
-    int id      = ioapicread(REG_ID) >> 24;
+    int maxintr = (ioapic_read(REG_VER) >> 16) & 0xFF;
+    int id      = ioapic_read(REG_ID) >> 24;
     if (id != ioapicid) {
         printf("ioapicinit: id isn't equal to ioapicid; not a MP\n");
     }
@@ -76,8 +75,8 @@ void ioapicinit(void)
     // Mark all interrupts edge-triggered, active high, disabled,
     // and not routed to any CPUs.
     for (int i = 0; i <= maxintr; i++) {
-        ioapicwrite(REG_TABLE + 2 * i, INT_DISABLED | (T_IRQ0 + i));
-        ioapicwrite(REG_TABLE + 2 * i + 1, 0);
+        ioapic_write(REG_TABLE + 2 * i, INT_DISABLED | (T_IRQ0 + i));
+        ioapic_write(REG_TABLE + 2 * i + 1, 0);
     }
 }
 
@@ -87,7 +86,7 @@ void ioapicinit(void)
  * @param irq IRQ line to enable.
  * @param cpunum Index of the destination CPU in the cpus[] array.
  */
-void ioapicenable(int irq, int cpunum)
+void enable_ioapic_interrupt(int irq, int cpunum)
 {
     ASSERT(cpunum >= 0 && cpunum < ncpu, "ioapicenable: invalid cpu");
 
@@ -96,6 +95,6 @@ void ioapicenable(int irq, int cpunum)
     // Mark interrupt edge-triggered, active high,
     // enabled, and routed to the given cpunum,
     // which happens to be that cpu's APIC ID.
-    ioapicwrite(REG_TABLE + 2 * irq, T_IRQ0 + irq);
-    ioapicwrite(REG_TABLE + 2 * irq + 1, apicid << 24);
+    ioapic_write(REG_TABLE + 2 * irq, T_IRQ0 + irq);
+    ioapic_write(REG_TABLE + 2 * irq + 1, apicid << 24);
 }

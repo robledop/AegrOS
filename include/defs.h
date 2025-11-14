@@ -60,9 +60,9 @@ void ideintr(void);
 void iderw(struct buf *);
 
 // ioapic.c
-void ioapicenable(int irq, int cpu);
+void enable_ioapic_interrupt(int irq, int cpu);
 extern u8 ioapicid;
-void ioapicinit(void);
+void ioapic_int(void);
 
 // kalloc_page.c
 char *kalloc_page(void);
@@ -71,13 +71,13 @@ void kinit1(void *, void *);
 void kinit2(void *, void *);
 
 // kbd.c
-void kbdintr(void);
+void keyboard_interrupt_handler(void);
 
 // lapic.c
 void cmostime(struct rtcdate *r);
 int lapicid(void);
 extern volatile u32 *lapic;
-void lapiceoi(void);
+void lapic_ack_interrupt(void);
 void lapicinit(void);
 void lapicstartap(u8, u32);
 void microdelay(int);

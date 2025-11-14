@@ -25,3 +25,4 @@ typedef struct desktop
 desktop_t *desktop_new(video_context_t *context, u32 *wallpaper);
 void desktop_paint_handler(window_t *desktop_window);
 void desktop_process_mouse(desktop_t *desktop, u16 mouse_x, u16 mouse_y, u16 mouse_buttons);
+
