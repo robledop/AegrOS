@@ -23,8 +23,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
-#include <user.h>
-#include <unistd.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -59,7 +57,7 @@ void M_MakeDirectory(char *path)
 #ifdef _WIN32
     mkdir(path);
 #else
-    mkdir(path);
+    mkdir(path, 0755);
 #endif
 }
 
@@ -67,13 +65,22 @@ void M_MakeDirectory(char *path)
 
 boolean M_FileExists(char *filename)
 {
-    struct stat st;
+    FILE *fstream;
 
-    if (filename == NULL) {
-        return false;
+    fstream = fopen(filename, "r");
+
+    if (fstream != NULL)
+    {
+        fclose(fstream);
+        return true;
     }
+    else
+    {
+        // If we can't open because the file is a directory, the 
+        // "file" exists at least!
 
-    return stat(filename, &st) == 0;
+        return errno == EISDIR;
+    }
 }
 
 //
@@ -81,13 +88,13 @@ boolean M_FileExists(char *filename)
 //
 
 long M_FileLength(FILE *handle)
-{
+{ 
     long savedpos;
     long length;
 
     // save the current position in the file
     savedpos = ftell(handle);
-
+    
     // jump to the end and find the length
     fseek(handle, 0, SEEK_END);
     length = ftell(handle);
@@ -105,19 +112,19 @@ long M_FileLength(FILE *handle)
 boolean M_WriteFile(char *name, void *source, int length)
 {
     FILE *handle;
-    int count;
-
+    int	count;
+	
     handle = fopen(name, "wb");
 
     if (handle == NULL)
-        return false;
+	return false;
 
     count = fwrite(source, 1, length, handle);
     fclose(handle);
-
+	
     if (count < length)
-        return false;
-
+	return false;
+		
     return true;
 }
 
@@ -129,25 +136,25 @@ boolean M_WriteFile(char *name, void *source, int length)
 int M_ReadFile(char *name, byte **buffer)
 {
     FILE *handle;
-    int count, length;
+    int	count, length;
     byte *buf;
-
+	
     handle = fopen(name, "rb");
     if (handle == NULL)
-        I_Error("Couldn't read file %s", name);
+	I_Error ("Couldn't read file %s", name);
 
     // find the size of the file by seeking to the end and
     // reading the current position
 
     length = M_FileLength(handle);
-
-    buf   = Z_Malloc(length, PU_STATIC, NULL);
+    
+    buf = Z_Malloc (length, PU_STATIC, NULL);
     count = fread(buf, 1, length, handle);
-    fclose(handle);
-
+    fclose (handle);
+	
     if (count < length)
-        I_Error("Couldn't read file %s", name);
-
+	I_Error ("Couldn't read file %s", name);
+		
     *buffer = buf;
     return length;
 }
@@ -167,7 +174,8 @@ char *M_TempFile(char *s)
 
     tempdir = getenv("TEMP");
 
-    if (tempdir == NULL) {
+    if (tempdir == NULL)
+    {
         tempdir = ".";
     }
 #else
@@ -196,8 +204,9 @@ void M_ExtractFileBase(char *path, char *dest)
     src = path + strlen(path) - 1;
 
     // back up until a \ or the start
-    while (src != path && *(src - 1) != DIR_SEPARATOR) {
-        src--;
+    while (src != path && *(src - 1) != DIR_SEPARATOR)
+    {
+	src--;
     }
 
     filename = src;
@@ -210,15 +219,16 @@ void M_ExtractFileBase(char *path, char *dest)
     length = 0;
     memset(dest, 0, 8);
 
-    while (*src != '\0' && *src != '.') {
-        if (length >= 8) {
+    while (*src != '\0' && *src != '.')
+    {
+        if (length >= 8)
+        {
             printf("Warning: Truncated '%s' lump name to '%.8s'.\n",
-                   filename,
-                   dest);
+                   filename, dest);
             break;
         }
 
-        dest[length++] = toupper((int)*src++);
+	dest[length++] = toupper((int)*src++);
     }
 }
 
@@ -234,7 +244,8 @@ void M_ForceUppercase(char *text)
 {
     char *p;
 
-    for (p = text; *p != '\0'; ++p) {
+    for (p = text; *p != '\0'; ++p)
+    {
         *p = toupper(*p);
     }
 }
@@ -253,16 +264,19 @@ char *M_StrCaseStr(char *haystack, char *needle)
     unsigned int i;
 
     haystack_len = strlen(haystack);
-    needle_len   = strlen(needle);
+    needle_len = strlen(needle);
 
-    if (haystack_len < needle_len) {
+    if (haystack_len < needle_len)
+    {
         return NULL;
     }
 
     len = haystack_len - needle_len;
 
-    for (i = 0; i <= len; ++i) {
-        if (!strncasecmp(haystack + i, needle, needle_len)) {
+    for (i = 0; i <= len; ++i)
+    {
+        if (!strncasecmp(haystack + i, needle, needle_len))
+        {
             return haystack + i;
         }
     }
@@ -281,7 +295,8 @@ char *M_StringDuplicate(const char *orig)
 
     result = strdup(orig);
 
-    if (result == NULL) {
+    if (result == NULL)
+    {
         I_Error("Failed to duplicate string (length %i)\n",
                 strlen(orig));
     }
@@ -304,11 +319,13 @@ char *M_StringReplace(const char *haystack, const char *needle,
     // Iterate through occurrences of 'needle' and calculate the size of
     // the new string.
     result_len = strlen(haystack) + 1;
-    p          = haystack;
+    p = haystack;
 
-    for (;;) {
+    for (;;)
+    {
         p = strstr(p, needle);
-        if (p == NULL) {
+        if (p == NULL)
+        {
             break;
         }
 
@@ -319,25 +336,28 @@ char *M_StringReplace(const char *haystack, const char *needle,
     // Construct new string.
 
     result = malloc(result_len);
-    if (result == NULL) {
+    if (result == NULL)
+    {
         I_Error("M_StringReplace: Failed to allocate new string");
         return NULL;
     }
 
-    dst     = result;
-    dst_len = result_len;
-    p       = haystack;
+    dst = result; dst_len = result_len;
+    p = haystack;
 
-    while (*p != '\0') {
-        if (!strncmp(p, needle, needle_len)) {
+    while (*p != '\0')
+    {
+        if (!strncmp(p, needle, needle_len))
+        {
             M_StringCopy(dst, replacement, dst_len);
             p += needle_len;
             dst += strlen(replacement);
             dst_len -= strlen(replacement);
-        } else {
+        }
+        else
+        {
             *dst = *p;
-            ++dst;
-            --dst_len;
+            ++dst; --dst_len;
             ++p;
         }
     }
@@ -354,18 +374,13 @@ boolean M_StringCopy(char *dest, const char *src, size_t dest_size)
 {
     size_t len;
 
-    if (dest_size >= 1) {
-        if (dest_size > 0x10000) {
-            printf("M_StringCopy dbg: dest=%p size=%u caller=%p src=%.32s\n",
-                   dest,
-                   (unsigned)dest_size,
-                   __builtin_return_address(0),
-                   src ? src : "(null)");
-        }
-
+    if (dest_size >= 1)
+    {
         dest[dest_size - 1] = '\0';
         strncpy(dest, src, dest_size - 1);
-    } else {
+    }
+    else
+    {
         return false;
     }
 
@@ -381,7 +396,8 @@ boolean M_StringConcat(char *dest, const char *src, size_t dest_size)
     size_t offset;
 
     offset = strlen(dest);
-    if (offset > dest_size) {
+    if (offset > dest_size)
+    {
         offset = dest_size;
     }
 
@@ -417,9 +433,11 @@ char *M_StringJoin(const char *s, ...)
     result_len = strlen(s) + 1;
 
     va_start(args, s);
-    for (;;) {
+    for (;;)
+    {
         v = va_arg(args, const char *);
-        if (v == NULL) {
+        if (v == NULL)
+        {
             break;
         }
 
@@ -429,7 +447,8 @@ char *M_StringJoin(const char *s, ...)
 
     result = malloc(result_len);
 
-    if (result == NULL) {
+    if (result == NULL)
+    {
         I_Error("M_StringJoin: Failed to allocate new string.");
         return NULL;
     }
@@ -437,9 +456,11 @@ char *M_StringJoin(const char *s, ...)
     M_StringCopy(result, s, result_len);
 
     va_start(args, s);
-    for (;;) {
+    for (;;)
+    {
         v = va_arg(args, const char *);
-        if (v == NULL) {
+        if (v == NULL)
+        {
             break;
         }
 
@@ -462,7 +483,8 @@ int M_vsnprintf(char *buf, size_t buf_len, const char *s, va_list args)
 {
     int result;
 
-    if (buf_len < 1) {
+    if (buf_len < 1)
+    {
         return 0;
     }
 
@@ -473,9 +495,10 @@ int M_vsnprintf(char *buf, size_t buf_len, const char *s, va_list args)
 
     // If truncated, change the final char in the buffer to a \0.
     // A negative result indicates a truncated buffer on Windows.
-    if (result < 0 || result >= buf_len) {
+    if (result < 0 || result >= buf_len)
+    {
         buf[buf_len - 1] = '\0';
-        result           = buf_len - 1;
+        result = buf_len - 1;
     }
 
     return result;
@@ -510,3 +533,4 @@ char *M_OEMToUTF8(const char *oem)
 }
 
 #endif
+

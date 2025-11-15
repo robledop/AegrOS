@@ -390,12 +390,6 @@ void *W_CacheLumpNum(int lumpnum, int tag)
     }
 
     lump = &lumpinfo[lumpnum];
-    printf("W_CacheLumpNum: #%d name=%.8s size=%d tag=%d wad_file=%p class=%p mapped=%p cache=%p\n",
-           lumpnum, lump->name, lump->size, tag,
-           lump->wad_file,
-           lump->wad_file != NULL ? lump->wad_file->file_class : NULL,
-           lump->wad_file != NULL ? lump->wad_file->mapped : NULL,
-           lump->cache);
 
     // Get the pointer to return.  If the lump is in a memory-mapped
     // file, we can just return a pointer to within the memory-mapped
@@ -434,10 +428,7 @@ void *W_CacheLumpNum(int lumpnum, int tag)
 //
 void *W_CacheLumpName(char *name, int tag)
 {
-    int lumpnum = W_GetNumForName(name);
-
-    printf("W_CacheLumpName: request \"%s\" -> #%d tag=%d\n", name, lumpnum, tag);
-    return W_CacheLumpNum(lumpnum, tag);
+    return W_CacheLumpNum(W_GetNumForName(name), tag);
 }
 
 // 
@@ -618,3 +609,4 @@ void W_CheckCorrectIWAD(GameMission_t mission)
         }
     }
 }
+

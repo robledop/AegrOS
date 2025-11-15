@@ -1,10 +1,9 @@
-//doomgeneric for soso os
-
 #include "doomkeys.h"
 #include "m_argv.h"
 #include "doomgeneric.h"
 
 #include <stdio.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -19,7 +18,8 @@
 static int FrameBufferFd = -1;
 static int *FrameBuffer  = 0;
 
-static int KeyboardFd = -1;
+static int KeyboardFd          = -1;
+static int KeyboardUsesConsole = 0;
 
 #define KEYQUEUE_SIZE 16
 
@@ -27,18 +27,104 @@ static unsigned short s_KeyQueue[KEYQUEUE_SIZE];
 static unsigned int s_KeyQueueWriteIndex = 0;
 static unsigned int s_KeyQueueReadIndex  = 0;
 
+typedef struct
+{
+    unsigned char key;
+    int ticks;
+} pending_key_t;
+
+static pending_key_t s_PendingKeyUps[KEYQUEUE_SIZE];
+static unsigned int s_PendingKeyUpCount = 0;
+
+#define CONSOLE_HOLD_TICKS 6
+
 static unsigned int s_PositionX = 0;
 static unsigned int s_PositionY = 0;
 
 static unsigned int s_ScreenWidth  = 0;
 static unsigned int s_ScreenHeight = 0;
 
-static unsigned char convertToDoomKey(unsigned char scancode)
+static unsigned char convertConsoleKey(unsigned char scancode)
 {
     unsigned char key = 0;
 
     switch (scancode) {
-    case 0x9C:
+    case 226: // up arrow
+        key = KEY_UPARROW;
+        break;
+    case 227: // down arrow
+        key = KEY_DOWNARROW;
+        break;
+    case 228: // left arrow
+        key = KEY_LEFTARROW;
+        break;
+    case 229: // right arrow
+        key = KEY_RIGHTARROW;
+        break;
+    case '\n':
+    case '\r':
+        key = KEY_ENTER;
+        break;
+    case '\b':
+        key = KEY_BACKSPACE;
+        break;
+    case ' ':
+        key = KEY_USE;
+        break;
+    case 'w':
+    case 'W':
+        key = KEY_UPARROW;
+        break;
+    case 's':
+    case 'S':
+        key = KEY_DOWNARROW;
+        break;
+    case 'a':
+    case 'A':
+        key = KEY_LEFTARROW;
+        break;
+    case 'd':
+    case 'D':
+        key = KEY_RIGHTARROW;
+        break;
+    case 'f':
+    case 'F':
+        key = KEY_FIRE;
+        break;
+    case 'y':
+    case 'Y':
+        key = 'y';
+        break;
+    default:
+        if (scancode >= 'A' && scancode <= 'Z') {
+            key = (unsigned char)tolower(scancode);
+        } else {
+            key = scancode;
+        }
+        break;
+    }
+
+    return key;
+}
+
+static unsigned char convertScancode(unsigned char scancode)
+{
+    unsigned char key = 0;
+
+    switch (scancode) {
+    case 0x11: // W
+        key = KEY_UPARROW;
+        break;
+    case 0x1F: // S
+        key = KEY_DOWNARROW;
+        break;
+    case 0x1E: // A
+        key = KEY_LEFTARROW;
+        break;
+    case 0x20: // D
+        key = KEY_RIGHTARROW;
+        break;
+    case 0x9C: // keypad enter release?
     case 0x1C:
         key = KEY_ENTER;
         break;
@@ -81,17 +167,56 @@ static unsigned char convertToDoomKey(unsigned char scancode)
     return key;
 }
 
-static void addKeyToQueue(int pressed, unsigned char keyCode)
+static void addKeyToQueueRaw(int pressed, unsigned char rawCode)
 {
-    //printf("key hex %x decimal %d\n", keyCode, keyCode);
+    unsigned char key = KeyboardUsesConsole
+        ? convertConsoleKey(rawCode)
+        : convertScancode(rawCode);
 
-    unsigned char key = convertToDoomKey(keyCode);
+    if (key == 0) {
+        return;
+    }
 
     unsigned short keyData = (pressed << 8) | key;
 
     s_KeyQueue[s_KeyQueueWriteIndex] = keyData;
     s_KeyQueueWriteIndex++;
     s_KeyQueueWriteIndex %= KEYQUEUE_SIZE;
+
+    if (KeyboardUsesConsole && pressed) {
+        for (unsigned int i = 0; i < s_PendingKeyUpCount; ++i) {
+            if (s_PendingKeyUps[i].key == key) {
+                s_PendingKeyUps[i].ticks = CONSOLE_HOLD_TICKS;
+                return;
+            }
+        }
+
+        if (s_PendingKeyUpCount < KEYQUEUE_SIZE) {
+            s_PendingKeyUps[s_PendingKeyUpCount].key   = key;
+            s_PendingKeyUps[s_PendingKeyUpCount].ticks = CONSOLE_HOLD_TICKS;
+            ++s_PendingKeyUpCount;
+        }
+    }
+}
+
+static void flushPendingKeyUps(void)
+{
+    if (!KeyboardUsesConsole || s_PendingKeyUpCount == 0)
+        return;
+
+    unsigned int writeIndex = 0;
+
+    for (unsigned int i = 0; i < s_PendingKeyUpCount; ++i) {
+        pending_key_t entry = s_PendingKeyUps[i];
+        entry.ticks--;
+        if (entry.ticks <= 0) {
+            addKeyToQueueRaw(0, entry.key);
+        } else {
+            s_PendingKeyUps[writeIndex++] = entry;
+        }
+    }
+
+    s_PendingKeyUpCount = writeIndex;
 }
 
 
@@ -99,17 +224,25 @@ struct termios orig_termios;
 
 void disableRawMode()
 {
-    //printf("returning original termios\n");
+    if (!KeyboardUsesConsole) {
+        return;
+    }
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
 }
 
 void enableRawMode()
 {
+    if (!KeyboardUsesConsole) {
+        return;
+    }
     tcgetattr(STDIN_FILENO, &orig_termios);
     atexit(disableRawMode);
     struct termios raw = orig_termios;
-    raw.c_lflag &= ~(ECHO);
-    raw.c_cc[VMIN] = 0;
+    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_iflag &= ~(IXON | ICRNL);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cc[VMIN]  = 0;
+    raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
@@ -131,7 +264,7 @@ void DG_Init()
             exit();
         }
 
-        u32 fb_addr = 0;
+        u32 fb_addr  = 0;
         u32 fb_pitch = 0;
         ioctl(FrameBufferFd, FB_IOCTL_GET_FBADDR, &fb_addr);
         ioctl(FrameBufferFd, FB_IOCTL_GET_PITCH, &fb_pitch);
@@ -159,14 +292,14 @@ void DG_Init()
         exit();
     }
 
-    enableRawMode();
-
-    KeyboardFd = open("/dev/keyboard", 0);
-
-    if (KeyboardFd >= 0) {
-        //enter non-blocking mode
-        ioctl(KeyboardFd, 1, (void *)1);
+    KeyboardFd = open("/dev/keyboard", O_RDONLY);
+    if (KeyboardFd < 0) {
+        KeyboardFd          = STDIN_FILENO;
+        KeyboardUsesConsole = 1;
     }
+
+    enableRawMode();
+    ioctl(KeyboardFd, 1, (void *)1);
 
     int argPosX = 0;
     int argPosY = 0;
@@ -188,25 +321,76 @@ static void handleKeyInput()
         return;
     }
 
-    unsigned char scancode = 0;
+    unsigned char scancode  = 0;
+    static int extendedScan = 0;
+    static int escState     = 0;
 
-    if (read(KeyboardFd, &scancode, 1) > 0) {
-        unsigned char keyRelease = (0x80 & scancode);
-
-        scancode = (0x7F & scancode);
-
-        //printf("scancode:%x pressed:%d\n", scancode, 0 == keyRelease);
-
-        if (0 == keyRelease) {
-            addKeyToQueue(1, scancode);
-        } else {
-            addKeyToQueue(0, scancode);
+    while (read(KeyboardFd, &scancode, 1) > 0) {
+        if (scancode == 0) {
+            continue;
         }
+
+        if (KeyboardUsesConsole) {
+            switch (escState) {
+            case 0:
+                if (scancode == 0x1b) {
+                    escState = 1;
+                    continue;
+                }
+                addKeyToQueueRaw(1, scancode);
+                break;
+            case 1:
+                if (scancode == '[') {
+                    escState = 2;
+                } else {
+                    addKeyToQueueRaw(1, 0x1b);
+                    addKeyToQueueRaw(1, scancode);
+                    escState = 0;
+                }
+                break;
+            case 2:
+                switch (scancode) {
+                case 'A':
+                    addKeyToQueueRaw(1, 226);
+                    break;
+                case 'B':
+                    addKeyToQueueRaw(1, 227);
+                    break;
+                case 'C':
+                    addKeyToQueueRaw(1, 229);
+                    break;
+                case 'D':
+                    addKeyToQueueRaw(1, 228);
+                    break;
+                default:
+                    break;
+                }
+                escState = 0;
+                break;
+            }
+            continue;
+        }
+
+        if (scancode == 0xE0) {
+            extendedScan = 1;
+            continue;
+        }
+
+        unsigned char code = scancode & 0x7F;
+        if (extendedScan) {
+            code |= 0x80;
+            extendedScan = 0;
+        }
+
+        int pressed = !(scancode & 0x80);
+        addKeyToQueueRaw(pressed, code);
     }
 }
 
 void DG_DrawFrame()
 {
+    flushPendingKeyUps();
+
     if (FrameBuffer) {
         for (int i = 0; i < DOOMGENERIC_RESY; ++i) {
             memcpy(FrameBuffer + s_PositionX + (i + s_PositionY) * s_ScreenWidth,

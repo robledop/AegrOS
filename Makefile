@@ -89,14 +89,14 @@ apps: asm_headers FORCE
 
 .PHONY: doom
 doom:
-	$(MAKE) -C user/doom -f Makefile.aegros clean
-	$(MAKE) -C user/doom -f Makefile.aegros
+	$(MAKE) -C user/doom clean
+	$(MAKE) -C user/doom
 
 grub: build/kernel apps FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
-	cp assets/doom1.wad ./rootfs/bin/doom1.wad
-	cp assets/doom1.wad ./rootfs/doom1.wad
+	cp assets/doom.wad ./rootfs/bin/doom.wad
+	cp assets/doom.wad ./rootfs/doom.wad
 	cp assets/fbdoom ./rootfs/bin/doom
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh

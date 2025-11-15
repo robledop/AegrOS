@@ -482,18 +482,13 @@ void R_InitTextures (void)
     int			temp2;
     int			temp3;
 
- 
-    printf("R_InitTextures: entry\n");
-
+    
     // Load the patch names from pnames.lmp.
     name[8] = 0;
     names = W_CacheLumpName (DEH_String("PNAMES"), PU_STATIC);
     nummappatches = LONG ( *((int *)names) );
-    printf("R_InitTextures: PNAMES lump %p patchcount=%d\n", names, nummappatches);
     name_p = names + 4;
     patchlookup = Z_Malloc(nummappatches*sizeof(*patchlookup), PU_STATIC, NULL);
-    printf("R_InitTextures: patchlookup buffer %p (size=%zu)\n",
-           patchlookup, nummappatches*sizeof(*patchlookup));
 
     for (i = 0; i < nummappatches; i++)
     {
@@ -506,19 +501,15 @@ void R_InitTextures (void)
     // The data is contained in one or two lumps,
     //  TEXTURE1 for shareware, plus TEXTURE2 for commercial.
     maptex = maptex1 = W_CacheLumpName (DEH_String("TEXTURE1"), PU_STATIC);
-    printf("R_InitTextures: TEXTURE1 lump pointer %p\n", maptex);
     numtextures1 = LONG(*maptex);
     maxoff = W_LumpLength (W_GetNumForName (DEH_String("TEXTURE1")));
-    printf("R_InitTextures: TEXTURE1 num=%d length=%d\n", numtextures1, maxoff);
     directory = maptex+1;
 	
     if (W_CheckNumForName (DEH_String("TEXTURE2")) != -1)
     {
 	maptex2 = W_CacheLumpName (DEH_String("TEXTURE2"), PU_STATIC);
-        printf("R_InitTextures: TEXTURE2 lump pointer %p\n", maptex2);
 	numtextures2 = LONG(*maptex2);
 	maxoff2 = W_LumpLength (W_GetNumForName (DEH_String("TEXTURE2")));
-        printf("R_InitTextures: TEXTURE2 num=%d length=%d\n", numtextures2, maxoff2);
     }
     else
     {
@@ -529,19 +520,12 @@ void R_InitTextures (void)
     numtextures = numtextures1 + numtextures2;
 	
     textures = Z_Malloc (numtextures * sizeof(*textures), PU_STATIC, 0);
-    printf("R_InitTextures: allocated textures (%d entries) at %p\n", numtextures, textures);
     texturecolumnlump = Z_Malloc (numtextures * sizeof(*texturecolumnlump), PU_STATIC, 0);
-    printf("R_InitTextures: texturecolumnlump at %p\n", texturecolumnlump);
     texturecolumnofs = Z_Malloc (numtextures * sizeof(*texturecolumnofs), PU_STATIC, 0);
-    printf("R_InitTextures: texturecolumnofs at %p\n", texturecolumnofs);
     texturecomposite = Z_Malloc (numtextures * sizeof(*texturecomposite), PU_STATIC, 0);
-    printf("R_InitTextures: texturecomposite at %p\n", texturecomposite);
     texturecompositesize = Z_Malloc (numtextures * sizeof(*texturecompositesize), PU_STATIC, 0);
-    printf("R_InitTextures: texturecompositesize at %p\n", texturecompositesize);
     texturewidthmask = Z_Malloc (numtextures * sizeof(*texturewidthmask), PU_STATIC, 0);
-    printf("R_InitTextures: texturewidthmask at %p\n", texturewidthmask);
     textureheight = Z_Malloc (numtextures * sizeof(*textureheight), PU_STATIC, 0);
-    printf("R_InitTextures: textureheight at %p\n", textureheight);
 
     totalwidth = 0;
     
@@ -718,16 +702,12 @@ void R_InitColormaps (void)
 //
 void R_InitData (void)
 {
-    printf("R_InitData: R_InitTextures\n");
     R_InitTextures ();
     printf (".");
-    printf("R_InitData: R_InitFlats\n");
     R_InitFlats ();
     printf (".");
-    printf("R_InitData: R_InitSpriteLumps\n");
     R_InitSpriteLumps ();
     printf (".");
-    printf("R_InitData: R_InitColormaps\n");
     R_InitColormaps ();
 }
 
@@ -926,4 +906,7 @@ void R_PrecacheLevel (void)
 
     Z_Free(spritepresent);
 }
+
+
+
 

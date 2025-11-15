@@ -6,6 +6,8 @@ rootfs/
 *.o
 *.a
 *.d
+*.wad
+fbdoom
 *.log
 *.img
 *.iso

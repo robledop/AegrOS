@@ -1,6 +1,7 @@
 #pragma once
 #include <types.h>
 #include <string.h>
+#include <stdlib.h>
 #define PRINTF_SUPPRESS_PUTCHAR_DECL 1
 #include "printf.h"
 #undef PRINTF_SUPPRESS_PUTCHAR_DECL
@@ -20,7 +21,6 @@ typedef void (*atexit_function)(void);
 
 // system calls
 int fork(void);
-void exit(void) __attribute__ ((noreturn));
 #define wait wait_
 int wait_(void);
 int pipe(int *);

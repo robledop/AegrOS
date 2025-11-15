@@ -62,19 +62,25 @@
 
 #include <inttypes.h>
 
-#ifdef __cplusplus
-typedef bool boolean;
-#else
-#ifdef __bool_true_false_are_defined
-typedef bool boolean;
-#else
-typedef enum 
-{
-    false	= 0,
-    true	= 1,
-	undef	= 0xFFFFFFFF
-} boolean;
+#ifndef __cplusplus
+
+typedef int boolean;
+
+#ifndef false
+#define false 0
 #endif
+#ifndef true
+#define true 1
+#endif
+#ifndef undef
+#define undef 0xFFFFFFFF
+#endif
+
+#else
+
+#include <stdbool.h>
+typedef bool boolean;
+
 #endif
 
 typedef uint8_t byte;

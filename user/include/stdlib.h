@@ -2,7 +2,8 @@
 
 #include <stddef.h>
 
-void exit(void) __attribute__((noreturn));
+void __ae_exit(int status) __attribute__((noreturn));
+#define exit(...) __ae_exit(__VA_OPT__(__VA_ARGS__ +) 0)
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);

@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 #include "config.h"
 #include "deh_main.h"
@@ -1761,23 +1760,8 @@ void D_DoomMain (void)
     DEH_printf("M_Init: Init miscellaneous info.\n");
     M_Init ();
 
-    volatile u32 r_init_guard = 0xCAFEBABE;
-    uintptr_t sp_before = 0;
-    uintptr_t sp_after  = 0;
-
-    __asm__ volatile("mov %%esp, %0" : "=r"(sp_before));
-
     DEH_printf("R_Init: Init DOOM refresh daemon - ");
     R_Init ();
-
-    __asm__ volatile("mov %%esp, %0" : "=r"(sp_after));
-
-    if (r_init_guard != 0xCAFEBABE) {
-        DEH_printf("\nR_Init stack guard corrupted! guard=0x%08x\n", r_init_guard);
-    }
-    if (sp_before != sp_after) {
-        DEH_printf("\nR_Init stack pointer changed: before=%p after=%p\n", (void *)sp_before, (void *)sp_after);
-    }
 
     DEH_printf("\nP_Init: Init Playloop state.\n");
     P_Init ();
@@ -1858,3 +1842,4 @@ void D_DoomMain (void)
 
     D_DoomLoop ();
 }
+

@@ -35,6 +35,8 @@
 #define EBUFFULL 16
 // Not a typewriter
 #define ENOTTY 17
+// Is a directory
+#define EISDIR 18
 
 static inline char *strerror(const int error)
 {
@@ -69,6 +71,8 @@ static inline char *strerror(const int error)
         return "Invalid memory address";
     case -ENOTSUP:
         return "Operation not supported";
+    case -EISDIR:
+        return "Is a directory";
     default:
         return "Unknown error";
     }

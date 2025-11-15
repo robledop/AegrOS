@@ -21,7 +21,6 @@
 #include "config.h"
 
 #include "doomtype.h"
-#include "i_system.h"
 #include "m_argv.h"
 
 #include "w_file.h"
@@ -91,16 +90,6 @@ void W_CloseFile(wad_file_t *wad)
 size_t W_Read(wad_file_t *wad, unsigned int offset,
               void *buffer, size_t buffer_len)
 {
-    wad_file_class_t *file_class = wad->file_class;
-    void *read_func = file_class != NULL ? file_class->Read : NULL;
-
-    printf("W_Read: wad=%p class=%p read=%p offset=%u len=%u\n",
-           wad, file_class, read_func, offset, (unsigned int) buffer_len);
-
-    if (file_class == NULL || read_func == NULL)
-    {
-        I_Error("W_Read: bad file class");
-    }
-
-    return file_class->Read(wad, offset, buffer, buffer_len);
+    return wad->file_class->Read(wad, offset, buffer, buffer_len);
 }
+

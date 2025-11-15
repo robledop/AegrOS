@@ -766,28 +766,22 @@ void R_ExecuteSetViewSize (void)
 
 void R_Init (void)
 {
-    uintptr_t sp_entry;
-    __asm__ volatile("mov %%esp, %0" : "=r"(sp_entry));
-    printf("R_Init: entry sp=%p\n", (void *)sp_entry);
-
     R_InitData ();
-    printf("R_Init: after R_InitData\n");
+    printf (".");
     R_InitPointToAngle ();
-    printf("R_Init: after R_InitPointToAngle\n");
+    printf (".");
     R_InitTables ();
-    printf("R_Init: after R_InitTables\n");
     // viewwidth / viewheight / detailLevel are set by the defaults
+    printf (".");
 
     R_SetViewSize (screenblocks, detailLevel);
-    printf("R_Init: after R_SetViewSize\n");
     R_InitPlanes ();
-    printf("R_Init: after R_InitPlanes\n");
+    printf (".");
     R_InitLightTables ();
-    printf("R_Init: after R_InitLightTables\n");
+    printf (".");
     R_InitSkyMap ();
-    printf("R_Init: after R_InitSkyMap\n");
     R_InitTranslationTables ();
-    printf("R_Init: after R_InitTranslationTables\n");
+    printf (".");
 	
     framecount = 0;
 }

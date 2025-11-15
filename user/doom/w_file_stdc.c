@@ -75,14 +75,12 @@ size_t W_StdC_Read(wad_file_t *wad, unsigned int offset,
     stdc_wad = (stdc_wad_file_t *) wad;
 
     // Jump to the specified position in the file.
-    printf("W_StdC_Read: wad=%p fstream=%p offset=%u len=%u\n",
-           wad, stdc_wad->fstream, offset, (unsigned int) buffer_len);
+
     fseek(stdc_wad->fstream, offset, SEEK_SET);
 
     // Read into the buffer.
 
     result = fread(buffer, 1, buffer_len, stdc_wad->fstream);
-    printf("W_StdC_Read: read %u bytes\n", (unsigned int) result);
 
     return result;
 }
@@ -94,4 +92,5 @@ wad_file_class_t stdc_wad_file =
     W_StdC_CloseFile,
     W_StdC_Read,
 };
+
 

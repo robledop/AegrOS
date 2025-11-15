@@ -98,7 +98,3 @@
 
 /* Define to the directory where all game files are located */
 #define FILES_DIR "."
-
-#ifdef AEGROS
-#define exit(status) exit()
-#endif

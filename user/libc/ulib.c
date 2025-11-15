@@ -47,7 +47,7 @@ static void run_atexit_handlers(void)
     }
 }
 
-void exit(void)
+void __ae_exit(int status)
 {
     run_atexit_handlers();
     sys_exit();
@@ -57,7 +57,7 @@ void exit(void)
 void panic(const char *s)
 {
     printf("panic: %s\n", s);
-    exit();
+    __ae_exit(1);
 }
 
 char *strcpy(char *s, const char *t)
@@ -81,29 +81,18 @@ __attribute__((noinline)) static void strncpy_debug_hook(const void *dest,
 
 char *strncpy(char *dst, const char *src, size_t n)
 {
-    char *p           = dst;
-    size_t remaining  = n;
+    size_t i = 0;
 
-    while (remaining > 0 && (*p++ = *src++) != 0) {
-        remaining--;
+    for (; i < n && src[i] != '\0'; i++) {
+        dst[i] = src[i];
     }
-    while (remaining-- > 0) {
-        *p++ = 0;
+
+    for (; i < n; i++) {
+        dst[i] = '\0';
     }
+
     return dst;
 }
-
-
-// char *strncpy(char *s, const char *t, size_t n)
-// {
-//     char *os = s;
-//     while (n-- > 0 && (*s++ = *t++) != 0) {
-//     }
-//     while (n-- > 0) {
-//         *s++ = 0;
-//     }
-//     return os;
-// }
 
 int strcmp(const char *p, const char *q)
 {
