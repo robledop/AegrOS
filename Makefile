@@ -122,6 +122,9 @@ vbox: grub FORCE
 vbox-textmode: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
 
+bochs: grub FORCE
+	SKIP_GRUB=1 ./scripts/start_bochs.sh $(MEMORY)
+
 qemu-nobuild:
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 

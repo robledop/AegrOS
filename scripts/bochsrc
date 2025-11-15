@@ -1,0 +1,27 @@
+# Bochs configuration for AegrOS
+# Launch via scripts/start_bochs.sh to ensure disk image is fresh.
+
+megs: 512
+romimage: file=$BXSHARE/BIOS-bochs-latest
+vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
+boot: disk
+log: bochs.log
+clock: sync=realtime, time0=local
+cpu: count=2, ips=100000000, reset_on_triple_fault=1
+
+# Disable devices we do not need in this environment.
+mouse: enabled=0
+usb_uhci: enabled=0
+
+# Display settings (start script can override display_library/romimage automatically)
+vga: extension=vbe
+pci: enabled=1, chipset=i440fx
+display_library: wx
+
+# Attach the build disk image as the primary drive
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata0-master: type=disk, path="disk.img", mode=flat, cylinders=512, heads=16, spt=16, biosdetect=auto, translation=auto
+ata0-slave: type=none
+ata1: enabled=0
+
+com1: enabled=1, mode=term, dev=stdio
