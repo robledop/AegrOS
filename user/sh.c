@@ -3,6 +3,7 @@
 #include "param.h"
 #include "types.h"
 #include "user.h"
+#include <stdio.h>
 #include "fcntl.h"
 #include "printf.h"
 #include "termcolors.h"

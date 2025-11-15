@@ -87,9 +87,17 @@ build/%.o: $K/%.asm asm_headers FORCE
 apps: asm_headers FORCE
 	cd ./user && $(MAKE) all
 
+.PHONY: doom
+doom:
+	$(MAKE) -C user/doom -f Makefile.aegros clean
+	$(MAKE) -C user/doom -f Makefile.aegros
+
 grub: build/kernel apps FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
+	cp assets/doom1.wad ./rootfs/bin/doom1.wad
+	cp assets/doom1.wad ./rootfs/doom1.wad
+	cp assets/fbdoom ./rootfs/bin/doom
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
 	./scripts/create_tap.sh
@@ -144,6 +152,7 @@ clean:
 	rm -rf rootfs/
 	rm -rf build/
 	rm -rf user/build
+	rm assets/fbdoom
 
 # Force rebuild of all files
 .PHONY: FORCE

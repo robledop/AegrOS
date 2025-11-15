@@ -37,7 +37,7 @@ void spawn_calculator([[maybe_unused]] struct button *button, [[maybe_unused]] i
 
     calculator = calculator_new();
     window_insert_child((window_t *)desktop, (window_t *)calculator);
-    // window_move((window_t *)calculator, icon->window.context->width / 2, icon->window.context->height / 2);
+    window_move((window_t *)calculator, button->window.context->width / 2, button->window.context->height / 2);
 }
 
 static void disable_raw_mode(int fd)
@@ -165,10 +165,9 @@ int main(const int argc, char **argv)
     window_set_title((window_t *)launch_button, "Calculator");
     window_insert_child((window_t *)desktop, (window_t *)launch_button);
 
-
-    terminal = vterm_new();
-    window_insert_child((window_t *)desktop, (window_t *)terminal);
-    window_move((window_t *)terminal, 0, 0);
+    // terminal = vterm_new();
+    // window_insert_child((window_t *)desktop, (window_t *)terminal);
+    // window_move((window_t *)terminal, 0, 0);
 
     window_paint((window_t *)desktop, nullptr, 1);
 

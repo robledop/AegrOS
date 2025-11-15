@@ -1,5 +1,9 @@
+#include <errno.h>
+#include "status.h"
 #include "user.h"
-#include "../include/time.h"
+#include <time.h>
+#include <sys/time.h>
+#include "param.h"
 
 // Arrays of month and weekday names
 static const char *month_names[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
@@ -264,4 +268,34 @@ void unix_timestamp_to_tm(const time_t timestamp, struct tm *tm)
 
     // Set Daylight Saving Time flag (not handled here)
     tm->tm_isdst = 0; // 0 for no DST, 1 for DST, -1 for unknown
+}
+
+int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+    if (tv == nullptr) {
+        errno = -EINVARG;
+        return -1;
+    }
+    int ticks = uptime();
+    if (ticks < 0) {
+        return -1;
+    }
+    const long usec_per_tick = 1000000L / TIMER_FREQUENCY_HZ;
+    tv->tv_sec               = ticks / TIMER_FREQUENCY_HZ;
+    tv->tv_usec              = (ticks % TIMER_FREQUENCY_HZ) * usec_per_tick;
+    if (tz != nullptr) {
+        tz->tz_minuteswest = 0;
+        tz->tz_dsttime     = 0;
+    }
+    return 0;
+}
+
+int usleep(unsigned int usec)
+{
+    if (usec == 0) {
+        return 0;
+    }
+    const unsigned int usec_per_tick = 1000000U / TIMER_FREQUENCY_HZ;
+    unsigned int ticks               = (usec + usec_per_tick - 1U) / usec_per_tick;
+    return sleep((int)ticks);
 }

@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "types.h"
 #include "stat.h"
@@ -68,21 +69,47 @@ char *strcpy(char *s, const char *t)
 }
 
 /** @brief Copy n characters of string */
-char *strncpy(char *s, const char *t, int n)
+__attribute__((noinline)) static void strncpy_debug_hook(const void *dest,
+                                                         size_t n,
+                                                         void *caller)
 {
-    char *os = s;
-    while (n-- > 0 && (*s++ = *t++) != 0) {
-    }
-    while (n-- > 0)
-        *s++ = 0;
-    return os;
+    printf("strncpy dbg: dest=%p n=%u caller=%p\n",
+           dest,
+           (unsigned)n,
+           caller);
 }
+
+char *strncpy(char *dst, const char *src, size_t n)
+{
+    char *p           = dst;
+    size_t remaining  = n;
+
+    while (remaining > 0 && (*p++ = *src++) != 0) {
+        remaining--;
+    }
+    while (remaining-- > 0) {
+        *p++ = 0;
+    }
+    return dst;
+}
+
+
+// char *strncpy(char *s, const char *t, size_t n)
+// {
+//     char *os = s;
+//     while (n-- > 0 && (*s++ = *t++) != 0) {
+//     }
+//     while (n-- > 0) {
+//         *s++ = 0;
+//     }
+//     return os;
+// }
 
 int strcmp(const char *p, const char *q)
 {
     while (*p && *p == *q)
         p++, q++;
-    return (u8)*p - (u8)*q;
+    return (u8) * p - (u8) * q;
 }
 
 int isspace(int c)
@@ -118,10 +145,66 @@ int isprint(int c)
     return c >= 0x20 && c <= 0x7e;
 }
 
-
-u32 strlen(const char *s)
+int isalpha(int c)
 {
-    int n;
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+int isalnum(int c)
+{
+    return isalpha(c) || isdigit(c);
+}
+
+int islower(int c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+int isupper(int c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+int isxdigit(int c)
+{
+    return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+int isblank(int c)
+{
+    return c == ' ' || c == '\t';
+}
+
+int isgraph(int c)
+{
+    return c > 0x20 && c <= 0x7e;
+}
+
+int ispunct(int c)
+{
+    return isprint(c) && !isalnum(c) && c != ' ';
+}
+
+int tolower(int c)
+{
+    if (isupper(c)) {
+        return c - 'A' + 'a';
+    }
+    return c;
+}
+
+int toupper(int c)
+{
+    if (islower(c)) {
+        return c - 'a' + 'A';
+    }
+    return c;
+}
+
+
+size_t strlen(const char *s)
+{
+    size_t n;
 
     for (n = 0; s[n]; n++) {
     }
@@ -133,8 +216,8 @@ char *strdup(const char *s)
     if (s == nullptr) {
         return nullptr;
     }
-    u32 len = strlen(s);
-    char *p = malloc(len + 1);
+    size_t len = strlen(s);
+    char *p    = malloc(len + 1);
     if (p == nullptr) {
         return nullptr;
     }
@@ -143,14 +226,11 @@ char *strdup(const char *s)
 }
 
 
-u32 strnlen(const char *s, const u32 maxlen)
+size_t strnlen(const char *s, size_t maxlen)
 {
-    u32 n;
-
-    for (n = 0; s[n]; n++) {
-        if (n == maxlen) {
-            break;
-        }
+    size_t n = 0;
+    while (n < maxlen && s[n] != '\0') {
+        n++;
     }
     return n;
 }
@@ -171,18 +251,40 @@ bool str_ends_with(const char *str, const char *suffix)
     return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
 }
 
-void *memset(void *dst, int c, u32 n)
+void *memset(void *dst, int c, size_t n)
 {
     stosb(dst, c, n);
     return dst;
 }
 
-char *strchr(const char *s, char c)
+char *strchr(const char *s, int c)
 {
-    for (; *s; s++)
-        if (*s == c)
+    while (*s) {
+        if (*s == (char)c) {
             return (char *)s;
+        }
+        s++;
+    }
+    if (c == '\0') {
+        return (char *)s;
+    }
     return nullptr;
+}
+
+char *strrchr(const char *s, int c)
+{
+    const char *last = nullptr;
+    char ch          = (char)c;
+    while (*s != '\0') {
+        if (*s == ch) {
+            last = s;
+        }
+        s++;
+    }
+    if (ch == '\0') {
+        return (char *)s;
+    }
+    return (char *)last;
 }
 
 int getkey()
@@ -203,9 +305,14 @@ int getkey_blocking()
     return key;
 }
 
-void putchar(char c)
+int putchar(int c)
 {
-    write(0, &c, 1);
+    unsigned char ch = (unsigned char)c;
+    if (write(STDOUT_FILENO, &ch, 1) != 1) {
+        errno = -EIO;
+        return -1;
+    }
+    return (int)ch;
 }
 
 char *gets(char *buf, int max)
@@ -248,24 +355,34 @@ int abs(int x)
     return x < 0 ? -x : x;
 }
 
-void *memmove(void *vdst, const void *vsrc, int n)
+void *memmove(void *vdst, const void *vsrc, size_t n)
 {
-    char *dst       = vdst;
     const char *src = vsrc;
-    while (n-- > 0)
-        *dst++ = *src++;
+    char *dst       = vdst;
+
+    if (src < dst && src + n > dst) {
+        src += n;
+        dst += n;
+        while (n-- > 0) {
+            *--dst = *--src;
+        }
+    } else {
+        while (n-- > 0) {
+            *dst++ = *src++;
+        }
+    }
     return vdst;
 }
 
-void *memcpy(void *dst, const void *src, u32 n)
+void *memcpy(void *dst, const void *src, size_t n)
 {
-    return memmove(dst, src, (int)n);
+    return memmove(dst, src, n);
 }
 
-int memcmp(const void *v1, const void *v2, u32 n)
+int memcmp(const void *v1, const void *v2, size_t n)
 {
-    const u8 *s1 = v1;
-    const u8 *s2 = v2;
+    const unsigned char *s1 = v1;
+    const unsigned char *s2 = v2;
     while (n-- > 0) {
         if (*s1 != *s2) {
             return *s1 - *s2;
@@ -286,13 +403,13 @@ int isatty(int fd)
 }
 
 
-int strncmp(const char *p, const char *q, u32 n)
+int strncmp(const char *p, const char *q, size_t n)
 {
     while (n > 0 && *p && *p == *q)
         n--, p++, q++;
     if (n == 0)
         return 0;
-    return (u8)*p - (u8)*q;
+    return (u8) * p - (u8) * q;
 }
 
 bool starts_with(const char pre[static 1], const char str[static 1])
@@ -302,14 +419,13 @@ bool starts_with(const char pre[static 1], const char str[static 1])
 
 char *strcat(char dest[static 1], const char src[static 1])
 {
-    char *d = dest;
+    char *d       = dest;
+    const char *s = src;
     while (*d != '\0') {
         d++;
     }
-    while (*src != '\0') {
-        *d = *src;
-        d++;
-        src++;
+    while (*s != '\0') {
+        *d++ = *s++;
     }
     *d = '\0';
     return dest;
@@ -372,17 +488,17 @@ int sscanf(const char *str, const char *format, ...)
     return assigned;
 }
 
-char *strncat(char dest[static 1], const char src[static 1], u32 n)
+char *strncat(char dest[static 1], const char src[static 1], size_t n)
 {
-    char *d = dest;
+    char *d       = dest;
+    const char *s = src;
+    size_t copied = 0;
     while (*d != '\0') {
         d++;
     }
-    u32 i = 0;
-    while (i < n && src[i] != '\0') {
-        *d = src[i];
-        d++;
-        i++;
+    while (copied < n && *s != '\0') {
+        *d++ = *s++;
+        copied++;
     }
     *d = '\0';
     return dest;

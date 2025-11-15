@@ -1,12 +1,13 @@
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "types.h"
 #include "x86.h"
 
 /** @brief Set n bytes of memory to c */
-void *memset(void *dst, int c, u32 n)
+void *memset(void *dst, int c, size_t n)
 {
-    if ((int)dst % 4 == 0 && n % 4 == 0) {
+    if ((uintptr_t)dst % 4 == 0 && n % 4 == 0) {
         c &= 0xFF;
         stosl(dst, (c << 24) | (c << 16) | (c << 8) | c, n / 4);
     } else {
@@ -16,7 +17,7 @@ void *memset(void *dst, int c, u32 n)
 }
 
 /** @brief Compare n bytes of memory */
-int memcmp(const void *v1, const void *v2, u32 n)
+int memcmp(const void *v1, const void *v2, size_t n)
 {
     const u8 *s1 = v1;
     const u8 *s2 = v2;
@@ -31,7 +32,7 @@ int memcmp(const void *v1, const void *v2, u32 n)
 }
 
 /** @brief Move n bytes of memory */
-void *memmove(void *dst, const void *src, u32 n)
+void *memmove(void *dst, const void *src, size_t n)
 {
     const char *s = src;
     char *d       = dst;
@@ -52,13 +53,13 @@ void *memmove(void *dst, const void *src, u32 n)
 
 // memcpy exists to placate GCC.  Use memmove.
 /** @brief Copy n bytes of memory (use memmove) */
-void *memcpy(void *dst, const void *src, u32 n)
+void *memcpy(void *dst, const void *src, size_t n)
 {
     return memmove(dst, src, n);
 }
 
 /** @brief Compare n characters of strings */
-int strncmp(const char *p, const char *q, u32 n)
+int strncmp(const char *p, const char *q, size_t n)
 {
     while (n > 0 && *p && *p == *q) {
         n--, p++, q++;
@@ -70,7 +71,7 @@ int strncmp(const char *p, const char *q, u32 n)
 }
 
 /** @brief Copy n characters of string */
-char *strncpy(char *s, const char *t, int n)
+char *strncpy(char *s, const char *t, size_t n)
 {
     char *os = s;
     while (n-- > 0 && (*s++ = *t++) != 0) {
@@ -95,25 +96,22 @@ char *safestrcpy(char *s, const char *t, int n)
 }
 
 /** @brief Get length of string */
-int strlen(const char *s)
+size_t strlen(const char *s)
 {
-    int n;
+    size_t n;
 
     for (n = 0; s[n]; n++) {
     }
     return n;
 }
 
-int strnlen(const char *s, int maxlen)
+size_t strnlen(const char *s, size_t maxlen)
 {
-    int len = 0;
-    while (len < maxlen) {
-        if (s[len] == '\0') {
-            return len;
-        }
+    size_t len = 0;
+    while (len < maxlen && s[len] != '\0') {
         len++;
     }
-    return -1;
+    return len;
 }
 
 
@@ -124,30 +122,29 @@ bool starts_with(const char pre[static 1], const char str[static 1])
 
 char *strcat(char dest[static 1], const char src[static 1])
 {
-    char *d = dest;
+    char *d          = dest;
+    const char *s    = src;
     while (*d != '\0') {
         d++;
     }
-    while (*src != '\0') {
-        *d = *src;
-        d++;
-        src++;
+    while (*s != '\0') {
+        *d++ = *s++;
     }
     *d = '\0';
     return dest;
 }
 
-char *strncat(char dest[static 1], const char src[static 1], u32 n)
+char *strncat(char dest[static 1], const char src[static 1], size_t n)
 {
-    char *d = dest;
+    char *d          = dest;
+    const char *s    = src;
+    size_t copied    = 0;
     while (*d != '\0') {
         d++;
     }
-    u32 i = 0;
-    while (i < n && src[i] != '\0') {
-        *d = src[i];
-        d++;
-        i++;
+    while (copied < n && *s != '\0') {
+        *d++ = *s++;
+        copied++;
     }
     *d = '\0';
     return dest;

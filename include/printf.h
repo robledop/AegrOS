@@ -103,8 +103,10 @@ extern "C" {
  *
  * @param c the single character to print
  */
+#ifndef PRINTF_SUPPRESS_PUTCHAR_DECL
 PRINTF_VISIBILITY
 void putchar(char c);
+#endif
 
 
 /**

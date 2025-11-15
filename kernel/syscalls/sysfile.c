@@ -142,14 +142,14 @@ static int resolve_cwd_path(struct proc *proc, const char *request, char *resolv
     if (base[0] != '/') {
         base = "/";
     }
-    const int base_len = strnlen(base, MAX_FILE_PATH);
-    const int req_len  = strnlen(request, MAX_FILE_PATH);
-    if (base_len < 0 || req_len < 0) {
+    const size_t base_len = strnlen(base, MAX_FILE_PATH);
+    const size_t req_len  = strnlen(request, MAX_FILE_PATH);
+    if (base_len >= MAX_FILE_PATH || req_len >= MAX_FILE_PATH) {
         return -1;
     }
 
     safestrcpy(combined, base, MAX_FILE_PATH);
-    int len = base_len;
+    size_t len = base_len;
     if (len == 0) {
         combined[0] = '/';
         combined[1] = '\0';

@@ -149,15 +149,27 @@ int sys_ioctl(void)
 {
     int fd;
     int request;
+    struct file *f;
     if (argint(0, &fd) < 0 || argint(1, &request) < 0) {
         return -1;
     }
-    if (!fd_is_console(fd)) {
+
+    struct proc *curproc = current_process();
+    if (fd < 0 || fd >= NOFILE) {
+        return -1;
+    }
+    f = curproc->ofile[fd];
+    if (f == nullptr || f->type != FD_INODE || f->ip == nullptr || f->ip->type != T_DEV) {
         return -1;
     }
 
+    int major = devtab_lookup_major(f->ip);
+
     switch (request) {
     case TIOCGWINSZ: {
+        if (major != CONSOLE) {
+            return -1;
+        }
         char *uptr;
         if (argptr(2, &uptr, sizeof(struct winsize)) < 0) {
             return -1;
@@ -165,6 +177,30 @@ int sys_ioctl(void)
         struct winsize ws;
         console_get_winsize(&ws);
         memmove(uptr, &ws, sizeof(struct winsize));
+        return 0;
+    }
+    case FB_IOCTL_GET_WIDTH:
+    case FB_IOCTL_GET_HEIGHT:
+    case FB_IOCTL_GET_FBADDR:
+    case FB_IOCTL_GET_PITCH: {
+        if (major != FRAMEBUFFER || vbe_info == nullptr) {
+            return -1;
+        }
+        char *uptr;
+        if (argptr(2, &uptr, sizeof(u32)) < 0) {
+            return -1;
+        }
+        u32 value;
+        if (request == FB_IOCTL_GET_WIDTH) {
+            value = vbe_info->width;
+        } else if (request == FB_IOCTL_GET_HEIGHT) {
+            value = vbe_info->height;
+        } else if (request == FB_IOCTL_GET_FBADDR) {
+            value = FB_MMAP_BASE;
+        } else {
+            value = vbe_info->pitch;
+        }
+        memmove(uptr, &value, sizeof(u32));
         return 0;
     }
     default:

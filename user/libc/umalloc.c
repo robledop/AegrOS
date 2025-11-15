@@ -1,3 +1,7 @@
+#include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include "types.h"
 #include "user.h"
 
@@ -17,7 +21,7 @@ union header
     struct
     {
         union header *ptr;  // Pointer to next free block in the circular list
-        u32 size;           // Size of this block in Header-sized units
+        size_t size;        // Size of this block in Header-sized units
     } s;
 
     Align x;  // Force alignment to long boundary
@@ -82,7 +86,7 @@ void free(void *ap)
 // Request more memory from the operating system
 // nu: number of Header-sized units needed
 // Returns: pointer to the free list, or nullptr on failure
-static Header *morecore(u32 nu)
+static Header *morecore(size_t nu)
 {
     // Allocate at least 4096 units to reduce syscall overhead
     if (nu < 4096) {
@@ -90,7 +94,11 @@ static Header *morecore(u32 nu)
     }
 
     // Request memory from OS via sbrk syscall
-    char *p = sbrk(nu * sizeof(Header));
+    if (nu > (size_t)INT_MAX / sizeof(Header)) {
+        return nullptr;
+    }
+    int bytes = (int)(nu * sizeof(Header));
+    char *p   = sbrk(bytes);
     if (p == (char *)-1) {
         return nullptr;  // sbrk failed
     }
@@ -109,13 +117,13 @@ static Header *morecore(u32 nu)
 // Allocate memory of at least nbytes size
 // nbytes: number of bytes requested
 // Returns: pointer to allocated memory, or nullptr if allocation fails
-void *malloc(u32 nbytes)
+void *malloc(size_t nbytes)
 {
     Header *prevp;
 
     // Convert byte size to Header-sized units
     // +1 for the header itself, and round up for any remainder
-    u32 nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
+    size_t nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
 
     // Initialize the free list on first call
     if ((prevp = freep) == nullptr) {
@@ -152,7 +160,7 @@ void *malloc(u32 nbytes)
     }
 }
 
-void *realloc(void *ptr, u32 size)
+void *realloc(void *ptr, size_t size)
 {
     if (ptr == nullptr) {
         return size ? malloc(size) : nullptr;
@@ -163,7 +171,7 @@ void *realloc(void *ptr, u32 size)
     }
 
     Header *bp        = (Header *)ptr - 1;
-    u32 current_bytes = (bp->s.size - 1) * sizeof(Header);
+    size_t current_bytes = (bp->s.size - 1) * sizeof(Header);
     if (size <= current_bytes) {
         return ptr;
     }
@@ -173,8 +181,24 @@ void *realloc(void *ptr, u32 size)
         return nullptr;
     }
 
-    u32 copy = current_bytes < size ? current_bytes : size;
+    size_t copy = current_bytes < size ? current_bytes : size;
     memmove(newptr, ptr, copy);
     free(ptr);
     return newptr;
+}
+
+void *calloc(size_t nmemb, size_t size)
+{
+    if (nmemb == 0 || size == 0) {
+        return malloc(0);
+    }
+    if (nmemb > (size_t)INT_MAX / size) {
+        return nullptr;
+    }
+    size_t total = nmemb * size;
+    void *ptr    = malloc(total);
+    if (ptr != nullptr) {
+        memset(ptr, 0, total);
+    }
+    return ptr;
 }

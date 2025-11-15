@@ -2,7 +2,6 @@
   <configuration default="false" name="qemu-debug" type="CLion_Remote" version="1" remoteCommand="localhost:1234" symbolFile="$ContentRoot$/rootfs/boot/kernel" sysroot="$ContentRoot$">
     <debugger kind="GDB" isBundled="true" />
     <method v="2">
-      <option name="RunConfigurationTask" enabled="true" run_configuration_name="clean" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
       <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_bear (qemu-debug)" />
     </method>
   </configuration>
