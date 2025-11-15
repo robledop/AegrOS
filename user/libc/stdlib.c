@@ -6,14 +6,14 @@
 
 #include "status.h"
 
-#define MAX_ENV_VARS 32
 
-static char *env_vars[MAX_ENV_VARS];
+char *env_vars[MAX_ENV_VARS];
 
 static int env_name_matches(const char *entry, const char *name, size_t len)
 {
     return entry != nullptr && strncmp(entry, name, len) == 0 && entry[len] == '=';
 }
+
 
 char *getenv(const char *name)
 {

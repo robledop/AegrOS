@@ -23,3 +23,4 @@ int days_in_month(int year, int month);
 int is_leap_year(int year);
 u32 strftime(const char *format, const struct tm *tm, char *buffer, u32 max);
 time_t time(time_t *timer);
+struct tm *localtime(const time_t *timer);

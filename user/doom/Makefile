@@ -19,7 +19,7 @@ AS = nasm
 LD = $(TOOLPREFIX)ld
 INCLUDE = -I../include -I../../include
 
-CFLAGS = -O3 -Wall -ggdb -std=gnu23 -fno-pie -no-pie -m32 -fno-pic -nostdlib -ffreestanding -fno-builtin -fno-strict-aliasing -fno-omit-frame-pointer -MD
+CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 CFLAGS += -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE -DUSEASM -DAEGROS \

@@ -68,17 +68,6 @@ char *strcpy(char *s, const char *t)
     return os;
 }
 
-/** @brief Copy n characters of string */
-__attribute__((noinline)) static void strncpy_debug_hook(const void *dest,
-                                                         size_t n,
-                                                         void *caller)
-{
-    printf("strncpy dbg: dest=%p n=%u caller=%p\n",
-           dest,
-           (unsigned)n,
-           caller);
-}
-
 char *strncpy(char *dst, const char *src, size_t n)
 {
     size_t i = 0;
@@ -98,7 +87,7 @@ int strcmp(const char *p, const char *q)
 {
     while (*p && *p == *q)
         p++, q++;
-    return (u8) * p - (u8) * q;
+    return (u8)*p - (u8)*q;
 }
 
 int isspace(int c)
@@ -398,7 +387,7 @@ int strncmp(const char *p, const char *q, size_t n)
         n--, p++, q++;
     if (n == 0)
         return 0;
-    return (u8) * p - (u8) * q;
+    return (u8)*p - (u8)*q;
 }
 
 bool starts_with(const char pre[static 1], const char str[static 1])

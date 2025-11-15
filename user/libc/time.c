@@ -26,7 +26,7 @@ int is_leap_year(const int year)
 
 u32 strftime(const char *format, const struct tm *tm, char *buffer, u32 maxsize)
 {
-    u32 written  = 0;
+    u32 written     = 0;
     const char *ptr = format;
     char temp[100];
 
@@ -121,7 +121,8 @@ int days_in_month(const int year, const int month)
 {
     static const int month_days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-    if (month == 1) { // February
+    if (month == 1) {
+        // February
         return is_leap_year(year) ? 29 : 28;
     }
     if (month >= 0 && month <= 11) {
@@ -171,9 +172,9 @@ time_t mktime(const struct tm *tm)
 void unix_timestamp_to_tm(const time_t timestamp, struct tm *tm)
 {
     constexpr i64 SECONDS_PER_DAY = 86400LL;
-    constexpr int DAYS_PER_WEEK       = 7;
-    constexpr int EPOCH_YEAR          = 1970;
-    constexpr int TM_YEAR_BASE        = 1900;
+    constexpr int DAYS_PER_WEEK   = 7;
+    constexpr int EPOCH_YEAR      = 1970;
+    constexpr int TM_YEAR_BASE    = 1900;
 
     // Calculate total days and remaining seconds
     i64 days              = timestamp / SECONDS_PER_DAY;
@@ -298,4 +299,14 @@ int usleep(unsigned int usec)
     const unsigned int usec_per_tick = 1000000U / TIMER_FREQUENCY_HZ;
     unsigned int ticks               = (usec + usec_per_tick - 1U) / usec_per_tick;
     return sleep((int)ticks);
+}
+
+struct tm *localtime(const time_t *timer)
+{
+    static struct tm tm_result;
+    if (timer == nullptr) {
+        return nullptr;
+    }
+    unix_timestamp_to_tm(*timer, &tm_result);
+    return &tm_result;
 }

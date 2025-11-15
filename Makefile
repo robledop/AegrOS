@@ -92,7 +92,7 @@ doom:
 	$(MAKE) -C user/doom clean
 	$(MAKE) -C user/doom
 
-grub: build/kernel apps FORCE
+grub: build/kernel apps doom FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
 	cp assets/doom.wad ./rootfs/bin/doom.wad

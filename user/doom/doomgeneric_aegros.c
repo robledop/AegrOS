@@ -392,10 +392,22 @@ void DG_DrawFrame()
     flushPendingKeyUps();
 
     if (FrameBuffer) {
-        for (int i = 0; i < DOOMGENERIC_RESY; ++i) {
-            memcpy(FrameBuffer + s_PositionX + (i + s_PositionY) * s_ScreenWidth,
-                   DG_ScreenBuffer + i * DOOMGENERIC_RESX,
-                   DOOMGENERIC_RESX * 4);
+        uint32_t *src  = (uint32_t *)DG_ScreenBuffer;
+        uint32_t *dst  = (uint32_t *)FrameBuffer;
+        const int srcW = DOOMGENERIC_RESX;
+        const int srcH = DOOMGENERIC_RESY;
+        const int dstW = s_ScreenWidth;
+        const int dstH = s_ScreenHeight;
+
+        for (int y = 0; y < dstH; ++y) {
+            int srcY         = (y * srcH) / dstH;
+            uint32_t *srcRow = src + srcY * srcW;
+            uint32_t *dstRow = dst + (y + s_PositionY) * s_ScreenWidth + s_PositionX;
+
+            for (int x = 0; x < dstW; ++x) {
+                int srcX  = (x * srcW) / dstW;
+                dstRow[x] = srcRow[srcX];
+            }
         }
     }
 
@@ -435,7 +447,7 @@ int DG_GetKey(int *pressed, unsigned char *doomKey)
     }
 }
 
-void DG_SetWindowTitle(const char *title)
+void DG_SetWindowTitle([[maybe_unused]] const char *title)
 {
 }
 

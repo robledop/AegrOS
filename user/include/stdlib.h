@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#define MAX_ENV_VARS 32
 
 void __ae_exit(int status) __attribute__((noreturn));
 #define exit(...) __ae_exit(__VA_OPT__(__VA_ARGS__ +) 0)

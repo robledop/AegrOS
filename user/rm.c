@@ -1,7 +1,5 @@
 #include "user.h"
 
-// BUG: I get page faults when trying to delete big files
-
 int main(int argc, char *argv[])
 {
     if (argc < 2) {
@@ -15,4 +13,6 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+    return 0;
 }
