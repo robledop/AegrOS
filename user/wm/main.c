@@ -47,6 +47,9 @@ static void disable_raw_mode(int fd)
         tcsetattr(fd, TCSAFLUSH, &orig_termios);
         raw_mode = 0;
     }
+
+    // Clear screen on exit
+    write(STDOUT_FILENO, "\x1b[2J", 4);
 }
 
 /* Called at exit to avoid remaining in raw mode. */
@@ -100,6 +103,11 @@ fatal:
     return -1;
 }
 
+void exit_button_handler([[maybe_unused]] struct button *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
+{
+    wm_should_exit = true;
+}
+
 void wm_process_events(void)
 {
     struct ps2_mouse_packet mp;
@@ -120,10 +128,10 @@ void wm_process_events(void)
         return;
     }
 
-    if (c == 'q') {
-        wm_should_exit = true;
-        return;
-    }
+    // if (c == 'q') {
+    //     wm_should_exit = true;
+    //     return;
+    // }
 
     terminal->putchar(terminal, c);
 
@@ -164,6 +172,11 @@ int main(const int argc, char **argv)
     launch_button->onmousedown = spawn_calculator;
     window_set_title((window_t *)launch_button, "Calculator");
     window_insert_child((window_t *)desktop, (window_t *)launch_button);
+
+    button_t *exit_button    = button_new(120, 10, 100, 30);
+    exit_button->onmousedown = exit_button_handler;
+    window_set_title((window_t *)exit_button, "Exit");
+    window_insert_child((window_t *)desktop, (window_t *)exit_button);
 
     // terminal = vterm_new();
     // window_insert_child((window_t *)desktop, (window_t *)terminal);

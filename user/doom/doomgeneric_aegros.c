@@ -228,6 +228,8 @@ void disableRawMode()
         return;
     }
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+    // Clear screen on exit
+    write(STDOUT_FILENO, "\x1b[2J", 4);
 }
 
 void enableRawMode()
@@ -298,7 +300,6 @@ void DG_Init()
         KeyboardUsesConsole = 1;
     }
 
-    enableRawMode();
     ioctl(KeyboardFd, 1, (void *)1);
 
     int argPosX = 0;
@@ -313,6 +314,9 @@ void DG_Init()
     if (argPosY > 0) {
         sscanf(myargv[argPosY + 1], "%d", &s_PositionY);
     }
+
+    // Leave console in cooked mode until we are ready to draw the first frame.
+    // enableRawMode();
 }
 
 static void handleKeyInput()
@@ -389,6 +393,11 @@ static void handleKeyInput()
 
 void DG_DrawFrame()
 {
+    static int raw_enabled;
+    if (!raw_enabled) {
+        enableRawMode();
+        raw_enabled = 1;
+    }
     flushPendingKeyUps();
 
     if (FrameBuffer) {

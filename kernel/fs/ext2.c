@@ -138,9 +138,15 @@ void ext2fs_iinit(int dev)
 {
     mbr_load();
     ext2fs_readsb(dev, &ext2_sb);
+    const u32 block_bytes   = 1024u << ext2_sb.s_log_block_size;
+    const u64 partition_mb  = ((u64)ext2_sb.s_blocks_count * block_bytes) / (1024ull * 1024ull);
+    const u64 size_value    = (partition_mb >= 1024ull) ? partition_mb / 1024ull : partition_mb;
+    const char *size_suffix = (partition_mb >= 1024ull) ? "GB" : "MB";
     boot_message(WARNING_LEVEL_INFO,
-                 "ext2: size %d nblocks %d ninodes %d",
-                 1024 << ext2_sb.s_log_block_size,
+                 "ext2: size: %llu %s, block_size: %u, block_count: %u, inodes: %u",
+                 (unsigned long long)size_value,
+                 size_suffix,
+                 block_bytes,
                  ext2_sb.s_blocks_count,
                  ext2_sb.s_inodes_count);
 }
@@ -293,8 +299,9 @@ void ext2fs_ilock(struct inode *ip)
         memmove(ad->addrs, din->i_block, sizeof(ad->addrs));
 
         ip->valid = 1;
-        if (ip->type == 0)
+        if (ip->type == 0) {
             panic("ext2fs_ilock: no type");
+        }
     }
 }
 

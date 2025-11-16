@@ -26,6 +26,9 @@ ifeq ("$(wildcard rootfs/boot/grub/grub.cfg)","")
             echo '}' >> rootfs/boot/grub/grub.cfg)
 endif
 
+DISK ?= /dev/sdb
+DISK_MOUNT ?= /mnt/aegr
+
 
 SRC_DIRS := $(shell find ./kernel -type d)
 BUILD_DIRS := $(patsubst ./kernel/%,./build/%,$(SRC_DIRS))
@@ -59,9 +62,15 @@ QEMUOPTS = $(QEMU_DISK) -smp $(CPUS) -m $(MEMORY)
 
 qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0 -DDEBUG -DGRAPHICS
 qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
-vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DGRAPHICS -DDEBUG
-vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
+disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DGRAPHICS -DDEBUG
+disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
 vbox-textmode qemu-nox-perf-textmode qemu-perf-textmode qemu-perf-no-net-textmode: CFLAGS += -O3 -DDEBUG
+
+# THIS WILL WIPE $(DISK)
+.PHONY: disk
+disk: grub FORCE
+	grub-file --is-x86-multiboot ./rootfs/boot/kernel
+	DISK="$(DISK)" MOUNT_POINT="$(DISK_MOUNT)" ./scripts/install-on-disk.sh
 
 asm_headers: FORCE
 	./scripts/c_to_nasm.sh ./include syscall.asm traps.asm memlayout.asm mmu.asm asm.asm param.asm
