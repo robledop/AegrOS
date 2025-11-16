@@ -6,6 +6,7 @@
 #include "string.h"
 #include "scheduler.h"
 #include "assert.h"
+#include "printf.h"
 
 struct ptable_t ptable;
 extern struct proc *initproc;

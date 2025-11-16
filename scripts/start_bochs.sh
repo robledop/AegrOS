@@ -9,6 +9,11 @@ DISPLAY_OPTIONS="${BOCHS_DISPLAY_OPTIONS:-}"
 ROMIMAGE_PATH="${BOCHS_ROMIMAGE:-}"
 VGAROM_PATH="${BOCHS_VGAROMIMAGE:-}"
 BXSHARE_PATH="${BOCHS_BXSHARE:-${BXSHARE:-}}"
+CPU_COUNT="${BOCHS_CPUS:-1}"
+RUN_IMMEDIATE="${BOCHS_RUN_IMMEDIATE:-1}"
+if ! [[ "$CPU_COUNT" =~ ^[0-9]+$ ]] || [[ "$CPU_COUNT" -lt 1 ]]; then
+  CPU_COUNT=1
+fi
 
 detect_display_library() {
   declare -A found=()
@@ -231,9 +236,9 @@ if [[ -n "$DISPLAY_LIBRARY" ]]; then
   fi
 fi
 
-python3 - "$CONFIG_TEMPLATE" "$TMP_CONFIG" "$MEMORY" "$DISPLAY_LINE" "$ROMIMAGE_PATH" "$VGAROM_PATH" <<'PY'
+python3 - "$CONFIG_TEMPLATE" "$TMP_CONFIG" "$MEMORY" "$DISPLAY_LINE" "$ROMIMAGE_PATH" "$VGAROM_PATH" "$CPU_COUNT" <<'PY'
 import sys
-template, dest, mem, display, rom, vgarom = sys.argv[1:7]
+template, dest, mem, display, rom, vgarom, cpus = sys.argv[1:8]
 with open(template, "r", encoding="utf-8") as src:
     lines = src.readlines()
 with open(dest, "w", encoding="utf-8") as dst:
@@ -246,6 +251,8 @@ with open(dest, "w", encoding="utf-8") as dst:
             dst.write(f"romimage: file={rom}\n")
         elif vgarom and line.startswith("vgaromimage:"):
             dst.write(f"vgaromimage: file={vgarom}\n")
+        elif cpus and line.startswith("cpu:"):
+            dst.write(f"cpu: count={cpus}, ips=100000000, reset_on_triple_fault=1\n")
         else:
             dst.write(line)
 PY
@@ -254,9 +261,70 @@ pushd "$ROOT_DIR" >/dev/null
 if [[ "${SKIP_GRUB:-0}" != "1" ]]; then
   make grub
 fi
+BOCHS_ARGS=(-f "$TMP_CONFIG" -q)
+CMD=("$BOCHS_BIN" "${BOCHS_ARGS[@]}" "${EXTRA_ARGS[@]}")
 if [[ -n "$BXSHARE_PATH" ]]; then
-  BXSHARE="$BXSHARE_PATH" "$BOCHS_BIN" -f "$TMP_CONFIG" -q "${EXTRA_ARGS[@]}"
+  export BXSHARE="$BXSHARE_PATH"
+fi
+if [[ "$RUN_IMMEDIATE" == "1" ]]; then
+  python3 - "$RUN_IMMEDIATE" "${CMD[@]}" <<'PY'
+import os, pty, select, sys
+run_immediate = sys.argv[1] == "1"
+cmd = sys.argv[2:]
+if not cmd:
+    sys.exit("No command provided")
+
+def auto_continue(buf):
+    prompts = (b"<bochs:",)
+    for prompt in prompts:
+        if prompt in buf:
+            return True
+    return False
+
+if not run_immediate:
+    os.execvp(cmd[0], cmd)
+
+pid, master_fd = pty.fork()
+if pid == 0:
+    os.execvp(cmd[0], cmd)
+
+stdin_fd = sys.stdin.fileno()
+stdout_fd = sys.stdout.fileno()
+buffer = b""
+try:
+    while True:
+        rlist, _, _ = select.select([master_fd, stdin_fd], [], [])
+        if master_fd in rlist:
+            try:
+                data = os.read(master_fd, 1024)
+            except OSError:
+                data = b""
+            if not data:
+                break
+            os.write(stdout_fd, data)
+            buffer += data
+            if auto_continue(buffer):
+                os.write(master_fd, b"c\n")
+                buffer = b""
+            elif len(buffer) > 64:
+                buffer = buffer[-64:]
+        if stdin_fd in rlist:
+            try:
+                user = os.read(stdin_fd, 1024)
+            except OSError:
+                user = b""
+            if not user:
+                break
+            os.write(master_fd, user)
+finally:
+    _, status = os.waitpid(pid, 0)
+    if os.WIFEXITED(status):
+        sys.exit(os.WEXITSTATUS(status))
+    if os.WIFSIGNALED(status):
+        sys.exit(128 + os.WTERMSIG(status))
+    sys.exit(1)
+PY
 else
-  "$BOCHS_BIN" -f "$TMP_CONFIG" -q "${EXTRA_ARGS[@]}"
+  "${CMD[@]}"
 fi
 popd >/dev/null

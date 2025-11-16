@@ -213,7 +213,7 @@ found:
     return init_proc(p);
 }
 
-static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
+[[maybe_unused]] static struct proc *alloc_kernel_proc(struct proc *p, void (*entry_point)(void))
 {
     if ((p->kstack = kalloc_page()) == nullptr) {
         p->state = UNUSED;

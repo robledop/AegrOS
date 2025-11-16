@@ -58,7 +58,6 @@ void panic(const char *);
 
 // ulib.c
 int stat(const char *, struct stat *);
-// void printf(int, const char *, ...);
 char *gets(char *, int max);
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
@@ -69,7 +68,7 @@ int atoi(const char *);
 int abs(int x);
 int getkey();
 int getkey_blocking();
-// void putchar(char c);
+
 int isspace(int c);
 int iscntrl(int c);
 int isdigit(int c);

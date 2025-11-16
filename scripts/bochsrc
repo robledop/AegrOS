@@ -1,6 +1,8 @@
 # Bochs configuration for AegrOS
 # Launch via scripts/start_bochs.sh to ensure disk image is fresh.
 
+plugin_ctrl: iodebug=0
+
 megs: 512
 romimage: file=$BXSHARE/BIOS-bochs-latest
 vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
@@ -8,6 +10,7 @@ boot: disk
 log: bochs.log
 clock: sync=realtime, time0=local
 cpu: count=2, ips=100000000, reset_on_triple_fault=1
+magic_break: enabled=0
 
 # Disable devices we do not need in this environment.
 mouse: enabled=0
@@ -24,4 +27,4 @@ ata0-master: type=disk, path="disk.img", mode=flat, cylinders=512, heads=16, spt
 ata0-slave: type=none
 ata1: enabled=0
 
-com1: enabled=1, mode=term, dev=stdio
+#com1: enabled=1, mode=term, dev=stdio

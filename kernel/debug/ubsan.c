@@ -32,9 +32,7 @@ struct undefined_behavior
     const char *violation;
 };
 
-[[noreturn]] void scram(int, const struct undefined_behavior *info);
-
-void scram(const int event, const struct undefined_behavior *info)
+[[noreturn]] void report_undefined_behavior(const int event, const struct undefined_behavior *info)
 {
     printf(KBWHT "Event:" KWHT " %d\n", event);
     printf(KBWHT "File:" KWHT " %s\n", info->filename);
@@ -79,7 +77,7 @@ static const struct ubsan_source_location unknown_location = {
     info.line      = location->line;
     info.column    = location->column;
     info.violation = violation;
-    scram(UNDEFINED_BEHAVIOR, &info);
+    report_undefined_behavior(UNDEFINED_BEHAVIOR, &info);
 }
 
 #define ABORT_VARIANT(name, params, call)                                                                              \
