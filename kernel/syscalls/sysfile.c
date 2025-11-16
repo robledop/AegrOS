@@ -7,6 +7,7 @@
 #include "assert.h"
 #include "types.h"
 #include "defs.h"
+#include "devtab.h"
 #include "param.h"
 #include "stat.h"
 #include "proc.h"
@@ -16,9 +17,6 @@
 #include "printf.h"
 #include "string.h"
 
-extern struct inode devtab[NDEV];
-bool devtab_parsed = false;
-void parse_devtab();
 
 /**
  * @brief Normalize an absolute path by collapsing '.', '..', and duplicate '/'.
@@ -506,7 +504,7 @@ static struct inode *create(char *path, short type, short major, short minor)
 
     ASSERT(ip->addrs != nullptr, "ip->addrs is null in create");
     ip->iops->ilock(ip);
-    ip->type = type;
+    ip->type  = type;
     ip->major = major;
     ip->minor = minor;
     ip->nlink = 1;
@@ -527,100 +525,10 @@ static struct inode *create(char *path, short type, short major, short minor)
     dp->iops->iunlockput(dp);
 
     if (ip->type == T_DEV && (major != 0 || minor != 0)) {
-        const int fd      = open_file("/etc/devtab", O_RDWR);
-        struct file *file = current_process()->ofile[fd];
-        char buf[64];
-        const int n = snprintf(buf, sizeof(buf), "%d\tchar\t%d\t%d\t#%s\n", ip->inum, major, minor, path);
-
-        file_write(file, buf, n);
-        file_close(file);
-        current_process()->ofile[fd] = nullptr;
-
-        bool found = false;
-        for (int i = 0; i < NDEV; i++) {
-            if (devtab[i].inum == ip->inum) {
-                devtab[i].inum  = ip->inum;
-                devtab[i].dev   = ip->dev;
-                devtab[i].type  = ip->type;
-                devtab[i].major = ip->major;
-                devtab[i].minor = ip->minor;
-
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            for (int i = 0; i < NDEV; i++) {
-                if (devtab[i].inum == 0) {
-                    devtab[i].inum  = ip->inum;
-                    devtab[i].dev   = ip->dev;
-                    devtab[i].type  = ip->type;
-                    devtab[i].major = ip->major;
-                    devtab[i].minor = ip->minor;
-                    break;
-                }
-            }
-        }
+        devtab_add_entry(ip, path);
     }
 
     return ip;
-}
-
-void parse_devtab()
-{
-    const int fd      = open_file("/etc/devtab", O_RDWR);
-    struct file *file = current_process()->ofile[fd];
-    char buf[512];
-    struct stat st;
-    file_stat(file, &st);
-    const int n = file_read(file, buf, st.size);
-    buf[n]      = '\0';
-
-    for (char *line = strtok(buf, "\n"); line != nullptr; line = strtok(nullptr, "\n")) {
-        u32 inum, major, minor;
-        char type[16];
-        if (sscanf(line, "%d\t%s\t%d\t%d", &inum, type, &major, &minor) == 4) {
-            struct inode *ip = iget(ROOTDEV, inum);
-            ip->iops->ilock(ip);
-            ip->type  = T_DEV;
-            ip->nlink = 1;
-            ip->dev   = 0;
-            ip->ref   = 1;
-            ip->valid = 1;
-            ip->major = major;
-            ip->minor = minor;
-            ip->iops->iunlock(ip);
-            ip->iops->iput(ip);
-
-            bool found = false;
-            for (int i = 0; i < NDEV; i++) {
-                if (devtab[i].inum == inum) {
-                    devtab[i].inum  = ip->inum;
-                    devtab[i].dev   = ip->dev;
-                    devtab[i].type  = ip->type;
-                    devtab[i].major = ip->major;
-                    devtab[i].minor = ip->minor;
-                    found           = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                for (int i = 0; i < NDEV; i++) {
-                    if (devtab[i].inum == 0) {
-                        devtab[i].inum  = ip->inum;
-                        devtab[i].dev   = ip->dev;
-                        devtab[i].type  = ip->type;
-                        devtab[i].major = ip->major;
-                        devtab[i].minor = ip->minor;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    file_close(file);
 }
 
 int open_file(char *path, int omode)
@@ -629,10 +537,7 @@ int open_file(char *path, int omode)
     struct file *f;
     struct inode *ip;
 
-    if (!devtab_parsed) {
-        devtab_parsed = true;
-        parse_devtab();
-    }
+    devtab_load();
 
     if (omode & O_CREATE) {
         ip = create(path, T_FILE, 0, 0);

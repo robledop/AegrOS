@@ -14,7 +14,6 @@
 #include "proc.h"
 
 struct devsw devsw[NDEV];
-struct inode devtab[NDEV];
 
 struct
 {
@@ -54,19 +53,6 @@ struct file *file_dup(struct file *f)
     f->ref++;
     release(&ftable.lock);
     return f;
-}
-
-int devtab_lookup_major(struct inode *ip)
-{
-    if (ip == nullptr) {
-        return -1;
-    }
-    for (int i = 0; i < NDEV; i++) {
-        if (devtab[i].inum == ip->inum) {
-            return devtab[i].major;
-        }
-    }
-    return ip->major;
 }
 
 // Close file f.  (Decrement ref count, close when reaches 0.)

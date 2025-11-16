@@ -10,8 +10,8 @@
 #include "file.h"
 #include "icache.h"
 #include "mbr.h"
+#include <devtab.h>
 
-extern struct inode devtab[NDEV];
 struct inode_operations ext2fs_inode_ops = {
     ext2fs_dirlink,
     ext2fs_dirlookup,
@@ -608,22 +608,12 @@ static void ext2fs_itrunc(struct inode *ip)
 }
 
 
-static inline int devtab_get_major(u32 inum)
-{
-    for (int i = 0; i < NDEV; i++) {
-        if (devtab[i].inum == inum) {
-            return devtab[i].major;
-        }
-    }
-    return -1;
-}
-
 int ext2fs_readi(struct inode *ip, char *dst, u32 off, u32 n)
 {
     u32 m;
 
     if (ip->type == T_DEV) {
-        int major = devtab_get_major(ip->inum);
+        int major = devtab_lookup_major(ip);
         if (major < 0 || major >= NDEV || !devsw[major].read) {
             return -1;
         }
@@ -652,7 +642,7 @@ int ext2fs_writei(struct inode *ip, char *src, u32 off, u32 n)
     u32 m;
 
     if (ip->type == T_DEV) {
-        int major = devtab_get_major(ip->inum);
+        int major = devtab_lookup_major(ip);
         if (major < 0 || major >= NDEV || !devsw[major].write) {
             return -1;
         }

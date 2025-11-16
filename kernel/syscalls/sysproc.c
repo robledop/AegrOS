@@ -10,6 +10,7 @@
 #include "framebuffer.h"
 #include "memlayout.h"
 #include "console.h"
+#include "devtab.h"
 #include "termios.h"
 #include "sys/ioctl.h"
 
