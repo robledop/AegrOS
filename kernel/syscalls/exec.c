@@ -1,14 +1,14 @@
-#include "types.h"
-#include "param.h"
-#include "mmu.h"
-#include "proc.h"
-#include "defs.h"
-#include "x86.h"
-#include "elf.h"
-#include "string.h"
-#include "file.h"
-#include "printf.h"
-#include "status.h"
+#include <types.h>
+#include <param.h>
+#include <mmu.h>
+#include <proc.h>
+#include <defs.h>
+#include <x86.h>
+#include <elf.h>
+#include <string.h>
+#include <file.h>
+#include <printf.h>
+#include <status.h>
 
 
 constexpr char elf_signature[] = {0x7f, 'E', 'L', 'F'};

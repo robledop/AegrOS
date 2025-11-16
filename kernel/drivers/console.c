@@ -2,28 +2,23 @@
 // Input is from the keyboard or serial port.
 // Output is written to the screen and serial port.
 
-#include "types.h"
-#include "string.h"
-#include "defs.h"
-#include "traps.h"
-#include "spinlock.h"
-#include "file.h"
-#include "memlayout.h"
-#include "console.h"
-#include "proc.h"
-#include "x86.h"
-#include "debug.h"
-#include "framebuffer.h"
-#include "printf.h"
-#include "termcolors.h"
-#include "io.h"
-#include "scheduler.h"
-#include "vesa_terminal.h"
-#include "vga_terminal.h"
-#include "termios.h"
-#include "sys/ioctl.h"
-#include "ansi.h"
-#include "proc.h"
+#include <ansi.h>
+#include <console.h>
+#include <debug.h>
+#include <defs.h>
+#include <file.h>
+#include <printf.h>
+#include <proc.h>
+#include <scheduler.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <termcolors.h>
+#include <termios.h>
+#include <traps.h>
+#include <types.h>
+#include <vesa_terminal.h>
+#include <vga_terminal.h>
+#include <x86.h>
 
 // Special keycodes
 #define KEY_HOME        0xE0
@@ -163,13 +158,12 @@ void panic(const char *fmt, ...)
     printf("lapicid %d: panic: " KRED "%s\n" KRESET, lapicid(), buf);
     debug_stats();
 
-    panicked = 1; // freeze other CPU
+    panicked = 1; // freeze other CPUs
     release(&cons.lock);
     for (;;) {
         hlt();
     }
 }
-
 
 /** @brief Put a character on the console (screen and serial) */
 void consputc(int c)
@@ -290,9 +284,6 @@ void console_input_handler(int (*getc)(void))
 /** @brief Read from the console */
 int console_read(struct inode *ip, char *dst, int n, [[maybe_unused]] u32 offset)
 {
-    extern volatile u32 ticks;
-    extern struct spinlock tickslock;
-
     ip->iops->iunlock(ip);
     int target = n;
     acquire(&cons.lock);

@@ -15,7 +15,8 @@ rm -f disk.vdi || true
 VBoxManage convertfromraw disk.img disk.vdi --format VDI
 VBoxManage createvm --name "$VM_NAME" --register --basefolder .
 VBoxManage storagectl "$VM_NAME" --name "IDE" --add ide --controller PIIX4
-VBoxManage storageattach "$VM_NAME" --storagectl "IDE" --port 0 --device 0 --type hdd --medium disk.vdi
+VBoxManage storagectl "$VM_NAME" --name "AHCI" --add sata --controller IntelAhci --portcount 1 --hostiocache on
+VBoxManage storageattach "$VM_NAME" --storagectl "AHCI" --port 0 --device 0 --type hdd --medium disk.vdi
 VBoxManage modifyvm "$VM_NAME" --memory "$MEMORY" --vram 16 --graphicscontroller vboxvga
 VBoxManage modifyvm "$VM_NAME" --nic1 bridged --bridgeadapter1 tap0 --nictype1 82540EM
 VBoxManage modifyvm "$VM_NAME" --ioapic on --cpus 8 --chipset piix3

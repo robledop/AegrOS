@@ -24,6 +24,7 @@ int main(const int argc, char **argv)
         res = open(dir, O_CREATE);
     } else {
         strncpy(full_path, current_directory, MAX_FILE_PATH);
+        strcat(full_path, "/");
         strcat(full_path, dir);
         res = open(full_path, O_CREATE);
     }

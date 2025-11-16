@@ -72,7 +72,6 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     tvinit();                                   // trap vectors
     binit();                                    // buffer cache
     file_init();                                // file table
-    ide_init();                                 // disk
     startothers();                              // start other processors
     kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
     kernel_enable_mmio_propagation();
@@ -150,7 +149,6 @@ static void startothers(void)
         while (c->started == 0);
     }
 }
-
 
 void set_vbe_info(const multiboot_info_t *mbd)
 {

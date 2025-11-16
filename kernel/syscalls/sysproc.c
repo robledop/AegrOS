@@ -66,6 +66,11 @@ static int fd_is_console(int fd)
     return major == CONSOLE;
 }
 
+/**
+ * @brief Get the current working directory (syscall handler).
+ *
+ * @return 0 on success, -1 on error.
+ */
 int sys_getcwd(void)
 {
     int n;
@@ -106,6 +111,7 @@ int sys_sbrk(void)
     return addr;
 }
 
+/** @brief Get terminal attributes (syscall handler). */
 int sys_tcgetattr(void)
 {
     int fd;
@@ -127,6 +133,7 @@ int sys_tcgetattr(void)
     return 0;
 }
 
+/** @brief Set terminal attributes (syscall handler). */
 int sys_tcsetattr(void)
 {
     int fd;
@@ -146,6 +153,7 @@ int sys_tcsetattr(void)
     return console_tcsetattr(action, &t);
 }
 
+/** @brief I/O control operation (syscall handler). */
 int sys_ioctl(void)
 {
     int fd;
@@ -209,6 +217,7 @@ int sys_ioctl(void)
     }
 }
 
+/** @brief Memory-map the framebuffer */
 static int mmap_framebuffer(struct proc *p, u32 length, int prot, int flags, struct file *f, u32 offset)
 {
 #ifndef GRAPHICS
@@ -220,16 +229,13 @@ static int mmap_framebuffer(struct proc *p, u32 length, int prot, int flags, str
     if (offset != 0) {
         return -1;
     }
-    if ((prot & PROT_WRITE) == 0 || (prot & PROT_READ) == 0) {
-        return -1;
-    }
-    if ((flags & MAP_SHARED) == 0) {
-        return -1;
-    }
-    if ((vbe_info->framebuffer & (PGSIZE - 1)) != 0) {
+
+    // Framebuffer must be mapped read-write and shared
+    if ((prot & PROT_WRITE) == 0 || (prot & PROT_READ) == 0 || (flags & MAP_SHARED) == 0) {
         return -1;
     }
 
+    // Check if already mapped
     for (struct vm_area *v = p->vma_list; v != nullptr; v = v->next) {
         if (v->flags & VMA_FLAG_DEVICE) {
             return (int)v->start;
@@ -274,6 +280,10 @@ static int mmap_framebuffer(struct proc *p, u32 length, int prot, int flags, str
 #endif
 }
 
+/**
+ * @brief Memory-map a file or device (syscall handler).
+ * @warning Only framebuffer mapping is currently supported.
+ */
 int sys_mmap(void)
 {
     int addr;
@@ -314,6 +324,10 @@ int sys_mmap(void)
     return -1;
 }
 
+/**
+ * @brief Unmap a memory-mapped region (syscall handler).
+ * @warning Only device unmapping is currently supported.
+ */
 int sys_munmap(void)
 {
     int addr;

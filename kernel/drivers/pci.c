@@ -1,3 +1,4 @@
+#include "ahci.h"
 #include "io.h"
 #include "pci.h"
 #include "printf.h"
@@ -141,7 +142,8 @@ struct pci_vendor vendors[] = {
 };
 
 struct pci_driver pci_drivers[] = {
-    // {.class = 0x01, .subclass = 0x06, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID,    .init = &ahci_init },
+    {.class = 0x01, .subclass = 0x01, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID, .init = &ide_pci_init},
+    {.class = 0x01, .subclass = 0x06, .vendor_id = PCI_ANY_ID, .device_id = PCI_ANY_ID, .init = &ahci_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_DEV, .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_I217, .init = &e1000_init},
     {.class = 0x02, .subclass = 0x00, .vendor_id = INTEL_VEND, .device_id = E1000_82577LM, .init = &e1000_init},

@@ -22,6 +22,7 @@ int devtab_lookup_major(struct inode *ip)
     return ip->major;
 }
 
+// TODO: This doesn't really handle edge cases
 void devtab_save()
 {
     const int fd      = open_file("/etc/devtab", O_RDWR | O_CREATE);
@@ -48,7 +49,6 @@ void devtab_save()
 
 void devtab_add_entry(struct inode *ip, const char *path)
 {
-    // TODO: this can be done better
     bool found = false;
     for (int i = 0; i < NDEV; i++) {
         if (devtab[i].inum == ip->inum) {

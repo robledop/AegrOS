@@ -5,6 +5,7 @@ struct buf;
 struct context;
 struct file;
 struct inode;
+struct pci_device;
 struct pipe;
 struct proc;
 struct rtcdate;
@@ -55,9 +56,9 @@ struct inode *namei(char *);
 struct inode *nameiparent(char *, char *);
 
 // ide.c
-void ide_init(void);
 void ideintr(void);
 void iderw(struct buf *);
+void ide_pci_init(struct pci_device device);
 
 // ioapic.c
 void enable_ioapic_interrupt(int irq, int cpu);
@@ -91,10 +92,10 @@ void picenable(int);
 void picinit(void);
 
 // pipe.c
-int pipealloc(struct file **, struct file **);
-void pipeclose(struct pipe *, int);
-int piperead(struct pipe *, char *, int);
-int pipewrite(struct pipe *, char *, int);
+int pipe_alloc(struct file **, struct file **);
+void pipe_close(struct pipe *, int);
+int pipe_read(struct pipe *, char *, int);
+int pipe_write(struct pipe *, char *, int);
 
 // proc.c
 int cpu_index(void);

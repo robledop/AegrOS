@@ -3,13 +3,9 @@
 #include <types.h>
 #include <traps.h>
 #include <framebuffer.h>
-
-#include "defs.h"
-#include "file.h"
-#include "string.h"
-
-extern struct devsw devsw[];
-extern struct vbe_mode_info *vbe_info;
+#include <defs.h>
+#include <file.h>
+#include <string.h>
 
 static struct ps2_mouse mouse_device = {};
 static struct ps2_mouse_packet mouse_buffer[32];

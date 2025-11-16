@@ -30,7 +30,7 @@ struct pipe
  * @param f1 Output pointer for the write end file.
  * @return 0 on success, -1 on allocation failure.
  */
-int pipealloc(struct file **f0, struct file **f1)
+int pipe_alloc(struct file **f0, struct file **f1)
 {
     struct pipe *p = nullptr;
     *f0            = *f1 = nullptr;
@@ -69,7 +69,7 @@ bad:
  * @param p Pipe being closed.
  * @param writable Non-zero when closing the write end.
  */
-void pipeclose(struct pipe *p, int writable)
+void pipe_close(struct pipe *p, int writable)
 {
     acquire(&p->lock);
     if (writable) {
@@ -94,7 +94,7 @@ void pipeclose(struct pipe *p, int writable)
  * @param n Number of bytes requested.
  * @return Count of bytes written or -1 if interrupted/closed.
  */
-int pipewrite(struct pipe *p, char *addr, int n)
+int pipe_write(struct pipe *p, char *addr, int n)
 {
     acquire(&p->lock);
     for (int i = 0; i < n; i++) {
@@ -121,7 +121,7 @@ int pipewrite(struct pipe *p, char *addr, int n)
  * @param n Maximum number of bytes to copy.
  * @return Count of bytes read or ::-1 if interrupted.
  */
-int piperead(struct pipe *p, char *addr, int n)
+int pipe_read(struct pipe *p, char *addr, int n)
 {
     int i;
 

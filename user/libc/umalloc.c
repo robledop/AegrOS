@@ -20,11 +20,11 @@ union header
 {
     struct
     {
-        union header *ptr;  // Pointer to next free block in the circular list
-        size_t size;        // Size of this block in Header-sized units
+        union header *ptr; // Pointer to next free block in the circular list
+        size_t size;       // Size of this block in Header-sized units
     } s;
 
-    Align x;  // Force alignment to long boundary
+    Align x; // Force alignment to long boundary
 };
 
 typedef union header Header;
@@ -39,7 +39,7 @@ static Header *freep;
 // ap: pointer to the memory block (not including the header)
 void free(void *ap)
 {
-    if (ap == 0) {
+    if (ap == nullptr) {
         return;
     }
     Header *p;
@@ -63,8 +63,8 @@ void free(void *ap)
 
     // Coalesce with next block if they're adjacent in memory
     if (bp + bp->s.size == p->s.ptr) {
-        bp->s.size += p->s.ptr->s.size;  // Merge sizes
-        bp->s.ptr = p->s.ptr->s.ptr;     // Skip over the next block
+        bp->s.size += p->s.ptr->s.size; // Merge sizes
+        bp->s.ptr = p->s.ptr->s.ptr;    // Skip over the next block
     } else {
         // Not adjacent, just link to next block
         bp->s.ptr = p->s.ptr;
@@ -72,8 +72,8 @@ void free(void *ap)
 
     // Coalesce with previous block if they're adjacent in memory
     if (p + p->s.size == bp) {
-        p->s.size += bp->s.size;  // Merge sizes
-        p->s.ptr = bp->s.ptr;     // Skip over bp
+        p->s.size += bp->s.size; // Merge sizes
+        p->s.ptr = bp->s.ptr;    // Skip over bp
     } else {
         // Not adjacent, just link previous block to bp
         p->s.ptr = bp;
@@ -100,7 +100,7 @@ static Header *morecore(size_t nu)
     int bytes = (int)(nu * sizeof(Header));
     char *p   = sbrk(bytes);
     if (p == (char *)-1) {
-        return nullptr;  // sbrk failed
+        return nullptr; // sbrk failed
     }
 
     // Set up the header for the new memory block
@@ -142,19 +142,19 @@ void *malloc(size_t nbytes)
             } else {
                 // Block is larger: split it
                 // Allocate from the tail end of the block
-                p->s.size -= nunits;           // Reduce free block size
-                p += p->s.size;                // Move to tail of remaining block
-                p->s.size = nunits;            // Set size of allocated block
+                p->s.size -= nunits; // Reduce free block size
+                p += p->s.size;      // Move to tail of remaining block
+                p->s.size = nunits;  // Set size of allocated block
             }
-            freep = prevp;  // Update search start position
-            return (void *)(p + 1);  // Return pointer past the header
+            freep = prevp;          // Update search start position
+            return (void *)(p + 1); // Return pointer past the header
         }
 
         // Wrapped around to where we started - no suitable block found
         if (p == freep) {
             // Request more memory from OS
             if ((p = morecore(nunits)) == nullptr) {
-                return nullptr;  // Out of memory
+                return nullptr; // Out of memory
             }
         }
     }
@@ -170,7 +170,7 @@ void *realloc(void *ptr, size_t size)
         return nullptr;
     }
 
-    Header *bp        = (Header *)ptr - 1;
+    Header *bp           = (Header *)ptr - 1;
     size_t current_bytes = (bp->s.size - 1) * sizeof(Header);
     if (size <= current_bytes) {
         return ptr;
