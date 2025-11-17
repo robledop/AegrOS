@@ -178,6 +178,12 @@ void *kmalloc(u32 nbytes);
 void *kzalloc(u32 nbytes);
 void kfree(void *ap);
 void memory_enable_sse(void);
+void memory_enable_avx(void);
+void memory_disable_avx(void);
+int memory_sse_available(void);
+int memory_avx_available(void);
+void fpu_save_state(struct proc *p);
+void fpu_restore_state(struct proc *p);
 
 // number of elements in a fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

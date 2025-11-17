@@ -17,6 +17,7 @@
 
 #define CR4_OSFXSR      0x00000200      // OS supports FXSAVE/FXRSTOR
 #define CR4_OSXMMEXCPT  0x00000400      // OS supports unmasked SSE exceptions
+#define CR4_OSXSAVE     0x00040000      // OS supports XSAVE/XRSTOR
 
 #define CR4_PSE         0x00000010      // Page size extension
 

@@ -17,6 +17,11 @@ struct cpu
     int interrupts_enabled; // Were interrupts enabled before pushcli?
     int time_slice_ticks;   // Remaining timer ticks before preemption
     struct proc *proc;      // The process running on this cpu or null
+    u32 xsave_features_low;
+    u32 xsave_features_high;
+    size_t xsave_area_size;
+    bool has_xsave;
+    bool has_avx;
 };
 
 extern struct cpu cpus[NCPU];
@@ -78,7 +83,7 @@ struct proc
     char name[16]; // Process name (debugging)
     struct proc *next;
     bool fpu_initialized;
-    u8 fpu_state[512] __attribute__((aligned(16)));
+    u8 fpu_state[1024] __attribute__((aligned(64)));
 };
 
 // Process memory is laid out contiguously, low addresses first:

@@ -85,9 +85,7 @@ void switch_to_scheduler(void)
     ASSERT(p->state != RUNNING, "switch_to_scheduler called with RUNNING process");
     ASSERT(current_cpu()->ncli == 1, "switch_to_scheduler called with multiple locks held");
 
-    if (p->fpu_initialized) {
-        fxsave(p->fpu_state);
-    }
+    fpu_save_state(p);
 
     const int interrupts_enabled = current_cpu()->interrupts_enabled;
     switch_context(&p->context, current_cpu()->scheduler);

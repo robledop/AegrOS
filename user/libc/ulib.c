@@ -231,7 +231,64 @@ bool str_ends_with(const char *str, const char *suffix)
 
 void *memset(void *dst, int c, size_t n)
 {
-    stosb(dst, c, n);
+    if (n == 0) {
+        return dst;
+    }
+
+    u8 value     = (u8)c;
+    u8 *d        = dst;
+    size_t left  = n;
+    int has_sse2 = simd_has_sse2();
+
+    if (!has_sse2 || n < 16) {
+        stosb(dst, value, n);
+        return dst;
+    }
+
+    int has_avx      = simd_has_avx();
+    u8 pattern[32];
+    int pattern_init = 0;
+    int used_avx     = 0;
+
+    if (has_avx && left >= 32) {
+        if (!pattern_init) {
+            for (int i = 0; i < 32; i++) {
+                pattern[i] = value;
+            }
+            pattern_init = 1;
+        }
+        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern));
+        while (left >= 32) {
+            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(d) : "memory");
+            d += 32;
+            left -= 32;
+        }
+        used_avx = 1;
+    }
+
+    if (left >= 16) {
+        if (!pattern_init) {
+            for (int i = 0; i < 16; i++) {
+                pattern[i] = value;
+            }
+            pattern_init = 1;
+        }
+        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
+        while (left >= 16) {
+            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(d) : "memory");
+            d += 16;
+            left -= 16;
+        }
+    }
+
+    if (used_avx) {
+        __asm__ volatile("vzeroupper" ::: "memory");
+    }
+
+    while (left-- > 0) {
+        *d++ = value;
+    }
+
     return dst;
 }
 
@@ -333,22 +390,139 @@ int abs(int x)
     return x < 0 ? -x : x;
 }
 
+struct memmove_simd_caps
+{
+    int initialized;
+    int has_sse2;
+    int has_avx;
+};
+
+static struct memmove_simd_caps memmove_caps;
+
+static void memmove_detect_simd_caps(void)
+{
+    if (memmove_caps.initialized) {
+        return;
+    }
+
+    u32 eax, ebx, ecx, edx;
+    cpuid(0x01, &eax, &ebx, &ecx, &edx);
+
+    memmove_caps.has_sse2 = (edx & CPUID_FEAT_EDX_SSE2) != 0;
+
+    const bool cpu_has_xsave = (ecx & CPUID_FEAT_ECX_XSAVE) != 0;
+    const bool os_uses_xsave = (ecx & CPUID_FEAT_ECX_OSXSAVE) != 0;
+    const bool cpu_has_avx   = (ecx & CPUID_FEAT_ECX_AVX) != 0;
+
+    if (cpu_has_avx && cpu_has_xsave && os_uses_xsave) {
+        const u64 xcr0 = xgetbv(0);
+        if ((xcr0 & (XCR0_SSE | XCR0_AVX)) == (XCR0_SSE | XCR0_AVX)) {
+            memmove_caps.has_avx  = 1;
+            memmove_caps.has_sse2 = 1;
+        }
+    }
+
+    memmove_caps.initialized = 1;
+}
+
+int simd_has_sse2(void)
+{
+    memmove_detect_simd_caps();
+    return memmove_caps.has_sse2;
+}
+
+int simd_has_avx(void)
+{
+    memmove_detect_simd_caps();
+    return memmove_caps.has_avx;
+}
+
 void *memmove(void *vdst, const void *vsrc, size_t n)
 {
+    memmove_detect_simd_caps();
+
     const char *src = vsrc;
     char *dst       = vdst;
+
+    if (n == 0 || src == dst) {
+        return vdst;
+    }
+
+    const int use_avx  = memmove_caps.has_avx;
+    const int use_sse2 = memmove_caps.has_sse2;
+    int used_avx       = 0;
 
     if (src < dst && src + n > dst) {
         src += n;
         dst += n;
+
+        if (use_avx) {
+            while (n >= 32) {
+                src -= 32;
+                dst -= 32;
+                __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
+                                 "vmovdqu %%ymm0, (%[d])"
+                                 :
+                                 : [s] "r"(src), [d] "r"(dst)
+                                 : "memory");
+                n -= 32;
+                used_avx = 1;
+            }
+        }
+
+        if (use_sse2) {
+            while (n >= 16) {
+                src -= 16;
+                dst -= 16;
+                __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
+                                 "movdqu %%xmm0, (%[d])"
+                                 :
+                                 : [s] "r"(src), [d] "r"(dst)
+                                 : "memory");
+                n -= 16;
+            }
+        }
+
         while (n-- > 0) {
             *--dst = *--src;
         }
     } else {
+        if (use_avx) {
+            while (n >= 32) {
+                __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
+                                 "vmovdqu %%ymm0, (%[d])"
+                                 :
+                                 : [s] "r"(src), [d] "r"(dst)
+                                 : "memory");
+                src += 32;
+                dst += 32;
+                n -= 32;
+                used_avx = 1;
+            }
+        }
+
+        if (use_sse2) {
+            while (n >= 16) {
+                __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
+                                 "movdqu %%xmm0, (%[d])"
+                                 :
+                                 : [s] "r"(src), [d] "r"(dst)
+                                 : "memory");
+                src += 16;
+                dst += 16;
+                n -= 16;
+            }
+        }
+
         while (n-- > 0) {
             *dst++ = *src++;
         }
     }
+
+    if (used_avx) {
+        __asm__ volatile("vzeroupper" ::: "memory");
+    }
+
     return vdst;
 }
 

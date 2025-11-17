@@ -114,7 +114,7 @@ grub: build/kernel apps doom FORCE
 	./scripts/create_tap.sh
 
 qemu: grub FORCE
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
 
 qemu-nox: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK)
@@ -140,7 +140,7 @@ qemu-nobuild:
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-perf: grub FORCE
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host -d int -D qemu.log
 
 qemu-perf-textmode: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host

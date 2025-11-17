@@ -69,7 +69,10 @@ void ioapic_int(void)
     int maxintr = (ioapic_read(REG_VER) >> 16) & 0xFF;
     int id      = ioapic_read(REG_ID) >> 24;
     if (id != ioapicid) {
-        printf("ioapicinit: id isn't equal to ioapicid; not a MP\n");
+        boot_message(WARNING_LEVEL_WARNING,
+                     "ioapicinit: expected id %d got %d; continuing anyway",
+                     ioapicid,
+                     id);
     }
 
     // Mark all interrupts edge-triggered, active high, disabled,

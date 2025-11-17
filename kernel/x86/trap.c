@@ -85,12 +85,7 @@ void exception_handler(struct trapframe *tf)
         struct proc *p = current_process();
         if (p) {
             clts();
-            if (!p->fpu_initialized) {
-                __asm__ volatile("fninit");
-                fxsave(p->fpu_state);
-                p->fpu_initialized = true;
-            }
-            fxrstor(p->fpu_state);
+            fpu_restore_state(p);
             return;
         }
     }

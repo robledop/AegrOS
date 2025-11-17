@@ -35,6 +35,10 @@
 #define CPUID_VENDOR_BHYVE "bhyve bhyve "
 #define CPUID_VENDOR_QNX " QNXQVMBSQG "
 
+#define XCR0_X87  (1u << 0)
+#define XCR0_SSE  (1u << 1)
+#define XCR0_AVX  (1u << 2)
+
 enum
 {
     CPUID_FEAT_ECX_SSE3 = 1 << 0,
@@ -217,6 +221,28 @@ static inline void fxrstor(const void *state)
     __asm__ volatile("fxrstor (%0)" : : "r"(state) : "memory");
 }
 
+static inline void xsave(void *state, u32 mask_lo, u32 mask_hi)
+{
+    __asm__ volatile("xsave (%0)" : : "r"(state), "a"(mask_lo), "d"(mask_hi) : "memory");
+}
+
+static inline void xrstor(const void *state, u32 mask_lo, u32 mask_hi)
+{
+    __asm__ volatile("xrstor (%0)" : : "r"(state), "a"(mask_lo), "d"(mask_hi) : "memory");
+}
+
+static inline u64 xgetbv(u32 index)
+{
+    u32 eax, edx;
+    __asm__ volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+    return ((u64)edx << 32) | eax;
+}
+
+static inline void xsetbv(u32 index, u32 eax, u32 edx)
+{
+    __asm__ volatile("xsetbv" : : "c"(index), "a"(eax), "d"(edx));
+}
+
 static inline u32 rcr0(void)
 {
     u32 val;
@@ -284,6 +310,11 @@ static int cpuid_string(int code, int where[4])
 {
     asm volatile("cpuid" : "=a"(*where), "=b"(*(where + 0)), "=d"(*(where + 1)), "=c"(*(where + 2)) : "a"(code));
     return (int)where[0];
+}
+
+static inline void cpuid_count(u32 code, u32 subleaf, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
+{
+    asm volatile("cpuid" : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx) : "0"(code), "c"(subleaf));
 }
 
 static inline char *cpu_string()

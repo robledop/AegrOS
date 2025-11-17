@@ -68,6 +68,8 @@ int atoi(const char *);
 int abs(int x);
 int getkey();
 int getkey_blocking();
+int simd_has_sse2(void);
+int simd_has_avx(void);
 
 int isspace(int c);
 int iscntrl(int c);

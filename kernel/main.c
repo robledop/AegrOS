@@ -23,11 +23,10 @@
 /** @brief Start the non-boot (AP) processors. */
 static void startothers(void);
 /** @brief Common CPU setup code. */
-static void mpmain(void) __attribute__
-((noreturn));
+static void mpmain(void) __attribute__((noreturn));
 
 void set_vbe_info(const multiboot_info_t *mbd);
-static bool enable_sse(void);
+static bool enable_sse(struct cpu *cpu);
 #ifdef GRAPHICS
 static void map_framebuffer_mmio(void);
 #endif
@@ -35,7 +34,6 @@ static void map_framebuffer_mmio(void);
 extern pde_t *kpgdir;
 /** @brief First address after kernel loaded from ELF file */
 extern char end[]; // first address after kernel loaded from ELF file. See kernel.ld
-
 
 #define STACK_CHK_GUARD 0xe2dee396
 u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
@@ -59,8 +57,13 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
     kernel_page_directory_init();                       // kernel page table
-    if (enable_sse()) {
+    if (enable_sse(&cpus[0])) {
         memory_enable_sse();
+        if (cpus[0].has_avx) {
+            memory_enable_avx();
+        } else {
+            memory_disable_avx();
+        }
     }
 #ifdef GRAPHICS
     map_framebuffer_mmio();
@@ -107,7 +110,7 @@ static void mpenter(void)
  */
 static void mpmain(void)
 {
-    enable_sse();
+    enable_sse(current_cpu());
     // boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
@@ -140,7 +143,6 @@ static void startothers(void)
     for (struct cpu *c = cpus; c < cpus + ncpu; c++) {
         if (c == current_cpu()) // We've started already.
             continue;
-
 
         // Tell entryother.S what stack to use, where to enter, and what
         // pgdir to use. We cannot use kpgdir yet, because the AP processor
@@ -210,7 +212,7 @@ static void map_framebuffer_mmio(void)
 }
 #endif
 
-static bool enable_sse(void)
+static bool enable_sse(struct cpu *cpu)
 {
     u32 eax, ebx, ecx, edx;
     cpuid(0x01, &eax, &ebx, &ecx, &edx);
@@ -228,11 +230,52 @@ static bool enable_sse(void)
     cr0 |= CR0_MP | CR0_NE;
     lcr0(cr0);
 
+    cpu->xsave_features_low  = 0;
+    cpu->xsave_features_high = 0;
+    cpu->xsave_area_size     = 0;
+    cpu->has_xsave           = false;
+    cpu->has_avx             = false;
+
     u32 cr4 = rcr4();
     cr4 |= CR4_OSFXSR | CR4_OSXMMEXCPT;
+
+    const bool has_xsave = (ecx & CPUID_FEAT_ECX_XSAVE) != 0;
+    if (has_xsave) {
+        cr4 |= CR4_OSXSAVE;
+    }
     lcr4(cr4);
 
     __asm__ volatile("fninit");
+
+    if (has_xsave) {
+        u64 xcr0_mask      = XCR0_X87 | XCR0_SSE;
+        const bool has_avx = (ecx & CPUID_FEAT_ECX_AVX) != 0;
+        if (has_avx) {
+            xcr0_mask |= XCR0_AVX;
+            cpu->has_avx = true;
+        } else {
+            cpu->has_avx = false;
+        }
+
+        xsetbv(0, (u32)xcr0_mask, (u32)(xcr0_mask >> 32));
+
+        u32 xax, xbx, xcx, xdx;
+        cpuid_count(0x0D, 0, &xax, &xbx, &xcx, &xdx);
+        if (xax <= sizeof(((struct proc *)0)->fpu_state)) {
+            cpu->xsave_features_low  = (u32)xcr0_mask;
+            cpu->xsave_features_high = (u32)(xcr0_mask >> 32);
+            cpu->xsave_area_size     = xax;
+            cpu->has_xsave           = true;
+        } else {
+            boot_message(WARNING_LEVEL_WARNING,
+                         "XSAVE area too large (%u bytes); falling back to FXSAVE",
+                         xax);
+        }
+    } else {
+        cpu->has_avx   = false;
+        cpu->has_xsave = false;
+    }
+
     return true;
 }
 
@@ -254,21 +297,18 @@ static bool enable_sse(void)
 //     [KERNBASE >> PDXSHIFT] = (0) | PTE_P | PTE_W | PTE_PS,
 // };
 
-
 /** @brief Boot-time page directory referenced from assembly.
-* Boot-time page directory used while paging is being enabled.
+ * Boot-time page directory used while paging is being enabled.
  *
  * Map the first 8 MiB of physical memory twice: once at VA 0 so we can keep
  * running the low-level bootstrap code, and once at KERNBASE so the kernel can
  * execute from its linked virtual addresses (0x80100000 and above).
  */
-__attribute__ ((aligned
-        (PGSIZE)
-    )
-)
+__attribute__((aligned(PGSIZE)))
 u32 entrypgdir[NPDENTRIES] = {
-    [0] = PTE_P | PTE_W | PTE_PS,                    // maps 0x0000_0000 → 0x0000_0000
-    [1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS,  // maps 0x0040_0000 → 0x0040_0000
-    [KERNBASE >> PDXSHIFT] = PTE_P | PTE_W | PTE_PS, // maps 0x8000_0000 → phys 0
+    [0] = PTE_P | PTE_W | PTE_PS,                   // maps 0x0000_0000 → 0x0000_0000
+    [1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS, // maps 0x0040_0000 → 0x0040_0000
+    [KERNBASE >>
+        PDXSHIFT] = PTE_P | PTE_W | PTE_PS, // maps 0x8000_0000 → phys 0
     [(KERNBASE >> PDXSHIFT) + 1] = (1 << PDXSHIFT) | PTE_P | PTE_W | PTE_PS,
 };

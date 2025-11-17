@@ -45,6 +45,8 @@ It has been re-written a few times. On the last rewrite I used xv6 as a base.
 - ✅ GRUB compatibility
 - ✅ GDT
 - ✅ TSS
+- ✅ SSE2
+- ✅ AVX
 - ✅ Paging
 - ✅ IDT
 - ✅ ATA PIO
@@ -128,7 +130,5 @@ It has been re-written a few times. On the last rewrite I used xv6 as a base.
 - ✅ time
 - ✅ errno
 - ⬜ pthread_create
-
-</details>
 
 </details>

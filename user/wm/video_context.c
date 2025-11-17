@@ -7,10 +7,72 @@
 
 static u32 *framebuffer;
 
+static int framebuffer_simd_initialized;
+static int framebuffer_has_sse2;
+static int framebuffer_has_avx;
+
+static inline void framebuffer_init_simd_caps(void)
+{
+    if (framebuffer_simd_initialized) {
+        return;
+    }
+    framebuffer_has_sse2       = simd_has_sse2();
+    framebuffer_has_avx        = simd_has_avx();
+    framebuffer_simd_initialized = 1;
+}
 
 static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
 {
-    while (pixel_count--) {
+    if (pixel_count == 0) {
+        return;
+    }
+
+    framebuffer_init_simd_caps();
+
+    u32 remaining = pixel_count;
+
+    u32 pattern[8];
+    int pattern_initialized = 0;
+
+    int used_avx = 0;
+    if (framebuffer_has_avx && remaining >= 8) {
+        if (!pattern_initialized) {
+            for (int i = 0; i < 8; i++) {
+                pattern[i] = color;
+            }
+            pattern_initialized = 1;
+        }
+
+        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern));
+        while (remaining >= 8) {
+            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(dst) : "memory");
+            dst += 32;
+            remaining -= 8;
+        }
+        used_avx = 1;
+    }
+
+    if (framebuffer_has_sse2 && remaining >= 4) {
+        if (!pattern_initialized) {
+            for (int i = 0; i < 8; i++) {
+                pattern[i] = color;
+            }
+            pattern_initialized = 1;
+        }
+
+        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
+        while (remaining >= 4) {
+            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
+            dst += 16;
+            remaining -= 4;
+        }
+    }
+
+    if (used_avx) {
+        __asm__ volatile("vzeroupper" ::: "memory");
+    }
+
+    while (remaining--) {
         *((u32 *)dst) = color;
         dst += 4;
     }
@@ -18,9 +80,52 @@ static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
 
 static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
 {
-    while (pixel_count--) {
-        *((u32 *)dst) = *src++;
-        dst += 4;
+    if (pixel_count == 0) {
+        return;
+    }
+
+    framebuffer_init_simd_caps();
+
+    u32 remaining       = pixel_count;
+    const u8 *src_bytes = (const u8 *)src;
+    u8 *dst_bytes       = dst;
+    int used_avx        = 0;
+
+    if (framebuffer_has_avx && remaining >= 8) {
+        while (remaining >= 8) {
+            __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
+                             "vmovdqu %%ymm0, (%1)"
+                             :
+                             : "r"(src_bytes), "r"(dst_bytes)
+                             : "memory");
+            src_bytes += 32;
+            dst_bytes += 32;
+            remaining -= 8;
+        }
+        used_avx = 1;
+    }
+
+    if (framebuffer_has_sse2 && remaining >= 4) {
+        while (remaining >= 4) {
+            __asm__ volatile("movdqu (%0), %%xmm0\n\t"
+                             "movdqu %%xmm0, (%1)"
+                             :
+                             : "r"(src_bytes), "r"(dst_bytes)
+                             : "memory");
+            src_bytes += 16;
+            dst_bytes += 16;
+            remaining -= 4;
+        }
+    }
+
+    if (used_avx) {
+        __asm__ volatile("vzeroupper" ::: "memory");
+    }
+
+    while (remaining--) {
+        *((u32 *)dst_bytes) = *((const u32 *)src_bytes);
+        dst_bytes += 4;
+        src_bytes += 4;
     }
 }
 

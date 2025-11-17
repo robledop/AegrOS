@@ -2,6 +2,8 @@
 #include "file.h"
 #include "string.h"
 #include "font.h"
+#include "defs.h"
+#include "x86.h"
 
 
 static struct vbe_mode_info vbe_info_;
@@ -54,7 +56,7 @@ static inline int framebuffer_supports_32bpp(void)
     return vbe_info->bpp == 32;
 }
 
-static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
+static inline void framebuffer_fill_span32_scalar(u8 *dst, u32 pixel_count, u32 color)
 {
     while (pixel_count--) {
         *((u32 *)dst) = color;
@@ -62,11 +64,101 @@ static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
     }
 }
 
-static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
+static inline void framebuffer_copy_span32_scalar(u8 *dst, const u32 *src, u32 pixel_count)
 {
     while (pixel_count--) {
         *((u32 *)dst) = *src++;
         dst += 4;
+    }
+}
+
+static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
+{
+    if (pixel_count == 0) {
+        return;
+    }
+
+    if (!memory_sse_available()) {
+        framebuffer_fill_span32_scalar(dst, pixel_count, color);
+        return;
+    }
+
+    u32 remaining      = pixel_count;
+    u32 pattern[4] = { color, color, color, color };
+    const u32 saved_cr0 = rcr0();
+    clts();
+    __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
+
+    while (remaining >= 4) {
+        __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
+        dst += 16;
+        remaining -= 4;
+    }
+    lcr0(saved_cr0);
+
+    if (remaining) {
+        framebuffer_fill_span32_scalar(dst, remaining, color);
+    }
+}
+
+static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
+{
+    if (pixel_count == 0) {
+        return;
+    }
+
+    if (!memory_sse_available()) {
+        framebuffer_copy_span32_scalar(dst, src, pixel_count);
+        return;
+    }
+
+    u32 remaining       = pixel_count;
+    const u8 *src_bytes = (const u8 *)src;
+    u8 *dst_bytes       = dst;
+
+    const u32 saved_cr0 = rcr0();
+    clts();
+    while (remaining >= 4) {
+        __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
+                         "movdqu %%xmm0, (%[d])"
+                         :
+                         : [s] "r"(src_bytes), [d] "r"(dst_bytes)
+                         : "memory");
+        src_bytes += 16;
+        dst_bytes += 16;
+        remaining -= 4;
+    }
+    lcr0(saved_cr0);
+
+    if (remaining) {
+        framebuffer_copy_span32_scalar(dst_bytes, (const u32 *)src_bytes, remaining);
+    }
+}
+
+static inline void framebuffer_zero_span(u8 *dst, u32 byte_count)
+{
+    if (byte_count == 0) {
+        return;
+    }
+
+    if (!memory_sse_available()) {
+        memset(dst, 0, byte_count);
+        return;
+    }
+
+    u32 remaining       = byte_count;
+    const u32 saved_cr0 = rcr0();
+    clts();
+    __asm__ volatile("pxor %xmm0, %xmm0");
+    while (remaining >= 16) {
+        __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
+        dst += 16;
+        remaining -= 16;
+    }
+    lcr0(saved_cr0);
+
+    if (remaining) {
+        memset(dst, 0, remaining);
     }
 }
 
@@ -276,9 +368,7 @@ void framebuffer_scroll_up()
 
     memmove(framebuffer, framebuffer + pitch * VESA_LINE_HEIGHT, pitch * (height - VESA_LINE_HEIGHT));
 
-    for (u32 i = pitch * (height - VESA_LINE_HEIGHT); i < pitch * height; i++) {
-        framebuffer[i] = 0;
-    }
+    framebuffer_zero_span(framebuffer + pitch * (height - VESA_LINE_HEIGHT), pitch * VESA_LINE_HEIGHT);
 }
 
 /**
