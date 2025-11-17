@@ -180,6 +180,8 @@ static struct proc *init_proc(struct proc *p)
     p->context = (struct context *)stack_pointer;
     memset(p->context, 0, sizeof *p->context);
     p->context->eip = (u32)forkret;
+    p->fpu_initialized = false;
+    memset(p->fpu_state, 0, sizeof(p->fpu_state));
 
     return p;
 }

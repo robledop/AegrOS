@@ -3,6 +3,7 @@
 #include "types.h"
 // Routines to let C code use special x86 instructions.
 
+#define MSR_IA32_PAT 0x277
 
 // Vendor strings from CPUs.
 #define CPUID_VENDOR_AMD "AuthenticAMD"
@@ -192,6 +193,54 @@ static inline void sti(void)
     __asm__ volatile("sti");
 }
 
+static inline u64 rdmsr(u32 msr)
+{
+    u32 lo, hi;
+    __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    return ((u64)hi << 32) | lo;
+}
+
+static inline void wrmsr(u32 msr, u64 value)
+{
+    u32 lo = (u32)value;
+    u32 hi = (u32)(value >> 32);
+    __asm__ volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
+}
+
+static inline void fxsave(void *state)
+{
+    __asm__ volatile("fxsave (%0)" : : "r"(state) : "memory");
+}
+
+static inline void fxrstor(const void *state)
+{
+    __asm__ volatile("fxrstor (%0)" : : "r"(state) : "memory");
+}
+
+static inline u32 rcr0(void)
+{
+    u32 val;
+    __asm__ volatile("movl %%cr0,%0" : "=r"(val));
+    return val;
+}
+
+static inline void lcr0(u32 val)
+{
+    __asm__ volatile("movl %0,%%cr0" : : "r"(val));
+}
+
+static inline u32 rcr4(void)
+{
+    u32 val;
+    __asm__ volatile("movl %%cr4,%0" : "=r"(val));
+    return val;
+}
+
+static inline void lcr4(u32 val)
+{
+    __asm__ volatile("movl %0,%%cr4" : : "r"(val));
+}
+
 static inline u32 xchg(volatile u32 *addr, u32 newval)
 {
     u32 result;
@@ -214,6 +263,11 @@ static inline u32 rcr2(void)
 static inline void lcr3(u32 val)
 {
     __asm__ volatile("movl %0,%%cr3" : : "r" (val));
+}
+
+static inline void clts(void)
+{
+    __asm__ volatile("clts");
 }
 
 static inline void hlt(void)

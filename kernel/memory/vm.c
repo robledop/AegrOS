@@ -189,7 +189,7 @@ int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm)
  * @param pa Physical address of the MMIO region (must be page-aligned).
  * @param size Size in bytes of the region to map.
  */
-void kernel_map_mmio(u32 pa, u32 size)
+static void kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
 {
     if (size == 0) {
         return;
@@ -203,7 +203,7 @@ void kernel_map_mmio(u32 pa, u32 size)
         if (pte != nullptr && (*pte & PTE_P) != 0) {
             continue;
         }
-        if (mappages(kpgdir, (void *)a, PGSIZE, a, PTE_W | PTE_PCD | PTE_PWT) < 0) {
+        if (mappages(kpgdir, (void *)a, PGSIZE, a, flags) < 0) {
             panic("kernel_map_mmio: mappages failed");
         }
     }
@@ -248,6 +248,16 @@ void kernel_map_mmio(u32 pa, u32 size)
 void kernel_enable_mmio_propagation(void)
 {
     mmio_propagation_enabled = 1;
+}
+
+void kernel_map_mmio(u32 pa, u32 size)
+{
+    kernel_map_mmio_range(pa, size, PTE_W | PTE_PCD | PTE_PWT);
+}
+
+void kernel_map_mmio_wc(u32 pa, u32 size)
+{
+    kernel_map_mmio_range(pa, size, PTE_W | PTE_PWT | PTE_PAT);
 }
 
 // There is one page table per process, plus one that's used when

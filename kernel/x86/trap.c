@@ -9,6 +9,7 @@
 #include "traps.h"
 #include "spinlock.h"
 #include "termcolors.h"
+#include "string.h"
 
 /** @brief Interrupt descriptor table shared by all CPUs. */
 struct gate_desc idt[256];
@@ -80,6 +81,20 @@ void syscall_handler(struct trapframe *tf)
 void exception_handler(struct trapframe *tf)
 {
     // Handle page fault separately to get the faulting address from CR2.
+    if (tf->trapno == T_NM) {
+        struct proc *p = current_process();
+        if (p) {
+            clts();
+            if (!p->fpu_initialized) {
+                __asm__ volatile("fninit");
+                fxsave(p->fpu_state);
+                p->fpu_initialized = true;
+            }
+            fxrstor(p->fpu_state);
+            return;
+        }
+    }
+
     if (tf->trapno == T_PGFLT) {
         u32 faulting_address = rcr2();
         // Handle page fault (for example, by terminating the process).

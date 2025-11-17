@@ -10,7 +10,7 @@
 #define T_OFLOW          4      // overflow
 #define T_BOUND          5      // bounds check
 #define T_ILLOP          6      // illegal opcode
-#define T_DEVICE         7      // device not available
+#define T_NM             7      // device not available (#NM)
 #define T_DBLFLT         8      // double fault
 // #define T_COPROC      9      // reserved (not used since 486)
 #define T_TSS           10      // invalid task switch segment

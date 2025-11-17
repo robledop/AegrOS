@@ -77,6 +77,8 @@ struct proc
     char cwd_path[MAX_FILE_PATH];
     char name[16]; // Process name (debugging)
     struct proc *next;
+    bool fpu_initialized;
+    u8 fpu_state[512] __attribute__((aligned(16)));
 };
 
 // Process memory is laid out contiguously, low addresses first:

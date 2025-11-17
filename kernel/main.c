@@ -1,3 +1,4 @@
+#include <cpuid.h>
 #include "assert.h"
 #include "termcolors.h"
 #include "types.h"
@@ -17,6 +18,7 @@
 #include "keyboard.h"
 #include "mouse.h"
 #include "x86.h"
+#include <cpuid.h>
 
 /** @brief Start the non-boot (AP) processors. */
 static void startothers(void);
@@ -25,6 +27,7 @@ static void mpmain(void) __attribute__
 ((noreturn));
 
 void set_vbe_info(const multiboot_info_t *mbd);
+static bool enable_sse(void);
 #ifdef GRAPHICS
 static void map_framebuffer_mmio(void);
 #endif
@@ -56,6 +59,9 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     init_symbols(mbinfo);
     kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
     kernel_page_directory_init();                       // kernel page table
+    if (enable_sse()) {
+        memory_enable_sse();
+    }
 #ifdef GRAPHICS
     map_framebuffer_mmio();
     framebuffer_init(); // framebuffer device
@@ -101,6 +107,7 @@ static void mpenter(void)
  */
 static void mpmain(void)
 {
+    enable_sse();
     // boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
@@ -160,6 +167,28 @@ void set_vbe_info(const multiboot_info_t *mbd)
 }
 
 #ifdef GRAPHICS
+static bool framebuffer_map_with_pat(const u32 fb_addr, const u32 fb_size)
+{
+    u32 eax, ebx, ecx, edx;
+    cpuid(0x01, &eax, &ebx, &ecx, &edx);
+    if ((edx & CPUID_FEAT_EDX_PAT) == 0) {
+        return false;
+    }
+
+    u64 pat           = rdmsr(MSR_IA32_PAT);
+    const u64 wc_mask = 0xFFull << 8; // PAT entry 1 (PWT=1, PCD=0)
+    const u64 wc_val  = 0x01ull << 8; // Write-combining encoding
+    if ((pat & wc_mask) != wc_val) {
+        pat = (pat & ~wc_mask) | wc_val;
+        wrmsr(MSR_IA32_PAT, pat);
+    }
+
+    kernel_map_mmio_wc(fb_addr, fb_size);
+    boot_message(WARNING_LEVEL_INFO, "Framebuffer write-combining enabled (PAT)");
+    framebuffer_enable_write_combining();
+    return true;
+}
+
 /**
  * @brief Identity-map the framebuffer provided by Multiboot so VirtualBox VMs
  *        (which place VRAM at 0xE0000000) don't fault when we touch it.
@@ -175,9 +204,37 @@ static void map_framebuffer_mmio(void)
         return;
     }
 
-    kernel_map_mmio(vbe_info->framebuffer, fb_size);
+    if (!framebuffer_map_with_pat(vbe_info->framebuffer, fb_size)) {
+        kernel_map_mmio(vbe_info->framebuffer, fb_size);
+    }
 }
 #endif
+
+static bool enable_sse(void)
+{
+    u32 eax, ebx, ecx, edx;
+    cpuid(0x01, &eax, &ebx, &ecx, &edx);
+    if ((edx & CPUID_FEAT_EDX_SSE) == 0) {
+        boot_message(WARNING_LEVEL_WARNING, "CPU lacks SSE support");
+        return false;
+    }
+    if ((edx & CPUID_FEAT_EDX_SSE2) == 0) {
+        boot_message(WARNING_LEVEL_WARNING, "CPU lacks SSE2 support");
+        return false;
+    }
+
+    u32 cr0 = rcr0();
+    cr0 &= ~CR0_EM;
+    cr0 |= CR0_MP | CR0_NE;
+    lcr0(cr0);
+
+    u32 cr4 = rcr4();
+    cr4 |= CR4_OSFXSR | CR4_OSXMMEXCPT;
+    lcr4(cr4);
+
+    __asm__ volatile("fninit");
+    return true;
+}
 
 // /**
 //  * @brief Boot page table image used while bringing up processors.

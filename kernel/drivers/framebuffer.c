@@ -8,7 +8,17 @@ static struct vbe_mode_info vbe_info_;
 struct vbe_mode_info *vbe_info = &vbe_info_;
 extern struct page_directory *kernel_page_directory;
 extern struct devsw devsw[];
+static bool framebuffer_wc_enabled;
 
+void framebuffer_enable_write_combining(void)
+{
+    framebuffer_wc_enabled = true;
+}
+
+bool framebuffer_write_combining_enabled(void)
+{
+    return framebuffer_wc_enabled;
+}
 
 int framebuffer_write(struct inode *ip, char *buf, int n, u32 offset)
 {

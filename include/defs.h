@@ -170,12 +170,14 @@ void switch_kernel_page_directory();
 int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
 void kernel_map_mmio(u32 pa, u32 size);
+void kernel_map_mmio_wc(u32 pa, u32 size);
 void kernel_enable_mmio_propagation(void);
 void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames);
 
 void *kmalloc(u32 nbytes);
 void *kzalloc(u32 nbytes);
 void kfree(void *ap);
+void memory_enable_sse(void);
 
 // number of elements in a fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

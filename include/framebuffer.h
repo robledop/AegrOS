@@ -53,3 +53,4 @@ void framebuffer_draw_cursor(int x, int y);
 void framebuffer_erase_cursor(int x, int y);
 void framebuffer_scroll_up();
 void framebuffer_enable_write_combining(void);
+bool framebuffer_write_combining_enabled(void);

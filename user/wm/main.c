@@ -108,6 +108,22 @@ void exit_button_handler([[maybe_unused]] struct button *button, [[maybe_unused]
     wm_should_exit = true;
 }
 
+void doom_button_handler([[maybe_unused]] struct button *button, [[maybe_unused]] int x, [[maybe_unused]] int y)
+{
+    int pid = fork();
+    if (pid == 0) {
+        char *args[] = {(char *)"doom", nullptr};
+        exec("/bin/doom", args);
+        exit();
+    }
+    if (pid < 0) {
+        printf("wm: failed to fork for doom\n");
+    } else {
+        wait();
+        window_paint((window_t *)desktop, nullptr, 1);
+    }
+}
+
 void wm_process_events(void)
 {
     struct ps2_mouse_packet mp;
@@ -134,8 +150,6 @@ void wm_process_events(void)
     // }
 
     terminal->putchar(terminal, c);
-
-    // desktop_process_key(desktop, c);
 }
 
 int main(const int argc, char **argv)
@@ -173,7 +187,12 @@ int main(const int argc, char **argv)
     window_set_title((window_t *)launch_button, "Calculator");
     window_insert_child((window_t *)desktop, (window_t *)launch_button);
 
-    button_t *exit_button    = button_new(120, 10, 100, 30);
+    button_t *doom_button    = button_new(115, 10, 100, 30);
+    doom_button->onmousedown = doom_button_handler;
+    window_set_title((window_t *)doom_button, "Doom");
+    window_insert_child((window_t *)desktop, (window_t *)doom_button);
+
+    button_t *exit_button    = button_new(220, 10, 100, 30);
     exit_button->onmousedown = exit_button_handler;
     window_set_title((window_t *)exit_button, "Exit");
     window_insert_child((window_t *)desktop, (window_t *)exit_button);

@@ -30,6 +30,14 @@ void cpu_print_info()
             printf(" MTRR");
         }
 
+        if (edx & CPUID_FEAT_EDX_PAT) {
+            printf(" PAT");
+        }
+
+        if (edx & CPUID_FEAT_EDX_ACPI) {
+            printf(" ACPI");
+        }
+
         printf("\n");
 
         printf("[" KBGRN " INFO " KRESET "] Instructions:");

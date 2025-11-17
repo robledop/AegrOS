@@ -56,6 +56,7 @@ void scheduler(void)
         p->state              = RUNNING;
         cpu->time_slice_ticks = TIME_SLICE_TICKS;
 
+        lcr0(rcr0() | CR0_TS);
         switch_context(&(cpu->scheduler), p->context);
         switch_kernel_page_directory();
 
@@ -83,6 +84,10 @@ void switch_to_scheduler(void)
     ASSERT(!(read_eflags() & FL_IF), "switch_to_scheduler called with interrupts enabled");
     ASSERT(p->state != RUNNING, "switch_to_scheduler called with RUNNING process");
     ASSERT(current_cpu()->ncli == 1, "switch_to_scheduler called with multiple locks held");
+
+    if (p->fpu_initialized) {
+        fxsave(p->fpu_state);
+    }
 
     const int interrupts_enabled = current_cpu()->interrupts_enabled;
     switch_context(&p->context, current_cpu()->scheduler);
@@ -120,6 +125,7 @@ int wait(void)
                 p->name[0]        = 0;
                 p->killed         = 0;
                 p->brk            = 0;
+                p->fpu_initialized = false;
                 p->state          = UNUSED;
                 p->next           = nullptr;
                 release(&ptable.lock);

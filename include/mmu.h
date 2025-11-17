@@ -8,8 +8,15 @@
 
 // Control Register flags
 #define CR0_PE          0x00000001      // Protection Enable
+#define CR0_MP          0x00000002      // Monitor Coprocessor
+#define CR0_EM          0x00000004      // Emulation
+#define CR0_TS          0x00000008      // Task Switched
+#define CR0_NE          0x00000020      // Numeric Error
 #define CR0_WP          0x00010000      // Write Protect
 #define CR0_PG          0x80000000      // Paging
+
+#define CR4_OSFXSR      0x00000200      // OS supports FXSAVE/FXRSTOR
+#define CR4_OSXMMEXCPT  0x00000400      // OS supports unmasked SSE exceptions
 
 #define CR4_PSE         0x00000010      // Page size extension
 
@@ -99,7 +106,9 @@ struct segdesc
 #define PTE_U           0x004   // User
 #define PTE_PWT         0x008   // Write-Through
 #define PTE_PCD         0x010   // Cache-Disable
-#define PTE_PS          0x080   // Page Size (4MB pages)
+#define PTE_PS          0x080   // Page Size (4MB pages) / PAT bit in PTEs
+
+#define PTE_PAT PTE_PS
 
 // Address in the page table or page directory entry
 #define PTE_ADDR(pte)   ((u32)(pte) & ~0xFFF)

@@ -261,9 +261,14 @@ static int mmap_framebuffer(struct proc *p, u32 length, int prot, int flags, str
     vma->file_offset = 0;
     vma->phys_addr   = vbe_info->framebuffer;
 
-    int perm = PTE_U | PTE_PCD | PTE_PWT;
+    int perm = PTE_U;
     if (prot & PROT_WRITE) {
         perm |= PTE_W;
+    }
+    if (framebuffer_write_combining_enabled()) {
+        perm |= PTE_PWT | PTE_PAT;
+    } else {
+        perm |= PTE_PCD | PTE_PWT;
     }
 
     if (map_physical_range(p->page_directory, vma->start, vma->phys_addr, length, perm) < 0) {
