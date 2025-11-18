@@ -30,6 +30,8 @@ TASK_QUEUE(runnable)
  *
  * Never returns; invoked once per CPU during initialization.
  */
+
+__attribute__((target("avx,sse2")))
 void scheduler(void)
 {
     // TODO: Cleanup ZOMBIE processes that have not been waited on.
@@ -58,6 +60,7 @@ void scheduler(void)
 
         lcr0(rcr0() | CR0_TS);
         switch_context(&(cpu->scheduler), p->context);
+        clts();
         switch_kernel_page_directory();
 
         if (p->state == RUNNABLE) {
@@ -76,6 +79,7 @@ void scheduler(void)
  * Requires ptable.lock to be held and saves/restores interrupt state so the
  * process can resume correctly.
  */
+
 void switch_to_scheduler(void)
 {
     struct proc *p = current_process();
@@ -89,6 +93,7 @@ void switch_to_scheduler(void)
 
     const int interrupts_enabled = current_cpu()->interrupts_enabled;
     switch_context(&p->context, current_cpu()->scheduler);
+    clts();
     current_cpu()->interrupts_enabled = interrupts_enabled;
 }
 
@@ -314,6 +319,7 @@ int cpu_index()
  *
  * Interrupts must be disabled to prevent migration during lookup.
  */
+__attribute__((target("avx,sse2")))
 struct cpu *current_cpu(void)
 {
     ASSERT(!(read_eflags() & FL_IF), "current_cpu called with interrupts enabled\n");
@@ -330,6 +336,7 @@ struct cpu *current_cpu(void)
     panic("unknown apicid\n");
 }
 
+__attribute__((target("avx,sse2")))
 void enqueue_task(struct process_queue *queue, struct proc *task)
 {
     acquire(&queue->lock);
@@ -350,6 +357,7 @@ void enqueue_task(struct process_queue *queue, struct proc *task)
     release(&queue->lock);
 }
 
+__attribute__((target("avx,sse2")))
 struct proc *dequeue_task(struct process_queue *queue)
 {
     acquire(&queue->lock);
@@ -373,6 +381,7 @@ struct proc *dequeue_task(struct process_queue *queue)
     return task;
 }
 
+__attribute__((target("avx,sse2")))
 void remove_task(struct process_queue *queue, struct proc *task, struct proc *previous)
 {
     ASSERT(previous == nullptr || previous->next == task, "Bogus arguments to remove_task.");

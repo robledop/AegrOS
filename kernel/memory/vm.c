@@ -134,6 +134,7 @@ void segment_descriptors_init(void)
  * @param alloc When non-zero, allocate intermediate page tables on demand.
  * @return Pointer to the requested PTE, or 0 on allocation failure.
  */
+__attribute__((target("avx,sse2")))
 static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
 {
     pte_t *pgtab;

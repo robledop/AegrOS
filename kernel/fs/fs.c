@@ -23,6 +23,7 @@ struct icache icache;
  * @param inum Inode number on disk.
  * @return In-core inode pointer.
  */
+
 struct inode *iget(u32 dev, u32 inum)
 {
     struct inode *ip;

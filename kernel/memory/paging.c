@@ -31,7 +31,7 @@ struct
 
 /** @brief Initialize kernel memory allocator phase 1 */
 
-NO_SSE void init_memory_range(void *vstart, void *vend)
+void init_memory_range(void *vstart, void *vend)
 {
     initlock(&kmem.lock, "kmem");
     kmem.use_lock = 0;
@@ -45,7 +45,9 @@ void kalloc_enable_locking(void)
 }
 
 /** @brief Free a range of memory */
-NO_SSE void freerange(void *vstart, void *vend)
+
+__attribute__((target("avx,sse2")))
+void freerange(void *vstart, void *vend)
 {
     char *p = (char *)PGROUNDUP((u32)vstart);
     for (; p + PGSIZE <= (char *)vend; p += PGSIZE) {
@@ -82,6 +84,8 @@ void kfree_page(char *v)
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
 /** @brief Allocate one 4096-byte page of physical memory */
+
+__attribute__((target("avx,sse2")))
 char *kalloc_page(void)
 {
     if (kmem.use_lock) {

@@ -253,6 +253,24 @@ void load_driver(const struct pci_header pci, const u8 bus, const u8 device, con
 {
     boot_message(WARNING_LEVEL_INFO, "%s", pci_find_name(pci.class, pci.subclass));
 
+    // {0x02, 0x00, "Ethernet Controller"},
+    if (pci.class == 0x02 && pci.subclass == 0x00) {
+        boot_message(WARNING_LEVEL_INFO,
+                     "Ethernet controller Vendor: %s (0x%04X), Device: 0x%04X",
+                     pci_find_vendor(pci.vendor_id),
+                     pci.vendor_id,
+                     pci.device_id);
+    }
+
+    // {0x04, 0x03, "Audio Device"},
+    if (pci.class == 0x04 && pci.subclass == 0x03) {
+        boot_message(WARNING_LEVEL_INFO,
+                     "Audio device Vendor: %s (0x%04X), Device: 0x%04X",
+                     pci_find_vendor(pci.vendor_id),
+                     pci.vendor_id,
+                     pci.device_id);
+    }
+
     for (u16 i = 0; i < sizeof(pci_drivers) / sizeof(struct pci_driver); i++) {
         const struct pci_driver *driver = &pci_drivers[i];
 

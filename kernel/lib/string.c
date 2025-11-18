@@ -11,7 +11,8 @@ static int mem_sse_enabled;
 static int mem_avx_enabled;
 
 /** @brief Set n bytes of memory to c */
- void *memset(void *dst, int c, size_t n)
+__attribute__((target("avx,sse2")))
+void *memset(void *dst, int c, size_t n)
 {
     if (n == 0) {
         return dst;
@@ -84,6 +85,7 @@ static int mem_avx_enabled;
 }
 
 /** @brief Compare n bytes of memory */
+__attribute__((target("avx,sse2")))
 int memcmp(const void *v1, const void *v2, size_t n)
 {
     const u8 *s1 = v1;
@@ -158,31 +160,6 @@ int memcmp(const void *v1, const void *v2, size_t n)
     return 0;
 }
 
-/** @brief Move n bytes of memory */
-// void *memmove(void *dst, const void *src, size_t n)
-// {
-//     const char *s = src;
-//     char *d = dst;
-//     if (s < d && s + n > d)
-//     {
-//         s += n;
-//         d += n;
-//         while (n-- > 0)
-//         {
-//             *--d = *--s;
-//         }
-//     }
-//     else
-//     {
-//         while (n-- > 0)
-//         {
-//             *d++ = *s++;
-//         }
-//     }
-
-//     return dst;
-// }
-
 void memory_enable_sse(void)
 {
     mem_sse_enabled = 1;
@@ -209,6 +186,7 @@ int memory_avx_available(void)
     return mem_avx_enabled;
 }
 
+__attribute__((target("avx,sse2")))
 void *memmove(void *dst, const void *src, size_t n)
 {
     if (n == 0 || dst == src) {
@@ -289,6 +267,7 @@ void *memcpy(void *dst, const void *src, size_t n)
 
 /** @brief Compare n characters of strings */
 
+__attribute__((target("avx,sse2")))
 int strncmp(const char *p, const char *q, size_t n)
 {
     while (n > 0 && *p && *p == *q) {
@@ -301,6 +280,7 @@ int strncmp(const char *p, const char *q, size_t n)
 }
 
 /** @brief Copy n characters of string */
+__attribute__((target("avx,sse2")))
 char *strncpy(char *s, const char *t, size_t n)
 {
     char *os = s;
@@ -314,6 +294,7 @@ char *strncpy(char *s, const char *t, size_t n)
 
 // Like strncpy but guaranteed to NUL-terminate.
 /** @brief Copy string safely with NUL-termination */
+__attribute__((target("avx,sse2")))
 char *safestrcpy(char *s, const char *t, int n)
 {
     char *os = s;
@@ -326,6 +307,7 @@ char *safestrcpy(char *s, const char *t, int n)
 }
 
 /** @brief Get length of string */
+__attribute__((target("avx,sse2")))
 size_t strlen(const char *s)
 {
     size_t n;
@@ -335,6 +317,7 @@ size_t strlen(const char *s)
     return n;
 }
 
+__attribute__((target("avx,sse2")))
 size_t strnlen(const char *s, size_t maxlen)
 {
     size_t len = 0;
@@ -344,11 +327,12 @@ size_t strnlen(const char *s, size_t maxlen)
     return len;
 }
 
- bool starts_with(const char pre[static 1], const char str[static 1])
+bool starts_with(const char pre[static 1], const char str[static 1])
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
+__attribute__((target("avx,sse2")))
 char *strcat(char dest[static 1], const char src[static 1])
 {
     char *d       = dest;
@@ -363,6 +347,7 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
+__attribute__((target("avx,sse2")))
 char *strncat(char dest[static 1], const char src[static 1], size_t n)
 {
     char *d       = dest;
@@ -379,6 +364,7 @@ char *strncat(char dest[static 1], const char src[static 1], size_t n)
     return dest;
 }
 
+__attribute__((target("avx,sse2")))
 void reverse(char *s)
 {
     int i, j;
@@ -390,6 +376,7 @@ void reverse(char *s)
     }
 }
 
+__attribute__((target("avx,sse2")))
 int itoa(int n, char *s)
 {
     int sign;
@@ -412,6 +399,7 @@ int itoa(int n, char *s)
     return i;
 }
 
+__attribute__((target("avx,sse2")))
 char *strchr(const char *s, int c)
 {
     while (*s != '\0') {
@@ -423,6 +411,7 @@ char *strchr(const char *s, int c)
     return nullptr;
 }
 
+__attribute__((target("avx,sse2")))
 char *strtok(char *str, const char delim[static 1])
 {
     static char *next = nullptr;
@@ -467,6 +456,7 @@ char *strtok(char *str, const char delim[static 1])
     return start;
 }
 
+__attribute__((target("avx,sse2")))
 int sscanf(const char *str, const char *format, ...)
 {
     // Simple and limited implementation of sscanf

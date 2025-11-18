@@ -145,7 +145,7 @@ void timerinit(void);
 // trap.c
 void idtinit(void);
 extern volatile u32 ticks;
-void trap_vector_init(void);
+void trap_vectors_init(void);
 extern struct spinlock tickslock;
 
 // uart.c

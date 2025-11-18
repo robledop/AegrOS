@@ -24,10 +24,13 @@
 #define arith64_u32 unsigned int
 #define arith64_s32 int
 
-typedef union {
+typedef union
+{
     arith64_u64 u64;
     arith64_s64 s64;
-    struct {
+
+    struct
+    {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         arith64_u32 hi;
         arith64_u32 lo;
@@ -36,7 +39,9 @@ typedef union {
         arith64_u32 hi;
 #endif
     } u32;
-    struct {
+
+    struct
+    {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         arith64_s32 hi;
         arith64_s32 lo;
@@ -101,7 +106,7 @@ arith64_s64 __ashrdi3(arith64_s64 a, int b)
 int __clzsi2(arith64_u32 a)
 {
     int b, n = 0;
-    b = !(a & 0xffff0000) << 4;
+    b        = !(a & 0xffff0000) << 4;
     n += b;
     a <<= b;
     b = !(a & 0xff000000) << 3;
@@ -116,10 +121,11 @@ int __clzsi2(arith64_u32 a)
     return n + !(a & 0x80000000);
 }
 
+__attribute__((target("avx,sse2")))
 int __clzdi2(arith64_u64 a)
 {
     int b, n = 0;
-    b = !(a & 0xffffffff00000000ULL) << 5;
+    b        = !(a & 0xffffffff00000000ULL) << 5;
     n += b;
     a <<= b;
     b = !(a & 0xffff000000000000ULL) << 4;
@@ -142,7 +148,7 @@ int __clzdi2(arith64_u64 a)
 int __ctzsi2(arith64_u32 a)
 {
     int b, n = 0;
-    b = !(a & 0x0000ffff) << 4;
+    b        = !(a & 0x0000ffff) << 4;
     n += b;
     a >>= b;
     b = !(a & 0x000000ff) << 3;
@@ -160,7 +166,7 @@ int __ctzsi2(arith64_u32 a)
 int __ctzdi2(arith64_u64 a)
 {
     int b, n = 0;
-    b = !(a & 0x00000000ffffffffULL) << 5;
+    b        = !(a & 0x00000000ffffffffULL) << 5;
     n += b;
     a >>= b;
     b = !(a & 0x000000000000ffffULL) << 4;
@@ -188,7 +194,7 @@ arith64_u64 __divmoddi4(arith64_u64 a, arith64_u64 b, arith64_u64 *c)
         if (c) {
             *c = a; // remainder = numerator
         }
-        return 0;   // quotient = 0
+        return 0; // quotient = 0
     }
     if (!arith64_hi(b)) // divisor is 32-bit
     {
@@ -202,7 +208,7 @@ arith64_u64 __divmoddi4(arith64_u64 a, arith64_u64 b, arith64_u64 *c)
             if (c) {
                 *c = 0; // remainder = 0
             }
-            return a;   // quotient = numerator
+            return a; // quotient = numerator
         }
         if (!arith64_hi(a)) // numerator is also 32-bit
         {

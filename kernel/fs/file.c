@@ -136,14 +136,12 @@ int file_write(struct file *f, char *addr, int n)
                 n1 = max;
             }
 
-            // begin_op();
             f->ip->iops->ilock(f->ip);
             if ((r = f->ip->iops->writei(f->ip, addr + i, f->off, n1)) > 0) {
                 f->off += r;
             }
             f->ip->iops->iunlock(f->ip);
 
-            // end_op();
 
             if (r < 0) {
                 break;

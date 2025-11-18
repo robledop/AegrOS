@@ -76,7 +76,7 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     mp_report_state();
     cpu_print_info();
     process_table_init();
-    trap_vector_init();
+    trap_vectors_init();
     buffer_cache_init();
     file_init();     // file table
     bring_up_cpus(); // start other processors
@@ -109,7 +109,6 @@ static void mpenter(void)
 static void mpmain(void)
 {
     enable_sse(current_cpu());
-    // boot_message(WARNING_LEVEL_INFO, "cpu%d: starting %d", cpu_index(), cpu_index());
     idtinit();                          // load idt register
     xchg(&(current_cpu()->started), 1); // tell startothers() we're up
     scheduler();                        // start running processes
@@ -120,7 +119,7 @@ pde_t entrypgdir[]; // For entry.asm
 
 static bool wait_for_ap_start(struct cpu *cpu, u32 timeout_us)
 {
-    const u32 poll_interval_us = 100;
+    constexpr u32 poll_interval_us = 100;
     for (u32 waited = 0; waited < timeout_us; waited += poll_interval_us) {
         if (cpu->started != 0) {
             return true;
@@ -130,19 +129,28 @@ static bool wait_for_ap_start(struct cpu *cpu, u32 timeout_us)
     return false;
 }
 
+struct entryother_config
+{
+    int *page_directory;
+    void (*entry_point)(void);
+    void *stack_top;
+};
+
 static bool bringup_application_processor(struct cpu *cpu, u8 *code)
 {
     char *stack = kalloc_page();
     if (stack == nullptr) {
         panic("startothers: failed to allocate AP stack");
     }
-    cpu->boot_stack              = stack;
-    *(void **)(code - 4)         = stack + KSTACKSIZE;
-    *(void (**)(void))(code - 8) = mpenter;
-    *(int **)(code - 12)         = (void *)V2P(entrypgdir);
+    cpu->boot_stack = stack;
+    uptr cfg_addr = (uptr)code - (uptr)sizeof(struct entryother_config);
+    struct entryother_config *cfg = (struct entryother_config *)cfg_addr;
+    cfg->page_directory = (int *)V2P(entrypgdir);
+    cfg->entry_point    = mpenter;
+    cfg->stack_top      = stack + KSTACKSIZE;
 
-    const u32 timeout_us = 1000000; // Allow up to ~1s for each AP to signal readiness.
     for (int attempt = 0; attempt < 2; ++attempt) {
+        constexpr u32 timeout_us = 1000000;
         lapicstartap(cpu->apicid, V2P(code));
         if (wait_for_ap_start(cpu, timeout_us)) {
             return true;

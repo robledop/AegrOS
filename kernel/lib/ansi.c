@@ -3,14 +3,15 @@
 #include "console.h"
 
 // ANSI escape sequence parser state
-static bool ansi_escaping = false;
-static bool ansi_inside   = false;
-static bool ansi_private  = false;
-static int ansi_params[10] = {0};
+static bool ansi_escaping   = false;
+static bool ansi_inside     = false;
+static bool ansi_private    = false;
+static int ansi_params[10]  = {0};
 static int ansi_param_count = 1;
 
 // Callback interface for terminal-specific actions
-struct ansi_callbacks {
+struct ansi_callbacks
+{
     void (*cursor_up)(int n);
     void (*cursor_down)(int n);
     void (*cursor_left)(int n);
@@ -48,6 +49,7 @@ static inline int ansi_param_or_default(int index, int def)
     return def;
 }
 
+__attribute__((target("avx,sse2")))
 static bool ansi_process_command(int c)
 {
     if (c >= '0' && c <= '9') {
@@ -59,7 +61,7 @@ static bool ansi_process_command(int c)
         ansi_param_count++;
         return false;
     }
-    
+
     if (c == '?') {
         ansi_private = true;
         return false;
@@ -96,7 +98,7 @@ static bool ansi_process_command(int c)
             callbacks->cursor_set_position(
                 ansi_param_or_default(0, 1),
                 ansi_param_or_default(1, 1)
-            );
+                );
         }
         break;
     case 'J': // Clear screen
@@ -139,7 +141,7 @@ static bool ansi_process_command(int c)
         // Unknown command - ignore
         break;
     }
-    
+
     ansi_private = false;
     return true;
 }
