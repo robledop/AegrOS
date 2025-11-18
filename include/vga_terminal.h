@@ -23,4 +23,5 @@
 #define BACKSPACE 0x100
 
 void vga_terminal_init(void);
+void vga_enter_text_mode(void);
 void vga_putc(int c);

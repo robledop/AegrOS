@@ -30,6 +30,19 @@ struct kernel_mmio_range
 static struct kernel_mmio_range kernel_mmio_ranges[MAX_KERNEL_MMIO_RANGES];
 static int kernel_mmio_count;
 static int mmio_propagation_enabled;
+static u32 next_kernel_mmio_va = MMIOBASE;
+
+static int kernel_mmio_overlaps(u32 start, u32 end)
+{
+    for (int i = 0; i < kernel_mmio_count; ++i) {
+        const u32 range_start = kernel_mmio_ranges[i].start;
+        const u32 range_end   = kernel_mmio_ranges[i].end;
+        if (start < range_end && end > range_start) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 /**
  * @brief Replicate kernel mappings from kpgdir into another page directory.
@@ -189,27 +202,49 @@ int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm)
  * @param pa Physical address of the MMIO region (must be page-aligned).
  * @param size Size in bytes of the region to map.
  */
-static void kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
+static void *kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
 {
     if (size == 0) {
-        return;
+        return nullptr;
     }
 
-    u32 start = PGROUNDDOWN(pa);
-    u32 end   = PGROUNDUP(pa + size);
+    const u32 page_offset = pa & (PGSIZE - 1u);
+    const u32 phys_start  = pa - page_offset;
+    const u32 phys_end    = PGROUNDUP(pa + size);
+    const u32 map_size    = phys_end - phys_start;
 
-    for (u32 a = start; a < end; a += PGSIZE) {
-        pte_t *pte = walkpgdir(kpgdir, (void *)a, 0);
+    u32 virt_start;
+    if (phys_start >= MMIOBASE) {
+        virt_start = phys_start;
+    } else {
+        virt_start = PGROUNDUP(next_kernel_mmio_va);
+        if (virt_start < MMIOBASE) {
+            virt_start = MMIOBASE;
+        }
+    }
+
+    if ((u64)virt_start + map_size > 0x100000000ull) {
+        panic("kernel_map_mmio: exhausted MMIO VA space");
+    }
+
+    for (u32 off = 0; off < map_size; off += PGSIZE) {
+        void *va  = (void *)(virt_start + off);
+        u32 paddr = phys_start + off;
+        pte_t *pte = walkpgdir(kpgdir, va, 0);
         if (pte != nullptr && (*pte & PTE_P) != 0) {
             continue;
         }
-        if (mappages(kpgdir, (void *)a, PGSIZE, a, flags) < 0) {
+        if (mappages(kpgdir, va, PGSIZE, paddr, flags) < 0) {
             panic("kernel_map_mmio: mappages failed");
         }
     }
 
+    const u32 virt_end = virt_start + map_size;
+    if (virt_end > next_kernel_mmio_va) {
+        next_kernel_mmio_va = virt_end;
+    }
     if (mmio_propagation_enabled) {
-        propagate_kernel_range(start, end);
+        propagate_kernel_range(virt_start, virt_end);
     } else {
         switch_kernel_page_directory();
     }
@@ -219,16 +254,16 @@ static void kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
     for (int i = 0; i < kernel_mmio_count; ++i) {
         u32 range_start = kernel_mmio_ranges[i].start;
         u32 range_end   = kernel_mmio_ranges[i].end;
-        if (start >= range_start && end <= range_end) {
+        if (virt_start >= range_start && virt_end <= range_end) {
             merged = 1;
             break;
         }
-        if (start <= range_end && end >= range_start) {
-            if (start < range_start) {
-                kernel_mmio_ranges[i].start = start;
+        if (virt_start <= range_end && virt_end >= range_start) {
+            if (virt_start < range_start) {
+                kernel_mmio_ranges[i].start = virt_start;
             }
-            if (end > range_end) {
-                kernel_mmio_ranges[i].end = end;
+            if (virt_end > range_end) {
+                kernel_mmio_ranges[i].end = virt_end;
             }
             merged = 1;
             break;
@@ -239,10 +274,12 @@ static void kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
         if (kernel_mmio_count >= MAX_KERNEL_MMIO_RANGES) {
             panic("kernel_map_mmio: too many ranges");
         }
-        kernel_mmio_ranges[kernel_mmio_count].start = start;
-        kernel_mmio_ranges[kernel_mmio_count].end   = end;
+        kernel_mmio_ranges[kernel_mmio_count].start = virt_start;
+        kernel_mmio_ranges[kernel_mmio_count].end   = virt_end;
         kernel_mmio_count++;
     }
+
+    return (void *)(virt_start + page_offset);
 }
 
 void kernel_enable_mmio_propagation(void)
@@ -250,14 +287,14 @@ void kernel_enable_mmio_propagation(void)
     mmio_propagation_enabled = 1;
 }
 
-void kernel_map_mmio(u32 pa, u32 size)
+void *kernel_map_mmio(u32 pa, u32 size)
 {
-    kernel_map_mmio_range(pa, size, PTE_W | PTE_PCD | PTE_PWT);
+    return kernel_map_mmio_range(pa, size, PTE_W | PTE_PCD | PTE_PWT);
 }
 
-void kernel_map_mmio_wc(u32 pa, u32 size)
+void *kernel_map_mmio_wc(u32 pa, u32 size)
 {
-    kernel_map_mmio_range(pa, size, PTE_W | PTE_PWT | PTE_PAT);
+    return kernel_map_mmio_range(pa, size, PTE_W | PTE_PWT | PTE_PAT);
 }
 
 // There is one page table per process, plus one that's used when
@@ -289,10 +326,9 @@ static struct kmap
     u32 phys_end;
     int perm;
 } kmap[] = {
-    {(void *)KERNBASE, 0, EXTMEM, PTE_W},                       // I/O space
-    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0},            // kern text+rodata
-    {(void *)data, V2P(data), PHYSTOP, PTE_W},                  // kern data+memory
-    {(void *)MMIOBASE, MMIOBASE, 0, PTE_W | PTE_PCD | PTE_PWT}, // MMIO devices (framebuffer, lapic, etc.)
+    {(void *)KERNBASE, 0, EXTMEM, PTE_W},            // I/O space
+    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0}, // kern text+rodata
+    {(void *)data, V2P(data), 0, PTE_W},             // kern data+memory (filled in at runtime)
 };
 
 /**
@@ -309,16 +345,18 @@ pde_t *setup_kernel_page_directory(void)
     }
     memset(pgdir, 0, PGSIZE);
 
-#if (PHYSTOP + KERNBASE) > MMIOBASE
-    panic("PHYSTOP too high");
-#endif
+    if (PHYSTOP > (MMIOBASE - KERNBASE)) {
+        panic("PHYSTOP too high");
+    }
+
+    kmap[2].phys_end = PHYSTOP;
 
     for (const struct kmap *k = kmap; k < &kmap[NELEM(kmap)]; k++) {
-        if (mappages(pgdir,
-                     k->virt,
-                     k->phys_end - k->phys_start,
-                     (u32)k->phys_start,
-                     k->perm) < 0) {
+        if (k->phys_end <= k->phys_start) {
+            continue;
+        }
+        u32 size = k->phys_end - k->phys_start;
+        if (mappages(pgdir, k->virt, size, (u32)k->phys_start, k->perm) < 0) {
             freevm(pgdir);
             return nullptr;
         }
@@ -534,6 +572,13 @@ u32 deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
             if (pa == 0) {
                 panic("kfree");
             }
+            if (pa >= PHYSTOP) {
+                // This mapping refers to MMIO/firmware space that isn't owned
+                // by the user process; just drop the PTE without returning it
+                // to the physical allocator.
+                *pte = 0;
+                continue;
+            }
             char *v = P2V(pa);
             kfree_page(v);
             *pte = 0;
@@ -552,10 +597,18 @@ void freevm(pde_t *pgdir)
     for (u32 i = 0; i < NPDENTRIES; i++) {
         if (pgdir[i] & PTE_P) {
             u32 va = i << PDXSHIFT;
-            if (va >= (u32)KHEAP_START) {
+            if (kpgdir != nullptr && pgdir[i] == kpgdir[i]) {
                 continue;
             }
-            char *v = P2V(PTE_ADDR(pgdir[i]));
+            u32 va_end = va + (PGSIZE * NPTENTRIES);
+            if (va >= (u32)KHEAP_START || kernel_mmio_overlaps(va, va_end)) {
+                continue;
+            }
+            u32 pa = PTE_ADDR(pgdir[i]);
+            if (pa >= PHYSTOP) {
+                continue;
+            }
+            char *v = P2V(pa);
             kfree_page(v);
         }
     }

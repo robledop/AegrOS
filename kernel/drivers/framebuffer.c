@@ -4,6 +4,9 @@
 #include "font.h"
 #include "defs.h"
 #include "x86.h"
+#include "vga_terminal.h"
+#include "multiboot.h"
+#include "proc.h"
 
 
 static struct vbe_mode_info vbe_info_;
@@ -11,6 +14,9 @@ struct vbe_mode_info *vbe_info = &vbe_info_;
 extern struct page_directory *kernel_page_directory;
 extern struct devsw devsw[];
 static bool framebuffer_wc_enabled;
+static bool configure_framebuffer_pat_entry(void);
+static void *framebuffer_map_with_pat(u32 fb_addr, u32 fb_size);
+
 
 void framebuffer_enable_write_combining(void)
 {
@@ -22,11 +28,84 @@ bool framebuffer_write_combining_enabled(void)
     return framebuffer_wc_enabled;
 }
 
+void framebuffer_set_vbe_info(const multiboot_info_t *mbd)
+{
+    if (mbd == nullptr) {
+        memset(vbe_info, 0, sizeof(*vbe_info));
+        vga_enter_text_mode();
+        return;
+    }
+
+    vbe_info->height              = mbd->framebuffer_height;
+    vbe_info->width               = mbd->framebuffer_width;
+    vbe_info->bpp                 = mbd->framebuffer_bpp;
+    vbe_info->pitch               = mbd->framebuffer_pitch;
+    vbe_info->framebuffer         = (u32)mbd->framebuffer_addr;
+    vbe_info->framebuffer_virtual = 0;
+
+    if (vbe_info->framebuffer == 0 || vbe_info->pitch == 0 || vbe_info->height == 0) {
+        memset(vbe_info, 0, sizeof(*vbe_info));
+        boot_message(WARNING_LEVEL_WARNING,
+                     "Bootloader did not provide a usable framebuffer; disabling graphics console");
+        vga_enter_text_mode();
+        return;
+    }
+}
+
+bool framebuffer_map_boot_framebuffer(struct cpu *bsp)
+{
+    const u32 fb_phys = vbe_info->framebuffer;
+    if (fb_phys == 0 || vbe_info->pitch == 0 || vbe_info->height == 0) {
+        return false;
+    }
+
+    const u32 fb_size = (u32)vbe_info->pitch * (u32)vbe_info->height;
+    if (fb_size == 0) {
+        return false;
+    }
+
+    void *fb_virt = framebuffer_map_with_pat(fb_phys, fb_size);
+    if (fb_virt == nullptr) {
+        fb_virt = kernel_map_mmio(fb_phys, fb_size);
+    }
+    if (fb_virt == nullptr) {
+        boot_message(WARNING_LEVEL_WARNING, "Failed to map framebuffer; graphics console disabled");
+        vga_enter_text_mode();
+        return false;
+    }
+    vbe_info->framebuffer_virtual = (u32)(uptr)fb_virt;
+    framebuffer_prepare_cpu(bsp);
+    boot_message(WARNING_LEVEL_INFO,
+                 "Framebuffer at 0x%x: %ux%u, %u bpp, pitch %u",
+                 fb_phys,
+                 vbe_info->width,
+                 vbe_info->height,
+                 vbe_info->bpp,
+                 vbe_info->pitch);
+    return true;
+}
+
+void framebuffer_prepare_cpu(struct cpu *cpu)
+{
+    if (cpu == nullptr) {
+        return;
+    }
+    if (!framebuffer_write_combining_enabled()) {
+        cpu->pat_wc_ready = true;
+        return;
+    }
+    cpu->pat_wc_ready = configure_framebuffer_pat_entry();
+}
+
 int framebuffer_write(struct inode *ip, char *buf, int n, u32 offset)
 {
     ip->iops->iunlock(ip);
 
-    u8 *fb      = (u8 *)vbe_info->framebuffer;
+    u8 *fb      = framebuffer_kernel_bytes();
+    if (fb == nullptr) {
+        ip->iops->ilock(ip);
+        return 0;
+    }
     u32 pitch   = vbe_info->pitch;
     u32 fb_size = pitch * vbe_info->height;
 
@@ -135,6 +214,34 @@ static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_co
     }
 }
 
+static bool configure_framebuffer_pat_entry(void)
+{
+    u32 eax, ebx, ecx, edx;
+    cpuid(0x01, &eax, &ebx, &ecx, &edx);
+    if ((edx & CPUID_FEAT_EDX_PAT) == 0) {
+        return false;
+    }
+
+    u64 pat           = rdmsr(MSR_IA32_PAT);
+    const u64 wc_mask = 0xFFull << 8; // PAT entry 1 (PWT=1, PCD=0)
+    const u64 wc_val  = 0x01ull << 8; // Write-combining encoding
+    if ((pat & wc_mask) != wc_val) {
+        pat = (pat & ~wc_mask) | wc_val;
+        wrmsr(MSR_IA32_PAT, pat);
+    }
+    return true;
+}
+
+static void *framebuffer_map_with_pat(u32 fb_addr, u32 fb_size)
+{
+    if (!configure_framebuffer_pat_entry()) {
+        return nullptr;
+    }
+
+    framebuffer_enable_write_combining();
+    return kernel_map_mmio_wc(fb_addr, fb_size);
+}
+
 static inline void framebuffer_zero_span(u8 *dst, u32 byte_count)
 {
     if (byte_count == 0) {
@@ -206,7 +313,11 @@ void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
     }
 
     u32 span_pixels = (u32)(x1 - x0);
-    u8 *row         = (u8 *)vbe_info->framebuffer + (u32)y0 * vbe_info->pitch + (u32)x0 * 4U;
+    u8 *fb = framebuffer_kernel_bytes();
+    if (fb == nullptr) {
+        return;
+    }
+    u8 *row = fb + (u32)y0 * vbe_info->pitch + (u32)x0 * 4U;
 
     for (int j = y0; j < y1; j++) {
         framebuffer_fill_span32(row, span_pixels, color);
@@ -256,7 +367,11 @@ void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
         pixel_count = (u32)(screen_w - x0);
     }
 
-    u8 *row = (u8 *)vbe_info->framebuffer + (u32)y * vbe_info->pitch + (u32)x0 * 4U;
+    u8 *fb = framebuffer_kernel_bytes();
+    if (fb == nullptr) {
+        return;
+    }
+    u8 *row = fb + (u32)y * vbe_info->pitch + (u32)x0 * 4U;
     framebuffer_copy_span32(row, src + offset, pixel_count);
 }
 
@@ -269,7 +384,10 @@ void framebuffer_putpixel(int x, int y, u32 rgb)
         return; // Out of bounds
     }
 
-    auto framebuffer    = (u8 *)vbe_info->framebuffer;
+    auto framebuffer    = framebuffer_kernel_bytes();
+    if (framebuffer == nullptr) {
+        return;
+    }
     u32 bytes_per_pixel = vbe_info->bpp / 8;
     u8 *pixel           = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
     *((u32 *)pixel)     = rgb;
@@ -283,7 +401,10 @@ u32 framebuffer_getpixel(int x, int y)
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
         return 0; // Out of bounds
     }
-    auto framebuffer    = (u8 *)vbe_info->framebuffer;
+    auto framebuffer    = framebuffer_kernel_bytes();
+    if (framebuffer == nullptr) {
+        return 0;
+    }
     u32 bytes_per_pixel = vbe_info->bpp / 8;
     u8 *pixel           = framebuffer + (y * vbe_info->pitch) + (x * bytes_per_pixel);
     return *((u32 *)pixel);
@@ -324,7 +445,11 @@ void framebuffer_put_bitmap_32(int x, int y, const unsigned int *icon)
 
     if (framebuffer_supports_32bpp() && x >= 0 && y >= 0 && x + icon_w <= (int)vbe_info->width &&
         y + icon_h <= (int)vbe_info->height) {
-        u8 *row = (u8 *)vbe_info->framebuffer + (u32)y * vbe_info->pitch + (u32)x * 4U;
+        u8 *fb = framebuffer_kernel_bytes();
+        if (fb == nullptr) {
+            return;
+        }
+        u8 *row = fb + (u32)y * vbe_info->pitch + (u32)x * 4U;
         for (int j = 0; j < icon_h; j++) {
             const unsigned int *src_row = icon + (u32)j * (u32)icon_w;
             framebuffer_copy_span32(row, (const u32 *)src_row, (u32)icon_w);
@@ -361,7 +486,10 @@ void framebuffer_put_black_and_white_icon16(int x, int y, const unsigned char *i
  */
 void framebuffer_scroll_up()
 {
-    u8 *framebuffer = (u8 *)vbe_info->framebuffer;
+    u8 *framebuffer = framebuffer_kernel_bytes();
+    if (framebuffer == nullptr) {
+        return;
+    }
     // u32 bytes_per_pixel = vbe_info->bpp / 8;
     u32 pitch  = vbe_info->pitch;
     u32 height = vbe_info->height;
@@ -376,7 +504,7 @@ void framebuffer_scroll_up()
  */
 void framebuffer_clear_screen(u32 color)
 {
-    if (vbe_info->framebuffer == 0) {
+    if (framebuffer_kernel_bytes() == nullptr) {
         return;
     }
 
@@ -405,7 +533,11 @@ void framebuffer_put_char8(unsigned char c, int x, int y, u32 color, u32 bg)
         return;
     }
 
-    u8 *row = (u8 *)vbe_info->framebuffer + (u32)y * vbe_info->pitch + (u32)x * 4U;
+    u8 *fb = framebuffer_kernel_bytes();
+    if (fb == nullptr) {
+        return;
+    }
+    u8 *row = fb + (u32)y * vbe_info->pitch + (u32)x * 4U;
 
     for (int l = 0; l < 8; l++) {
         u8 mask    = font8x8[c][l];

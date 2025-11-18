@@ -52,7 +52,7 @@ ASFLAGS += $(INCLUDE)
 LDFLAGS += -m elf_i386
 CFLAGS += -fno-pie -no-pie
 CPUS := 8
-MEMORY := 512
+MEMORY := 256
 QEMUEXTRA := -display gtk,zoom-to-fit=on,gl=off,window-close=on,grab-on-hover=off
 QEMUGDB = -S -gdb tcp::1234 -d int -D qemu.log
 QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e1000,netdev=net0
@@ -114,7 +114,8 @@ grub: build/kernel apps doom FORCE
 	./scripts/create_tap.sh
 
 qemu: grub FORCE
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
+	#$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
+	$(QEMU) -serial file:qemu_run.log $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
 
 qemu-nox: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK)

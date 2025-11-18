@@ -373,8 +373,12 @@ void ahci_init(struct pci_device device)
         return;
     }
 
-    kernel_map_mmio(abar, AHCI_MMIO_BYTES);
-    hba_memory = (volatile struct ahci_memory *)(uptr)abar;
+    void *abar_va = kernel_map_mmio(abar, AHCI_MMIO_BYTES);
+    if (abar_va == nullptr) {
+        boot_message(WARNING_LEVEL_ERROR, "[AHCI] failed to map ABAR 0x%08lX", (unsigned long)abar);
+        return;
+    }
+    hba_memory = (volatile struct ahci_memory *)abar_va;
 
     // Ensure AHCI mode is enabled.
     hba_memory->ghc |= AHCI_GHC_ENABLE;

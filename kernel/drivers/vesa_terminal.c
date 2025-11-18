@@ -139,7 +139,10 @@ static void vesa_scroll_up_text_area(void)
     if (text_height <= 0) {
         return;
     }
-    u8 *fb    = (u8 *)vbe_info->framebuffer;
+    u8 *fb    = framebuffer_kernel_bytes();
+    if (fb == nullptr) {
+        return;
+    }
     u32 pitch = vbe_info->pitch;
     u8 *dst   = fb + (size_t)MARGIN * pitch;
     u8 *src   = dst + VESA_LINE_HEIGHT * pitch;

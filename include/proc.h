@@ -22,6 +22,8 @@ struct cpu
     size_t xsave_area_size;
     bool has_xsave;
     bool has_avx;
+    bool pat_wc_ready;
+    char *boot_stack; // Allocated stack used during AP startup
 };
 
 extern struct cpu cpus[NCPU];

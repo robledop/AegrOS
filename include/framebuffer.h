@@ -1,6 +1,8 @@
 #pragma once
 
 #include "types.h"
+#include <stdbool.h>
+#include "multiboot.h"
 
 #define VESA_CHAR_WIDTH 8
 #define VESA_CHAR_HEIGHT 12
@@ -32,11 +34,46 @@ struct vbe_mode_info
     u8 direct_color_attributes;
 
     u32 framebuffer; // physical address of the linear frame buffer; write here to draw to the screen
+    u32 framebuffer_virtual; // kernel virtual address mapped to the framebuffer (0 if unmapped)
     u32 off_screen_mem_off;
     u16 off_screen_mem_size; // size of memory in the framebuffer but not being displayed on the screen
 };
 
 extern struct vbe_mode_info* vbe_info;
+
+#ifdef GRAPHICS
+struct cpu;
+void framebuffer_set_vbe_info(const multiboot_info_t *mbd);
+bool framebuffer_map_boot_framebuffer(struct cpu *bsp);
+void framebuffer_prepare_cpu(struct cpu *cpu);
+#else
+struct cpu;
+static inline void framebuffer_set_vbe_info(const multiboot_info_t *mbd)
+{
+    (void)mbd;
+}
+static inline bool framebuffer_map_boot_framebuffer(struct cpu *bsp)
+{
+    (void)bsp;
+    return false;
+}
+static inline void framebuffer_prepare_cpu(struct cpu *cpu)
+{
+    (void)cpu;
+}
+#endif
+
+static inline u8 *framebuffer_kernel_bytes(void)
+{
+    if (vbe_info == nullptr) {
+        return nullptr;
+    }
+    u32 addr = vbe_info->framebuffer_virtual;
+    if (addr == 0) {
+        return nullptr;
+    }
+    return (u8 *)(uptr)addr;
+}
 
 void framebuffer_init();
 void framebuffer_clear_screen(u32 color);

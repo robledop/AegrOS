@@ -65,7 +65,12 @@ static void ioapic_write(int reg, u32 data)
 /** @brief Initialize the I/O APIC and mask all interrupts. */
 void ioapic_int(void)
 {
-    ioapic      = (volatile struct ioapic *)IOAPIC;
+    void *va = kernel_map_mmio(IOAPIC, PGSIZE);
+    if (va == nullptr) {
+        boot_message(WARNING_LEVEL_ERROR, "Failed to map IOAPIC at 0x%x", IOAPIC);
+        return;
+    }
+    ioapic      = (volatile struct ioapic *)va;
     int maxintr = (ioapic_read(REG_VER) >> 16) & 0xFF;
     int id      = ioapic_read(REG_ID) >> 24;
     if (id != ioapicid) {

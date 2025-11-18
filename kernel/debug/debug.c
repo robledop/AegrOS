@@ -15,7 +15,7 @@ typedef struct stack_frame
     u32 eip;
 } stack_frame_t;
 
-extern char end[];
+extern char kernel_end[];
 
 static struct elf32_shdr *symtab_section_header = nullptr;
 static struct elf32_shdr *strtab_section_header = nullptr;
@@ -141,7 +141,7 @@ char *debug_reserved_end(void)
     if (reserved_symbol_end) {
         return reserved_symbol_end;
     }
-    return end;
+    return kernel_end;
 }
 
 void debug_stats(void)
@@ -216,7 +216,7 @@ struct symbol debug_function_symbol_lookup(const elf32_addr address)
 
 NO_SSE void init_symbols(const multiboot_info_t *mbd)
 {
-    reserved_symbol_end = end;
+    reserved_symbol_end = kernel_end;
 
     if (!(mbd->flags & MULTIBOOT_INFO_ELF_SHDR)) {
         return;

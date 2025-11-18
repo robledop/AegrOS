@@ -69,7 +69,7 @@ void ioapic_int(void);
 char *kalloc_page(void);
 void kfree_page(char *);
 void kinit1(void *, void *);
-void kinit2(void *, void *);
+void kalloc_enable_locking(void);
 
 // kbd.c
 void keyboard_interrupt_handler(void);
@@ -86,6 +86,7 @@ void microdelay(int);
 // mp.c
 extern int ismp;
 void mpinit(void);
+void mp_report_state(void);
 
 // picirq.c
 void picenable(int);
@@ -169,8 +170,8 @@ u32 resize_kernel_page_directory(int n);
 void switch_kernel_page_directory();
 int copyout(pde_t *, u32, void *, u32);
 void clearpteu(pde_t *pgdir, const char *uva);
-void kernel_map_mmio(u32 pa, u32 size);
-void kernel_map_mmio_wc(u32 pa, u32 size);
+void *kernel_map_mmio(u32 pa, u32 size);
+void *kernel_map_mmio_wc(u32 pa, u32 size);
 void kernel_enable_mmio_propagation(void);
 void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames);
 

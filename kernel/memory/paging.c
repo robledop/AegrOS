@@ -12,7 +12,7 @@
 
 void freerange(void *vstart, void *vend);
 /** @brief First address after kernel loaded from ELF file */
-extern char end[]; // first address after kernel loaded from ELF file
+extern char kernel_end[]; // first address after kernel loaded from ELF file
 // defined by the kernel linker script in kernel.ld
 
 /** @brief Linked list node for free pages */
@@ -29,12 +29,6 @@ struct
     struct run *freelist;
 } kmem;
 
-// Initialization happens in two phases.
-// 1. main() calls kinit1() while still using entrypgdir to place just
-// the pages mapped by entrypgdir on free list.
-// 2. main() calls kinit2() with the rest of the physical pages
-// after installing a full page table that maps them on all cores.
-
 /** @brief Initialize kernel memory allocator phase 1 */
 
 NO_SSE void kinit1(void *vstart, void *vend)
@@ -45,9 +39,8 @@ NO_SSE void kinit1(void *vstart, void *vend)
 }
 
 /** @brief Initialize kernel memory allocator phase 2 */
-void kinit2(void *vstart, void *vend)
+void kalloc_enable_locking(void)
 {
-    freerange(vstart, vend);
     kmem.use_lock = 1;
 }
 
@@ -67,7 +60,7 @@ NO_SSE void freerange(void *vstart, void *vend)
  */
 void kfree_page(char *v)
 {
-    if ((u32)v % PGSIZE || v < end || V2P(v) >= PHYSTOP) {
+    if ((u32)v % PGSIZE || v < kernel_end || V2P(v) >= PHYSTOP) {
         panic("kfree_page");
     }
 

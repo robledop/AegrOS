@@ -248,7 +248,14 @@ void e1000_init(struct pci_device pci)
     mem_base   = pci_get_bar(pci_device, PCI_BAR_MEM) & ~3;
 
     if (bar_type == PCI_BAR_MEM && mem_base != 0) {
-        kernel_map_mmio((u32)mem_base, E1000_MMIO_SIZE);
+        void *mmio = kernel_map_mmio((u32)mem_base, E1000_MMIO_SIZE);
+        if (mmio == nullptr) {
+            boot_message(WARNING_LEVEL_ERROR,
+                         "E1000 failed to map MMIO BAR (0x%08lX)",
+                         (unsigned long)mem_base);
+            return;
+        }
+        mem_base = (u64)(uptr)mmio;
     }
 
     pci_enable_bus_mastering(pci);

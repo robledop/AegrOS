@@ -1,6 +1,4 @@
-#include <cpuid.h>
 #include "assert.h"
-#include "termcolors.h"
 #include "types.h"
 #include "string.h"
 #include "defs.h"
@@ -11,32 +9,25 @@
 #include "x86.h"
 #include "multiboot.h"
 #include "debug.h"
-#include "mbr.h"
 #include "pci.h"
 #include "scheduler.h"
 #include "framebuffer.h"
-#include "keyboard.h"
 #include "mouse.h"
-#include "x86.h"
-#include <cpuid.h>
+#include "physmem.h"
 
 /** @brief Start the non-boot (AP) processors. */
 static void startothers(void);
 /** @brief Common CPU setup code. */
 static void mpmain(void) __attribute__((noreturn));
 
-void set_vbe_info(const multiboot_info_t *mbd);
 static bool enable_sse(struct cpu *cpu);
-#ifdef GRAPHICS
-static void map_framebuffer_mmio(void);
-#endif
 /** @brief Kernel page directory */
 extern pde_t *kpgdir;
-/** @brief First address after kernel loaded from ELF file */
-extern char end[]; // first address after kernel loaded from ELF file. See kernel.ld
+u32 boot_config_table_ptr;
 
 #define STACK_CHK_GUARD 0xe2dee396
 u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
+
 
 /**
  * @brief Bootstrap processor entry point.
@@ -49,9 +40,15 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
 NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
     ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC, "Invalid multiboot magic number: 0x%x", magic);
+    if ((mbinfo->flags & MULTIBOOT_INFO_CONFIG_TABLE) != 0 && mbinfo->config_table != 0) {
+        boot_config_table_ptr = mbinfo->config_table;
+    } else {
+        boot_config_table_ptr = 0;
+    }
+    init_physical_memory_limit(mbinfo);
 
 #ifdef GRAPHICS
-    set_vbe_info(mbinfo);
+    framebuffer_set_vbe_info(mbinfo);
 #endif
 
     init_symbols(mbinfo);
@@ -66,7 +63,7 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
         }
     }
 #ifdef GRAPHICS
-    map_framebuffer_mmio();
+    framebuffer_map_boot_framebuffer(&cpus[0]);
     framebuffer_init(); // framebuffer device
 #endif
     mpinit();       // detect other processors
@@ -75,18 +72,20 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     picinit();      // disable pic
     ioapic_int();   // another interrupt controller
     console_init(); // console hardware
-    uart_init();    // serial port
+    report_physical_memory_limit();
+    uart_init(); // serial port
+    mp_report_state();
     cpu_print_info();
-    pinit();                                    // process table
-    tvinit();                                   // trap vectors
-    binit();                                    // buffer cache
-    file_init();                                // file table
-    startothers();                              // start other processors
-    kinit2(P2V(8 * 1024 * 1024), P2V(PHYSTOP)); // must come after startothers()
+    pinit();       // process table
+    tvinit();      // trap vectors
+    binit();       // buffer cache
+    file_init();   // file table
+    startothers(); // start other processors
+    release_usable_memory_ranges();
+    kalloc_enable_locking(); // enable allocator locking after free lists are built
     kernel_enable_mmio_propagation();
     pci_scan();
     user_init(); // first user process
-    // ps2_keyboard_init();
     mouse_init(nullptr);
     mpmain(); // finish this processor's setup
 }
@@ -120,6 +119,58 @@ static void mpmain(void)
 /** @brief Boot-time page directory referenced from assembly. */
 pde_t entrypgdir[]; // For entry.asm
 
+static bool wait_for_ap_start(struct cpu *cpu, u32 timeout_us)
+{
+    const u32 poll_interval_us = 100;
+    for (u32 waited = 0; waited < timeout_us; waited += poll_interval_us) {
+        if (cpu->started != 0) {
+            return true;
+        }
+        microdelay((int)poll_interval_us);
+    }
+    return false;
+}
+
+static bool bringup_application_processor(struct cpu *cpu, u8 *code)
+{
+    char *stack = kalloc_page();
+    if (stack == nullptr) {
+        panic("startothers: failed to allocate AP stack");
+    }
+    cpu->boot_stack              = stack;
+    *(void **)(code - 4)         = stack + KSTACKSIZE;
+    *(void (**)(void))(code - 8) = mpenter;
+    *(int **)(code - 12)         = (void *)V2P(entrypgdir);
+
+    const u32 timeout_us = 1000000; // Allow up to ~1s for each AP to signal readiness.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        lapicstartap(cpu->apicid, V2P(code));
+        if (wait_for_ap_start(cpu, timeout_us)) {
+            return true;
+        }
+        microdelay(1000);
+    }
+
+    return false;
+}
+
+static void disable_cpu_slot(int index)
+{
+    if (index < 0 || index >= ncpu) {
+        return;
+    }
+    struct cpu *victim = &cpus[index];
+    if (victim->boot_stack != nullptr) {
+        kfree_page(victim->boot_stack);
+        victim->boot_stack = nullptr;
+    }
+    if (index != ncpu - 1) {
+        cpus[index] = cpus[ncpu - 1];
+    }
+    memset(&cpus[ncpu - 1], 0, sizeof(struct cpu));
+    --ncpu;
+}
+
 /**
  * @brief Start all application processors (APs).
  *
@@ -138,79 +189,34 @@ static void startothers(void)
     u8 *code = P2V(0x7000);
     memmove(code, _binary_build_x86_entryother_start, (u32)_binary_build_x86_entryother_size);
 
-    boot_message(WARNING_LEVEL_INFO, "%d cpu%s", ncpu, ncpu == 1 ? "" : "s");
+    const int initial_cpu_count = ncpu;
+    const u8 bsp_apicid         = lapicid();
+    boot_message(WARNING_LEVEL_INFO, "%d cpu%s", initial_cpu_count, initial_cpu_count == 1 ? "" : "s");
 
-    for (struct cpu *c = cpus; c < cpus + ncpu; c++) {
-        if (c == current_cpu()) // We've started already.
+    for (int idx = 0; idx < ncpu; ++idx) {
+        struct cpu *cpu = &cpus[idx];
+        if (cpu->apicid == bsp_apicid) {
+            continue; // BSP already running.
+        }
+
+        if (bringup_application_processor(cpu, code)) {
             continue;
+        }
 
-        // Tell entryother.S what stack to use, where to enter, and what
-        // pgdir to use. We cannot use kpgdir yet, because the AP processor
-        // is running in low  memory, so we use entrypgdir for the APs too.
-        char *stack                  = kalloc_page();
-        *(void **)(code - 4)         = stack + KSTACKSIZE;
-        *(void (**)(void))(code - 8) = mpenter;
-        *(int **)(code - 12)         = (void *)V2P(entrypgdir);
+        boot_message(WARNING_LEVEL_WARNING,
+                     "CPU with APIC ID %u failed to start; disabling it",
+                     cpu->apicid);
+        disable_cpu_slot(idx);
+        idx--; // Retry this slot after collapsing the array.
+    }
 
-        lapicstartap(c->apicid, V2P(code));
-
-        // wait for cpu to finish mpmain()
-        while (c->started == 0);
+    if (ncpu != initial_cpu_count) {
+        boot_message(WARNING_LEVEL_WARNING,
+                     "Proceeding with %d CPU(s) after disabling %d that failed to start",
+                     ncpu,
+                     initial_cpu_count - ncpu);
     }
 }
-
-NO_SSE void set_vbe_info(const multiboot_info_t *mbd)
-{
-    vbe_info->height      = mbd->framebuffer_height;
-    vbe_info->width       = mbd->framebuffer_width;
-    vbe_info->bpp         = mbd->framebuffer_bpp;
-    vbe_info->pitch       = mbd->framebuffer_pitch;
-    vbe_info->framebuffer = (u32)mbd->framebuffer_addr;
-}
-
-#ifdef GRAPHICS
-static bool framebuffer_map_with_pat(const u32 fb_addr, const u32 fb_size)
-{
-    u32 eax, ebx, ecx, edx;
-    cpuid(0x01, &eax, &ebx, &ecx, &edx);
-    if ((edx & CPUID_FEAT_EDX_PAT) == 0) {
-        return false;
-    }
-
-    u64 pat           = rdmsr(MSR_IA32_PAT);
-    const u64 wc_mask = 0xFFull << 8; // PAT entry 1 (PWT=1, PCD=0)
-    const u64 wc_val  = 0x01ull << 8; // Write-combining encoding
-    if ((pat & wc_mask) != wc_val) {
-        pat = (pat & ~wc_mask) | wc_val;
-        wrmsr(MSR_IA32_PAT, pat);
-    }
-
-    kernel_map_mmio_wc(fb_addr, fb_size);
-    boot_message(WARNING_LEVEL_INFO, "Framebuffer write-combining enabled (PAT)");
-    framebuffer_enable_write_combining();
-    return true;
-}
-
-/**
- * @brief Identity-map the framebuffer provided by Multiboot so VirtualBox VMs
- *        (which place VRAM at 0xE0000000) don't fault when we touch it.
- */
-static void map_framebuffer_mmio(void)
-{
-    if (vbe_info->framebuffer == 0 || vbe_info->pitch == 0 || vbe_info->height == 0) {
-        return;
-    }
-
-    const u32 fb_size = (u32)vbe_info->pitch * (u32)vbe_info->height;
-    if (fb_size == 0) {
-        return;
-    }
-
-    if (!framebuffer_map_with_pat(vbe_info->framebuffer, fb_size)) {
-        kernel_map_mmio(vbe_info->framebuffer, fb_size);
-    }
-}
-#endif
 
 static bool enable_sse(struct cpu *cpu)
 {
@@ -276,26 +282,9 @@ static bool enable_sse(struct cpu *cpu)
         cpu->has_xsave = false;
     }
 
+    framebuffer_prepare_cpu(cpu);
     return true;
 }
-
-// /**
-//  * @brief Boot page table image used while bringing up processors.
-//  *
-//  * Page directories (and tables) must start on page boundaries, hence the
-//  * alignment attribute. The large-page bit (PTE_PS) allows identity mapping of
-//  * the first 4 MiB of physical memory.
-//  */
-// __attribute__ ((__aligned__
-// (PGSIZE)
-// )
-// )
-// pde_t entrypgdir[NPDENTRIES] = {
-//     // Map VA's [0, 4MB) to PA's [0, 4MB)
-//     [0] = (0) | PTE_P | PTE_W | PTE_PS,
-//     // Map VA's [KERNBASE, KERNBASE+4MB) to PA's [0, 4MB)
-//     [KERNBASE >> PDXSHIFT] = (0) | PTE_P | PTE_W | PTE_PS,
-// };
 
 /** @brief Boot-time page directory referenced from assembly.
  * Boot-time page directory used while paging is being enabled.

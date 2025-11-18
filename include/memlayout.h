@@ -1,8 +1,11 @@
 // Memory layout
 #pragma once
+#include "types.h"
 
-#define EXTMEM 0x100000     // Start of extended memory (1MB)
-#define PHYSTOP 0x20000000  // Top physical memory (512MB)
+#define EXTMEM 0x100000 // Start of extended memory (1MB)
+extern u32 phys_mem_top; // Updated at boot based on Multiboot info
+extern u32 phys_ram_end; // Top of usable RAM reported by firmware
+#define PHYSTOP phys_mem_top
 // #define DEVSPACE 0xFE000000 // start of legacy device MMIO window (3.75GB)
 #define MMIOBASE 0xFD000000 // lower bound we need mapped for framebuffer/MMIO (3.69GB)
 #define FB_MMAP_BASE 0x50000000 // User virtual address base for framebuffer mappings
