@@ -335,7 +335,7 @@ pde_t *setup_kernel_page_directory(void)
 }
 
 /** @brief Allocate the kernel page directory and activate it. */
-void kernel_page_directory_init(void)
+NO_SSE void kernel_page_directory_init(void)
 {
     kpgdir       = setup_kernel_page_directory();
     kpgdir_break = (uptr)KHEAP_START;

@@ -46,7 +46,7 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
  *
  * @return This function does not return; it hands control to the scheduler.
  */
-int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
+NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
     ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC, "Invalid multiboot magic number: 0x%x", magic);
 
@@ -159,7 +159,7 @@ static void startothers(void)
     }
 }
 
-void set_vbe_info(const multiboot_info_t *mbd)
+NO_SSE void set_vbe_info(const multiboot_info_t *mbd)
 {
     vbe_info->height      = mbd->framebuffer_height;
     vbe_info->width       = mbd->framebuffer_width;

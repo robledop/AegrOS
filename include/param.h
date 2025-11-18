@@ -18,3 +18,7 @@
 
 #define TIME_SLICE_MS 50
 #define TIME_SLICE_TICKS ((TIME_SLICE_MS + TIMER_INTERVAL_MS - 1) / TIMER_INTERVAL_MS)
+
+
+// #define NO_SSE __attribute__((target("no-sse,no-sse2")))
+#define NO_SSE

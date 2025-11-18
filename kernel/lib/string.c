@@ -11,7 +11,7 @@ static int mem_sse_enabled;
 static int mem_avx_enabled;
 
 /** @brief Set n bytes of memory to c */
-void *memset(void *dst, int c, size_t n)
+ void *memset(void *dst, int c, size_t n)
 {
     if (n == 0) {
         return dst;
@@ -31,10 +31,10 @@ void *memset(void *dst, int c, size_t n)
         return dst;
     }
 
-    u8 *d        = dst;
-    size_t left  = n;
+    u8 *d       = dst;
+    size_t left = n;
     u8 pattern[32];
-    int pattern_ready = 0;
+    int pattern_ready   = 0;
     const u32 saved_cr0 = rcr0();
     clts();
     int used_avx = 0;
@@ -93,8 +93,8 @@ int memcmp(const void *v1, const void *v2, size_t n)
     }
 
     if (mem_sse_enabled && n >= 16) {
-        const u8 *a = s1;
-        const u8 *b = s2;
+        const u8 *a         = s1;
+        const u8 *b         = s2;
         const u32 saved_cr0 = rcr0();
         clts();
 
@@ -102,12 +102,12 @@ int memcmp(const void *v1, const void *v2, size_t n)
             while (n >= 32) {
                 unsigned int mask;
                 __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
-                                 "vmovdqu (%[b]), %%ymm1\n\t"
-                                 "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
-                                 "vpmovmskb %%ymm0, %[mask]"
-                                 : [mask] "=r"(mask)
-                                 : [a] "r"(a), [b] "r"(b)
-                                 : "memory");
+                    "vmovdqu (%[b]), %%ymm1\n\t"
+                    "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
+                    "vpmovmskb %%ymm0, %[mask]"
+                    : [mask] "=r"(mask)
+                    : [a] "r"(a), [b] "r"(b)
+                    : "memory");
                 if (mask != 0xFFFFFFFFu) {
                     unsigned int mismatch = ~mask;
                     unsigned int idx      = __builtin_ctz(mismatch);
@@ -124,12 +124,12 @@ int memcmp(const void *v1, const void *v2, size_t n)
         while (n >= 16) {
             unsigned int mask;
             __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
-                             "movdqu (%[b]), %%xmm1\n\t"
-                             "pcmpeqb %%xmm1, %%xmm0\n\t"
-                             "pmovmskb %%xmm0, %[mask]"
-                             : [mask] "=r"(mask)
-                             : [a] "r"(a), [b] "r"(b)
-                             : "memory");
+                "movdqu (%[b]), %%xmm1\n\t"
+                "pcmpeqb %%xmm1, %%xmm0\n\t"
+                "pmovmskb %%xmm0, %[mask]"
+                : [mask] "=r"(mask)
+                : [a] "r"(a), [b] "r"(b)
+                : "memory");
             mask &= 0xFFFFu;
             if (mask != 0xFFFFu) {
                 unsigned int mismatch = (~mask) & 0xFFFFu;
@@ -288,6 +288,7 @@ void *memcpy(void *dst, const void *src, size_t n)
 }
 
 /** @brief Compare n characters of strings */
+
 int strncmp(const char *p, const char *q, size_t n)
 {
     while (n > 0 && *p && *p == *q) {
@@ -343,7 +344,7 @@ size_t strnlen(const char *s, size_t maxlen)
     return len;
 }
 
-bool starts_with(const char pre[static 1], const char str[static 1])
+ bool starts_with(const char pre[static 1], const char str[static 1])
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }

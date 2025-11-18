@@ -8,6 +8,7 @@
 #include "mmu.h"
 #include "spinlock.h"
 #include "string.h"
+#include "param.h"
 
 void freerange(void *vstart, void *vend);
 /** @brief First address after kernel loaded from ELF file */
@@ -35,7 +36,8 @@ struct
 // after installing a full page table that maps them on all cores.
 
 /** @brief Initialize kernel memory allocator phase 1 */
-void kinit1(void *vstart, void *vend)
+
+NO_SSE void kinit1(void *vstart, void *vend)
 {
     initlock(&kmem.lock, "kmem");
     kmem.use_lock = 0;
@@ -50,7 +52,7 @@ void kinit2(void *vstart, void *vend)
 }
 
 /** @brief Free a range of memory */
-void freerange(void *vstart, void *vend)
+NO_SSE void freerange(void *vstart, void *vend)
 {
     char *p = (char *)PGROUNDUP((u32)vstart);
     for (; p + PGSIZE <= (char *)vend; p += PGSIZE) {

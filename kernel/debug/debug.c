@@ -23,6 +23,9 @@ static struct elf32_shdr *elf_section_headers   = nullptr;
 // Points to the end of the reserved symbol area so we don't overwrite it
 static char *reserved_symbol_end = nullptr;
 
+
+NO_SSE
+
 void stack_trace(void)
 {
     printf(KBWHT "Stack trace:\n" KRESET);
@@ -41,6 +44,8 @@ void stack_trace(void)
     printf(KWHT "run " KBBLU "addr2line -e build/kernel <address>" KWHT " to get line numbers\n");
     printf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
 }
+
+NO_SSE
 
 void print_registers()
 {
@@ -145,6 +150,8 @@ void debug_stats(void)
     stack_trace();
 }
 
+NO_SSE
+
 struct symbol debug_function_symbol_lookup(const elf32_addr address)
 {
     if (!symtab_section_header || !strtab_section_header) {
@@ -207,7 +214,7 @@ struct symbol debug_function_symbol_lookup(const elf32_addr address)
     return (struct symbol){0, nullptr};
 }
 
-void init_symbols(const multiboot_info_t *mbd)
+NO_SSE void init_symbols(const multiboot_info_t *mbd)
 {
     reserved_symbol_end = end;
 
