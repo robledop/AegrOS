@@ -562,7 +562,7 @@ static int acpi_init(void)
     return 0;
 }
 
-void mpinit(void)
+void smp_init(void)
 {
     ncpu                = 0;
     lapic               = nullptr;

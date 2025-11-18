@@ -41,20 +41,19 @@ struct
 /**
  * @brief Initialize the buffer cache structures and MRU list.
  */
-void binit(void)
+void buffer_cache_init(void)
 {
     initlock(&bcache.lock, "bcache");
 
     // Create a linked list of buffers
     bcache.head.prev = &bcache.head;
     bcache.head.next = &bcache.head;
-    for (struct buf* b = bcache.buf; b < bcache.buf + NBUF; b++)
-    {
+    for (struct buf *b = bcache.buf; b < bcache.buf + NBUF; b++) {
         b->next = bcache.head.next;
         b->prev = &bcache.head;
         initsleeplock(&b->lock, "buffer");
         bcache.head.next->prev = b;
-        bcache.head.next = b;
+        bcache.head.next       = b;
     }
 }
 
@@ -63,17 +62,15 @@ void binit(void)
  *
  * Returns a locked buffer with refcount incremented.
  */
-static struct buf* bget(u32 dev, u32 blockno)
+static struct buf *bget(u32 dev, u32 blockno)
 {
-    struct buf* b;
+    struct buf *b;
 
     acquire(&bcache.lock);
 
     // Is the block already cached?
-    for (b = bcache.head.next; b != &bcache.head; b = b->next)
-    {
-        if (b->dev == dev && b->blockno == blockno)
-        {
+    for (b = bcache.head.next; b != &bcache.head; b = b->next) {
+        if (b->dev == dev && b->blockno == blockno) {
             b->refcnt++;
             release(&bcache.lock);
             acquiresleep(&b->lock);
@@ -84,14 +81,12 @@ static struct buf* bget(u32 dev, u32 blockno)
     // Not cached; recycle an unused buffer.
     // Even if refcnt==0, B_DIRTY indicates a buffer is in use
     // because log.c has modified it but not yet committed it.
-    for (b = bcache.head.prev; b != &bcache.head; b = b->prev)
-    {
-        if (b->refcnt == 0 && (b->flags & B_DIRTY) == 0)
-        {
-            b->dev = dev;
+    for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
+        if (b->refcnt == 0 && (b->flags & B_DIRTY) == 0) {
+            b->dev     = dev;
             b->blockno = blockno;
-            b->flags = 0;
-            b->refcnt = 1;
+            b->flags   = 0;
+            b->refcnt  = 1;
             release(&bcache.lock);
             acquiresleep(&b->lock);
             return b;
@@ -101,18 +96,17 @@ static struct buf* bget(u32 dev, u32 blockno)
 }
 
 /** @brief Return a locked buffer filled with the requested block. */
-struct buf* bread(u32 dev, u32 blockno)
+struct buf *bread(u32 dev, u32 blockno)
 {
-    struct buf* b = bget(dev, blockno);
-    if ((b->flags & B_VALID) == 0)
-    {
+    struct buf *b = bget(dev, blockno);
+    if ((b->flags & B_VALID) == 0) {
         iderw(b);
     }
     return b;
 }
 
 /** @brief Write a locked buffer's contents to disk via the IDE layer. */
-void bwrite(struct buf* b)
+void bwrite(struct buf *b)
 {
     ASSERT(holdingsleep(&b->lock), "bwrite");
 
@@ -123,7 +117,7 @@ void bwrite(struct buf* b)
 /**
  * @brief Release a locked buffer and move it to the MRU position.
  */
-void brelse(struct buf* b)
+void brelse(struct buf *b)
 {
     ASSERT(holdingsleep(&b->lock), "brelse");
 
@@ -131,15 +125,14 @@ void brelse(struct buf* b)
 
     acquire(&bcache.lock);
     b->refcnt--;
-    if (b->refcnt == 0)
-    {
+    if (b->refcnt == 0) {
         // no one is waiting for it.
-        b->next->prev = b->prev;
-        b->prev->next = b->next;
-        b->next = bcache.head.next;
-        b->prev = &bcache.head;
+        b->next->prev          = b->prev;
+        b->prev->next          = b->next;
+        b->next                = bcache.head.next;
+        b->prev                = &bcache.head;
         bcache.head.next->prev = b;
-        bcache.head.next = b;
+        bcache.head.next       = b;
     }
 
     release(&bcache.lock);

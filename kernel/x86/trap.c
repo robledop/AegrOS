@@ -168,7 +168,7 @@ void spurious_handler(struct trapframe *tf)
 /**
  * @brief Initialize the IDT entries for traps and interrupts.
  */
-void tvinit(void)
+void trap_vector_init(void)
 {
     for (int i = 0; i < 256; i++) {
         SETGATE(idt[i], 0, SEG_KCODE << 3, vectors[i], 0);

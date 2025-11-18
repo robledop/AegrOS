@@ -31,7 +31,7 @@ struct
 
 /** @brief Initialize kernel memory allocator phase 1 */
 
-NO_SSE void kinit1(void *vstart, void *vend)
+NO_SSE void init_memory_range(void *vstart, void *vend)
 {
     initlock(&kmem.lock, "kmem");
     kmem.use_lock = 0;

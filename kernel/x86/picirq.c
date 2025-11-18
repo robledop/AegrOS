@@ -6,7 +6,7 @@
 #define IO_PIC2 0xA0 // Slave (IRQs 8-15)
 
 /** @brief Disable legacy 8259A PIC interrupts in favor of the I/O APIC. */
-void picinit(void)
+void disable_pic(void)
 {
     // mask all interrupts
     outb(IO_PIC1 + 1, 0xFF);

@@ -112,7 +112,7 @@ static void propagate_kernel_range(u32 start, u32 end)
  * Must be invoked once on each CPU during startup to configure the GDT for
  * kernel and user segments before enabling interrupts.
  */
-void seginit(void)
+void segment_descriptors_init(void)
 {
     // Map "logical" addresses to virtual addresses using the identity map.
     // Cannot share a CODE descriptor for both kernel and user
@@ -228,8 +228,8 @@ static void *kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
     }
 
     for (u32 off = 0; off < map_size; off += PGSIZE) {
-        void *va  = (void *)(virt_start + off);
-        u32 paddr = phys_start + off;
+        void *va   = (void *)(virt_start + off);
+        u32 paddr  = phys_start + off;
         pte_t *pte = walkpgdir(kpgdir, va, 0);
         if (pte != nullptr && (*pte & PTE_P) != 0) {
             continue;

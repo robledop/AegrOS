@@ -117,15 +117,15 @@ int wait(void)
                 p->kstack = nullptr;
                 proc_free_vmas(p);
                 freevm(p->page_directory);
-                p->page_directory = nullptr;
-                p->pid            = 0;
-                p->parent         = nullptr;
-                p->name[0]        = 0;
-                p->killed         = 0;
-                p->brk            = 0;
+                p->page_directory  = nullptr;
+                p->pid             = 0;
+                p->parent          = nullptr;
+                p->name[0]         = 0;
+                p->killed          = 0;
+                p->brk             = 0;
                 p->fpu_initialized = false;
-                p->state          = UNUSED;
-                p->next           = nullptr;
+                p->state           = UNUSED;
+                p->next            = nullptr;
                 release(&ptable.lock);
                 return pid;
             }
@@ -399,7 +399,7 @@ void remove_task(struct process_queue *queue, struct proc *task, struct proc *pr
 }
 
 /** @brief Initialize the process table lock. */
-void pinit(void)
+void process_table_init(void)
 {
     initlock(&ptable.lock, "ptable");
 }

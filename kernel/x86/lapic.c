@@ -146,7 +146,7 @@ static void lapic_configure_timer(void)
 }
 
 /** @brief Initialize and enable the local APIC on the current CPU. */
-void lapicinit(void)
+void lapic_init(void)
 {
     if (!lapic)
         return;

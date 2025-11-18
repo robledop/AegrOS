@@ -16,7 +16,7 @@
 #include "physmem.h"
 
 /** @brief Start the non-boot (AP) processors. */
-static void startothers(void);
+static void bring_up_cpus(void);
 /** @brief Common CPU setup code. */
 static void mpmain(void) __attribute__((noreturn));
 
@@ -27,7 +27,6 @@ u32 boot_config_table_ptr;
 
 #define STACK_CHK_GUARD 0xe2dee396
 u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
-
 
 /**
  * @brief Bootstrap processor entry point.
@@ -52,8 +51,8 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 #endif
 
     init_symbols(mbinfo);
-    kinit1(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
-    kernel_page_directory_init();                       // kernel page table
+    init_memory_range(debug_reserved_end(), P2V(8 * 1024 * 1024)); // phys page allocator for kernel
+    kernel_page_directory_init();                                  // kernel page table
     if (enable_sse(&cpus[0])) {
         memory_enable_sse();
         if (cpus[0].has_avx) {
@@ -64,23 +63,23 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     }
 #ifdef GRAPHICS
     framebuffer_map_boot_framebuffer(&cpus[0]);
-    framebuffer_init(); // framebuffer device
+    framebuffer_init();
 #endif
-    mpinit();       // detect other processors
-    lapicinit();    // interrupt controller
-    seginit();      // segment descriptors
-    picinit();      // disable pic
-    ioapic_int();   // another interrupt controller
-    console_init(); // console hardware
+    smp_init();
+    lapic_init(); // interrupt controller
+    segment_descriptors_init();
+    disable_pic();
+    ioapic_int(); // another interrupt controller
+    console_init();
     report_physical_memory_limit();
     uart_init(); // serial port
     mp_report_state();
     cpu_print_info();
-    pinit();       // process table
-    tvinit();      // trap vectors
-    binit();       // buffer cache
-    file_init();   // file table
-    startothers(); // start other processors
+    process_table_init();
+    trap_vector_init();
+    buffer_cache_init();
+    file_init();     // file table
+    bring_up_cpus(); // start other processors
     release_usable_memory_ranges();
     kalloc_enable_locking(); // enable allocator locking after free lists are built
     kernel_enable_mmio_propagation();
@@ -99,8 +98,8 @@ NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 static void mpenter(void)
 {
     switch_kernel_page_directory();
-    seginit();
-    lapicinit();
+    segment_descriptors_init();
+    lapic_init();
     mpmain();
 }
 
@@ -178,7 +177,7 @@ static void disable_cpu_slot(int index)
  * stack, entry point, and temporary page directory, then issues INIT/SIPI
  * sequences until every CPU reports as started.
  */
-static void startothers(void)
+static void bring_up_cpus(void)
 {
     // This name depends on the path of the entryohter file.
     extern u8 _binary_build_x86_entryother_start[], _binary_build_x86_entryother_size[]; // NOLINT(*-reserved-identifier)

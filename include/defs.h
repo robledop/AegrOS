@@ -23,7 +23,7 @@ typedef enum warning_level
 
 
 // bio.c
-void binit(void);
+void buffer_cache_init(void);
 struct buf *bread(u32, u32);
 void brelse(struct buf *);
 void bwrite(struct buf *);
@@ -68,7 +68,7 @@ void ioapic_int(void);
 // kalloc_page.c
 char *kalloc_page(void);
 void kfree_page(char *);
-void kinit1(void *, void *);
+void init_memory_range(void *, void *);
 void kalloc_enable_locking(void);
 
 // kbd.c
@@ -79,18 +79,18 @@ void cmostime(struct rtcdate *r);
 int lapicid(void);
 extern volatile u32 *lapic;
 void lapic_ack_interrupt(void);
-void lapicinit(void);
+void lapic_init(void);
 void lapicstartap(u8, u32);
 void microdelay(int);
 
 // mp.c
 extern int ismp;
-void mpinit(void);
+void smp_init(void);
 void mp_report_state(void);
 
 // picirq.c
 void picenable(int);
-void picinit(void);
+void disable_pic(void);
 
 // pipe.c
 int pipe_alloc(struct file **, struct file **);
@@ -106,7 +106,7 @@ int resize_proc(int);
 int kill(int);
 struct cpu *current_cpu();
 struct proc *current_process();
-void pinit(void);
+void process_table_init(void);
 // void on_timer();
 void setproc(struct proc *);
 void sleep(void *, struct spinlock *);
@@ -145,7 +145,7 @@ void timerinit(void);
 // trap.c
 void idtinit(void);
 extern volatile u32 ticks;
-void tvinit(void);
+void trap_vector_init(void);
 extern struct spinlock tickslock;
 
 // uart.c
@@ -154,7 +154,7 @@ void uartintr();
 void uartputc(int);
 
 // vm.c
-void seginit(void);
+void segment_descriptors_init(void);
 void kernel_page_directory_init();
 pde_t *setup_kernel_page_directory();
 char *uva2ka(pde_t *, char *);
