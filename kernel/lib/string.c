@@ -88,6 +88,66 @@ int memcmp(const void *v1, const void *v2, size_t n)
 {
     const u8 *s1 = v1;
     const u8 *s2 = v2;
+    if (s1 == s2 || n == 0) {
+        return 0;
+    }
+
+    if (mem_sse_enabled && n >= 16) {
+        const u8 *a = s1;
+        const u8 *b = s2;
+        const u32 saved_cr0 = rcr0();
+        clts();
+
+        if (mem_avx_enabled) {
+            while (n >= 32) {
+                unsigned int mask;
+                __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
+                                 "vmovdqu (%[b]), %%ymm1\n\t"
+                                 "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
+                                 "vpmovmskb %%ymm0, %[mask]"
+                                 : [mask] "=r"(mask)
+                                 : [a] "r"(a), [b] "r"(b)
+                                 : "memory");
+                if (mask != 0xFFFFFFFFu) {
+                    unsigned int mismatch = ~mask;
+                    unsigned int idx      = __builtin_ctz(mismatch);
+                    int diff              = (int)a[idx] - (int)b[idx];
+                    lcr0(saved_cr0);
+                    return diff;
+                }
+                a += 32;
+                b += 32;
+                n -= 32;
+            }
+        }
+
+        while (n >= 16) {
+            unsigned int mask;
+            __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
+                             "movdqu (%[b]), %%xmm1\n\t"
+                             "pcmpeqb %%xmm1, %%xmm0\n\t"
+                             "pmovmskb %%xmm0, %[mask]"
+                             : [mask] "=r"(mask)
+                             : [a] "r"(a), [b] "r"(b)
+                             : "memory");
+            mask &= 0xFFFFu;
+            if (mask != 0xFFFFu) {
+                unsigned int mismatch = (~mask) & 0xFFFFu;
+                unsigned int idx      = __builtin_ctz(mismatch);
+                int diff              = (int)a[idx] - (int)b[idx];
+                lcr0(saved_cr0);
+                return diff;
+            }
+            a += 16;
+            b += 16;
+            n -= 16;
+        }
+
+        lcr0(saved_cr0);
+        s1 = a;
+        s2 = b;
+    }
+
     while (n-- > 0) {
         if (*s1 != *s2) {
             return *s1 - *s2;

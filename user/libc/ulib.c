@@ -85,6 +85,89 @@ char *strncpy(char *dst, const char *src, size_t n)
 
 int strcmp(const char *p, const char *q)
 {
+    if (p == q) {
+        return 0;
+    }
+
+    const int has_sse2 = simd_has_sse2();
+    if (has_sse2) {
+        const int has_avx = simd_has_avx();
+        const u8 *a       = (const u8 *)p;
+        const u8 *b       = (const u8 *)q;
+
+        if (has_avx) {
+            while (1) {
+                __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
+                                 "vmovdqu (%1), %%ymm1"
+                                 :
+                                 : "r"(a), "r"(b)
+                                 : "memory");
+
+                unsigned int mask_diff;
+                __asm__ volatile("vpcmpeqb %%ymm1, %%ymm0, %%ymm2\n\t"
+                                 "vpmovmskb %%ymm2, %0"
+                                 : "=r"(mask_diff)
+                                 :
+                                 : "memory");
+
+                unsigned int mask_zero_a;
+                __asm__ volatile("vpcmpeqb %%ymm0, %%ymm0, %%ymm2\n\t"
+                                 "vpmovmskb %%ymm2, %0"
+                                 : "=r"(mask_zero_a)
+                                 :
+                                 : "memory");
+
+                if (mask_diff != 0xFFFFFFFFu || mask_zero_a != 0xFFFFFFFFu) {
+                    unsigned int diff_bits      = ~mask_diff;
+                    unsigned int zero_bits      = ~mask_zero_a;
+                    unsigned int significant    = diff_bits | zero_bits;
+                    unsigned int idx            = __builtin_ctz(significant);
+                    return (int)a[idx] - (int)b[idx];
+                }
+
+                a += 32;
+                b += 32;
+            }
+        } else {
+            while (1) {
+                __asm__ volatile("movdqu (%0), %%xmm0\n\t"
+                                 "movdqu (%1), %%xmm1"
+                                 :
+                                 : "r"(a), "r"(b)
+                                 : "memory");
+
+                unsigned int mask_diff;
+                __asm__ volatile("pcmpeqb %%xmm1, %%xmm0\n\t"
+                                 "pmovmskb %%xmm0, %0"
+                                 : "=r"(mask_diff)
+                                 :
+                                 : "memory");
+
+                unsigned int mask_zero_a;
+                __asm__ volatile("pxor %%xmm2, %%xmm2\n\t"
+                                 "pcmpeqb %%xmm0, %%xmm2\n\t"
+                                 "pmovmskb %%xmm2, %0"
+                                 : "=r"(mask_zero_a)
+                                 :
+                                 : "memory");
+
+                mask_diff &= 0xFFFFu;
+                mask_zero_a &= 0xFFFFu;
+
+                if (mask_diff != 0xFFFFu || mask_zero_a != 0xFFFFu) {
+                    unsigned int diff_bits   = (~mask_diff) & 0xFFFFu;
+                    unsigned int zero_bits   = (~mask_zero_a) & 0xFFFFu;
+                    unsigned int significant = diff_bits | zero_bits;
+                    unsigned int idx         = __builtin_ctz(significant);
+                    return (int)a[idx] - (int)b[idx];
+                }
+
+                a += 16;
+                b += 16;
+            }
+        }
+    }
+
     while (*p && *p == *q)
         p++, q++;
     return (u8)*p - (u8)*q;
@@ -535,6 +618,61 @@ int memcmp(const void *v1, const void *v2, size_t n)
 {
     const unsigned char *s1 = v1;
     const unsigned char *s2 = v2;
+    if (s1 == s2 || n == 0) {
+        return 0;
+    }
+
+    const int has_sse2 = simd_has_sse2();
+    if (has_sse2 && n >= 16) {
+        const int has_avx = simd_has_avx();
+        const unsigned char *a = s1;
+        const unsigned char *b = s2;
+
+        if (has_avx) {
+            while (n >= 32) {
+                unsigned int mask;
+                __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
+                                 "vmovdqu (%[b]), %%ymm1\n\t"
+                                 "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
+                                 "vpmovmskb %%ymm0, %[mask]"
+                                 : [mask] "=r"(mask)
+                                 : [a] "r"(a), [b] "r"(b)
+                                 : "memory");
+                if (mask != 0xFFFFFFFFu) {
+                    unsigned int mismatch = ~mask;
+                    unsigned int idx      = __builtin_ctz(mismatch);
+                    return (int)a[idx] - (int)b[idx];
+                }
+                a += 32;
+                b += 32;
+                n -= 32;
+            }
+        }
+
+        while (n >= 16) {
+            unsigned int mask;
+            __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
+                             "movdqu (%[b]), %%xmm1\n\t"
+                             "pcmpeqb %%xmm1, %%xmm0\n\t"
+                             "pmovmskb %%xmm0, %[mask]"
+                             : [mask] "=r"(mask)
+                             : [a] "r"(a), [b] "r"(b)
+                             : "memory");
+            mask &= 0xFFFFu;
+            if (mask != 0xFFFFu) {
+                unsigned int mismatch = (~mask) & 0xFFFFu;
+                unsigned int idx      = __builtin_ctz(mismatch);
+                return (int)a[idx] - (int)b[idx];
+            }
+            a += 16;
+            b += 16;
+            n -= 16;
+        }
+
+        s1 = a;
+        s2 = b;
+    }
+
     while (n-- > 0) {
         if (*s1 != *s2) {
             return *s1 - *s2;

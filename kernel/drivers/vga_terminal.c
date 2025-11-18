@@ -3,9 +3,11 @@
 #include "vga_terminal.h"
 
 #include "console.h"
+#include "defs.h"
 #include "memlayout.h"
 #include "printf.h"
 #include "string.h"
+#include "x86.h"
 
 #ifndef GRAPHICS
 
@@ -36,6 +38,70 @@ int ansi_to_vga_background[] = {
 };
 
 void terminal_clear();
+
+static void vga_fill_words(u16 *dst, u32 count, u16 value)
+{
+    if (count == 0) {
+        return;
+    }
+
+    if (!memory_sse_available()) {
+        for (u32 i = 0; i < count; i++) {
+            dst[i] = value;
+        }
+        return;
+    }
+
+    u8 *bytes         = (u8 *)dst;
+    u32 remaining     = count;
+    u16 pattern_words[16];
+    int pattern_init = 0;
+    const u32 saved_cr0 = rcr0();
+    clts();
+    int used_avx = 0;
+
+    if (memory_avx_available() && remaining >= 16) {
+        if (!pattern_init) {
+            for (int i = 0; i < 16; i++) {
+                pattern_words[i] = value;
+            }
+            pattern_init = 1;
+        }
+        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern_words));
+        while (remaining >= 16) {
+            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(bytes) : "memory");
+            bytes += 32;
+            remaining -= 16;
+        }
+        used_avx = 1;
+    }
+
+    if (remaining >= 8) {
+        if (!pattern_init) {
+            for (int i = 0; i < 8; i++) {
+                pattern_words[i] = value;
+            }
+            pattern_init = 1;
+        }
+        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern_words));
+        while (remaining >= 8) {
+            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(bytes) : "memory");
+            bytes += 16;
+            remaining -= 8;
+        }
+    }
+
+    if (used_avx) {
+        __asm__ volatile("vzeroupper" ::: "memory");
+    }
+
+    lcr0(saved_cr0);
+
+    u16 *tail = (u16 *)bytes;
+    while (remaining-- > 0) {
+        *tail++ = value;
+    }
+}
 
 /** @brief Enable the hardware text cursor using standard scanlines */
 static void enable_cursor(void)
@@ -91,11 +157,9 @@ void scroll_screen()
     // Move all rows up by one
     memmove(video_memory, video_memory + ROW_SIZE, SCREEN_SIZE - ROW_SIZE);
 
-    // Clear the last line (fill with spaces and default attribute)
-    for (u32 i = SCREEN_SIZE - ROW_SIZE; i < SCREEN_SIZE; i += BYTES_PER_CHAR) {
-        video_memory[i]     = ' ';
-        video_memory[i + 1] = DEFAULT_ATTRIBUTE;
-    }
+    u16 *row = (u16 *)(video_memory + SCREEN_SIZE - ROW_SIZE);
+    const u16 fill = (u16)(' ' | (DEFAULT_ATTRIBUTE << 8));
+    vga_fill_words(row, VGA_WIDTH, fill);
 
     if (cursor_y > 0) {
         cursor_y--;
@@ -309,11 +373,8 @@ void terminal_clear()
 {
     cursor_x = 0;
     cursor_y = 0;
-    for (int y = 0; y < VGA_HEIGHT; y++) {
-        for (int x = 0; x < VGA_WIDTH; x++) {
-            vga_buffer_write(' ', attribute, x, y);
-        }
-    }
+    const u16 fill = (u16)(' ' | (attribute << 8));
+    vga_fill_words((u16 *)VIDEO_MEMORY, VGA_WIDTH * VGA_HEIGHT, fill);
 
     enable_cursor();
 }

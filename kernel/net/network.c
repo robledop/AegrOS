@@ -147,20 +147,16 @@ int network_send_packet(const void *data, const u16 len)
 
 bool network_compare_ip_addresses(const u8 ip1[static 4], const u8 ip2[static 4])
 {
-    for (int i = 0; i < 4; i++) {
-        if (ip1[i] != ip2[i]) {
-            return false;
-        }
+    if (ip1 == ip2) {
+        return true;
     }
-    return true;
+    return memcmp(ip1, ip2, 4) == 0;
 }
 
 bool network_compare_mac_addresses(const u8 mac1[static 6], const u8 mac2[static 6])
 {
-    for (int i = 0; i < 6; i++) {
-        if (mac1[i] != mac2[i]) {
-            return false;
-        }
+    if (mac1 == mac2) {
+        return true;
     }
-    return true;
+    return memcmp(mac1, mac2, 6) == 0;
 }

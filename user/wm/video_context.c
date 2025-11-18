@@ -11,6 +11,14 @@ static int framebuffer_simd_initialized;
 static int framebuffer_has_sse2;
 static int framebuffer_has_avx;
 
+static inline u8 reverse_bits8(u8 v)
+{
+    v = (u8)(((v & 0xF0u) >> 4) | ((v & 0x0Fu) << 4));
+    v = (u8)(((v & 0xCCu) >> 2) | ((v & 0x33u) << 2));
+    v = (u8)(((v & 0xAAu) >> 1) | ((v & 0x55u) << 1));
+    return v;
+}
+
 static inline void framebuffer_init_simd_caps(void)
 {
     if (framebuffer_simd_initialized) {
@@ -789,14 +797,26 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
         count_y = bound_rect->bottom - y + 1;
     }
 
-    // Now we do the actual pixel plotting loop
+    const int pitch_bytes = 4096;
+
     for (int font_y = off_y; font_y < count_y; font_y++) {
-        u8 shift_line = font8x12[font_y * 128 + character] << off_x;
-        for (int font_x = off_x; font_x < count_x; font_x++) {
-            if (shift_line & 0x80) {
-                framebuffer_putpixel(font_x + x, font_y + y, color);
-            }
-            shift_line <<= 1;
+        u8 row_bits  = reverse_bits8(font8x12[font_y * 128 + character]);
+        u32 row_mask = 0xFFu;
+        if (off_x > 0) {
+            row_mask &= ~((1u << off_x) - 1u);
+        }
+        if (count_x < VESA_CHAR_WIDTH) {
+            row_mask &= (count_x == 0 ? 0u : ((1u << count_x) - 1u));
+        }
+        u8 active = (u8)(row_bits & row_mask);
+        if (active == 0) {
+            continue;
+        }
+        u32 *dst = (u32 *)((u8 *)framebuffer + (u32)(y + font_y) * pitch_bytes + (u32)x * 4U);
+        while (active) {
+            int bit = __builtin_ctz(active);
+            dst[bit] = color;
+            active &= active - 1;
         }
     }
 }

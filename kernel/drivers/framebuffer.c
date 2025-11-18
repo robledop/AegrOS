@@ -409,11 +409,15 @@ void framebuffer_put_char8(unsigned char c, int x, int y, u32 color, u32 bg)
 
     for (int l = 0; l < 8; l++) {
         u8 mask    = font8x8[c][l];
+        if (mask == 0) {
+            row += vbe_info->pitch;
+            continue;
+        }
         u32 *dst32 = (u32 *)row;
-        for (int i = 0; i < 8; i++) {
-            if (mask & (1U << i)) {
-                dst32[i] = color;
-            }
+        while (mask) {
+            int bit = __builtin_ctz(mask);
+            dst32[bit] = color;
+            mask &= mask - 1;
         }
         row += vbe_info->pitch;
     }
