@@ -14,7 +14,7 @@
 /** @brief End of kernel text; defined in linker script. */
 extern char data[]; // defined by kernel.ld
 /** @brief Kernel page directory shared across CPUs when idle. */
-pde_t *kpgdir; // for use in scheduler()
+pde_t* kpgdir; // for use in scheduler()
 u32 kpgdir_break;
 
 extern struct ptable_t ptable;
@@ -34,10 +34,12 @@ static u32 next_kernel_mmio_va = MMIOBASE;
 
 static int kernel_mmio_overlaps(u32 start, u32 end)
 {
-    for (int i = 0; i < kernel_mmio_count; ++i) {
+    for (int i = 0; i < kernel_mmio_count; ++i)
+    {
         const u32 range_start = kernel_mmio_ranges[i].start;
-        const u32 range_end   = kernel_mmio_ranges[i].end;
-        if (start < range_end && end > range_start) {
+        const u32 range_end = kernel_mmio_ranges[i].end;
+        if (start < range_end && end > range_start)
+        {
             return 1;
         }
     }
@@ -51,18 +53,20 @@ static int kernel_mmio_overlaps(u32 start, u32 end)
  * @param start Starting virtual address of the kernel range.
  * @param end Ending virtual address of the kernel range.
  */
-static void replicate_kernel_range(pde_t *pgdir, u32 start, u32 end)
+static void replicate_kernel_range(pde_t* pgdir, u32 start, u32 end)
 {
-    if (pgdir == nullptr || end <= start) {
+    if (pgdir == nullptr || end <= start)
+    {
         return;
     }
 
     start = PGROUNDDOWN(start);
-    end   = PGROUNDUP(end);
+    end = PGROUNDUP(end);
 
-    for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES)) {
+    for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES))
+    {
         const u32 index = PDX(va);
-        pgdir[index]    = kpgdir[index];
+        pgdir[index] = kpgdir[index];
     }
 }
 
@@ -74,34 +78,43 @@ static void replicate_kernel_range(pde_t *pgdir, u32 start, u32 end)
  */
 static void propagate_kernel_range(u32 start, u32 end)
 {
-    if (end <= start) {
+    if (end <= start)
+    {
         return;
     }
 
     start = PGROUNDDOWN(start);
-    end   = PGROUNDUP(end);
+    end = PGROUNDUP(end);
 
     const int lock_ready = ptable.lock.name != nullptr;
-    if (lock_ready) {
+    if (lock_ready)
+    {
         acquire(&ptable.lock);
     }
 
-    for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; ++p) {
-        if (p->page_directory != nullptr && p->state != UNUSED) {
-            for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES)) {
-                const u32 index          = PDX(va);
+    for (struct proc* p = ptable.proc; p < &ptable.proc[NPROC]; ++p)
+    {
+        if (p->page_directory != nullptr && p->state != UNUSED)
+        {
+            for (u32 va = start; va < end; va += (PGSIZE * NPTENTRIES))
+            {
+                const u32 index = PDX(va);
                 p->page_directory[index] = kpgdir[index];
             }
         }
     }
-    if (lock_ready) {
+    if (lock_ready)
+    {
         release(&ptable.lock);
     }
 
-    struct proc *cur = current_process();
-    if (cur != nullptr && cur->page_directory != nullptr) {
+    struct proc* cur = current_process();
+    if (cur != nullptr && cur->page_directory != nullptr)
+    {
         lcr3(V2P(cur->page_directory));
-    } else {
+    }
+    else
+    {
         switch_kernel_page_directory();
     }
 }
@@ -118,7 +131,7 @@ void segment_descriptors_init(void)
     // Cannot share a CODE descriptor for both kernel and user
     // because it would have to have DPL_USR, but the CPU forbids
     // an interrupt from CPL=0 to DPL=3.
-    struct cpu *c     = &cpus[cpu_index()];
+    struct cpu* c = &cpus[cpu_index()];
     c->gdt[SEG_KCODE] = SEG(STA_X | STA_R, 0, 0xffffffff, 0);
     c->gdt[SEG_KDATA] = SEG(STA_W, 0, 0xffffffff, 0);
     c->gdt[SEG_UCODE] = SEG(STA_X | STA_R, 0, 0xffffffff, DPL_USER);
@@ -134,16 +147,25 @@ void segment_descriptors_init(void)
  * @param alloc When non-zero, allocate intermediate page tables on demand.
  * @return Pointer to the requested PTE, or 0 on allocation failure.
  */
-__attribute__((target("avx,sse2")))
-static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
+__attribute__ ((target
+(
+"avx,sse2"
+)
+)
+)
+static pte_t* walkpgdir(pde_t* pgdir, const void* va, int alloc)
 {
-    pte_t *pgtab;
+    pte_t* pgtab;
 
-    pde_t *pde = &pgdir[PDX(va)];
-    if (*pde & PTE_P) {
-        pgtab = (pte_t *)P2V(PTE_ADDR(*pde));
-    } else {
-        if (!alloc || (pgtab = (pte_t *)kalloc_page()) == nullptr) {
+    pde_t* pde = &pgdir[PDX(va)];
+    if (*pde & PTE_P)
+    {
+        pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+    }
+    else
+    {
+        if (!alloc || (pgtab = (pte_t*)kalloc_page()) == nullptr)
+        {
             return nullptr;
         }
         // Make sure all those PTE_P bits are zero.
@@ -166,21 +188,25 @@ static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
  * @param perm Permission bits to set on each mapping.
  * @return 0 on success or -1 if allocation fails.
  */
-static int mappages(pde_t *pgdir, void *va, u32 size, u32 pa, int perm)
+static int mappages(pde_t* pgdir, void* va, u32 size, u32 pa, int perm)
 {
-    pte_t *pte;
+    pte_t* pte;
 
-    const char *a    = (char *)PGROUNDDOWN((u32)va);
-    const char *last = (char *)PGROUNDDOWN(((u32)va) + size - 1);
-    for (;;) {
-        if ((pte = walkpgdir(pgdir, a, 1)) == nullptr) {
+    const char* a = (char*)PGROUNDDOWN((u32)va);
+    const char* last = (char*)PGROUNDDOWN(((u32)va) + size - 1);
+    for (;;)
+    {
+        if ((pte = walkpgdir(pgdir, a, 1)) == nullptr)
+        {
             return -1;
         }
-        if (*pte & PTE_P) {
+        if (*pte & PTE_P)
+        {
             panic("remap");
         }
         *pte = pa | perm | PTE_P;
-        if (a == last) {
+        if (a == last)
+        {
             break;
         }
         a += PGSIZE;
@@ -189,12 +215,13 @@ static int mappages(pde_t *pgdir, void *va, u32 size, u32 pa, int perm)
     return 0;
 }
 
-int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm)
+int map_physical_range(pde_t* pgdir, u32 va, u32 pa, u32 size, int perm)
 {
-    if ((va & (PGSIZE - 1)) != 0 || (pa & (PGSIZE - 1)) != 0) {
+    if ((va & (PGSIZE - 1)) != 0 || (pa & (PGSIZE - 1)) != 0)
+    {
         panic("map_physical_range: unaligned");
     }
-    return mappages(pgdir, (void *)va, size, pa, perm);
+    return mappages(pgdir, (void*)va, size, pa, perm);
 }
 
 /**
@@ -202,68 +229,87 @@ int map_physical_range(pde_t *pgdir, u32 va, u32 pa, u32 size, int perm)
  *
  * @param pa Physical address of the MMIO region (must be page-aligned).
  * @param size Size in bytes of the region to map.
+ * @param flags Page table flags for the mapping.
  */
-static void *kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
+static void* kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
 {
-    if (size == 0) {
+    if (size == 0)
+    {
         return nullptr;
     }
 
     const u32 page_offset = pa & (PGSIZE - 1u);
-    const u32 phys_start  = pa - page_offset;
-    const u32 phys_end    = PGROUNDUP(pa + size);
-    const u32 map_size    = phys_end - phys_start;
+    const u32 phys_start = pa - page_offset;
+    const u32 phys_end = PGROUNDUP(pa + size);
+    const u32 map_size = phys_end - phys_start;
 
     u32 virt_start;
-    if (phys_start >= MMIOBASE) {
+    if (phys_start >= MMIOBASE)
+    {
         virt_start = phys_start;
-    } else {
+    }
+    else
+    {
         virt_start = PGROUNDUP(next_kernel_mmio_va);
-        if (virt_start < MMIOBASE) {
+        if (virt_start < MMIOBASE)
+        {
             virt_start = MMIOBASE;
         }
     }
 
-    if ((u64)virt_start + map_size > 0x100000000ull) {
+    if ((u64)virt_start + map_size > 0x100000000ull)
+    {
         panic("kernel_map_mmio: exhausted MMIO VA space");
     }
 
-    for (u32 off = 0; off < map_size; off += PGSIZE) {
-        void *va   = (void *)(virt_start + off);
-        u32 paddr  = phys_start + off;
-        pte_t *pte = walkpgdir(kpgdir, va, 0);
-        if (pte != nullptr && (*pte & PTE_P) != 0) {
+    for (u32 off = 0; off < map_size; off += PGSIZE)
+    {
+        auto va = (void*)(virt_start + off);
+        u32 paddr = phys_start + off;
+        pte_t* pte = walkpgdir(kpgdir, va, 0);
+        if (pte != nullptr && (*pte & PTE_P) != 0)
+        {
             continue;
         }
-        if (mappages(kpgdir, va, PGSIZE, paddr, flags) < 0) {
+        if (mappages(kpgdir, va, PGSIZE, paddr, flags) < 0)
+        {
             panic("kernel_map_mmio: mappages failed");
         }
     }
 
     const u32 virt_end = virt_start + map_size;
-    if (virt_end > next_kernel_mmio_va) {
+    if (virt_end > next_kernel_mmio_va)
+    {
         next_kernel_mmio_va = virt_end;
     }
-    if (mmio_propagation_enabled) {
+    if (mmio_propagation_enabled)
+    {
         propagate_kernel_range(virt_start, virt_end);
-    } else {
+    }
+    else
+    {
         switch_kernel_page_directory();
     }
 
     // Record the MMIO range so future page directories inherit the mapping.
     int merged = 0;
-    for (int i = 0; i < kernel_mmio_count; ++i) {
+    for (int i = 0; i < kernel_mmio_count; ++i)
+    {
         u32 range_start = kernel_mmio_ranges[i].start;
-        u32 range_end   = kernel_mmio_ranges[i].end;
-        if (virt_start >= range_start && virt_end <= range_end) {
+        u32 range_end = kernel_mmio_ranges[i].end;
+        if (virt_start >= range_start && virt_end <= range_end)
+        {
             merged = 1;
             break;
         }
-        if (virt_start <= range_end && virt_end >= range_start) {
-            if (virt_start < range_start) {
+        if (virt_start <= range_end && virt_end >= range_start)
+        {
+            if (virt_start < range_start)
+            {
                 kernel_mmio_ranges[i].start = virt_start;
             }
-            if (virt_end > range_end) {
+            if (virt_end > range_end)
+            {
                 kernel_mmio_ranges[i].end = virt_end;
             }
             merged = 1;
@@ -271,16 +317,18 @@ static void *kernel_map_mmio_range(u32 pa, u32 size, u32 flags)
         }
     }
 
-    if (!merged) {
-        if (kernel_mmio_count >= MAX_KERNEL_MMIO_RANGES) {
+    if (!merged)
+    {
+        if (kernel_mmio_count >= MAX_KERNEL_MMIO_RANGES)
+        {
             panic("kernel_map_mmio: too many ranges");
         }
         kernel_mmio_ranges[kernel_mmio_count].start = virt_start;
-        kernel_mmio_ranges[kernel_mmio_count].end   = virt_end;
+        kernel_mmio_ranges[kernel_mmio_count].end = virt_end;
         kernel_mmio_count++;
     }
 
-    return (void *)(virt_start + page_offset);
+    return (void*)(virt_start + page_offset);
 }
 
 void kernel_enable_mmio_propagation(void)
@@ -288,12 +336,12 @@ void kernel_enable_mmio_propagation(void)
     mmio_propagation_enabled = 1;
 }
 
-void *kernel_map_mmio(u32 pa, u32 size)
+void* kernel_map_mmio(u32 pa, u32 size)
 {
     return kernel_map_mmio_range(pa, size, PTE_W | PTE_PCD | PTE_PWT);
 }
 
-void *kernel_map_mmio_wc(u32 pa, u32 size)
+void* kernel_map_mmio_wc(u32 pa, u32 size)
 {
     return kernel_map_mmio_range(pa, size, PTE_W | PTE_PWT | PTE_PAT);
 }
@@ -322,14 +370,14 @@ void *kernel_map_mmio_wc(u32 pa, u32 size)
 /** @brief Static kernel mapping template present in every page directory. */
 static struct kmap
 {
-    void *virt;
+    void* virt;
     u32 phys_start;
     u32 phys_end;
     int perm;
 } kmap[] = {
-    {(void *)KERNBASE, 0, EXTMEM, PTE_W},            // I/O space
-    {(void *)KERNLINK, V2P(KERNLINK), V2P(data), 0}, // kern text+rodata
-    {(void *)data, V2P(data), 0, PTE_W},             // kern data+memory (filled in at runtime)
+    {(void*)KERNBASE, 0, EXTMEM, PTE_W}, // I/O space
+    {(void*)KERNLINK, V2P(KERNLINK), V2P(data), 0}, // kern text+rodata
+    {(void*)data, V2P(data), 0, PTE_W}, // kern data+memory (filled in at runtime)
 };
 
 /**
@@ -337,35 +385,42 @@ static struct kmap
  *
  * @return Pointer to the initialized page directory or 0 on failure.
  */
-pde_t *setup_kernel_page_directory(void)
+pde_t* setup_kernel_page_directory(void)
 {
-    pde_t *pgdir;
+    pde_t* pgdir;
 
-    if ((pgdir = (pde_t *)kalloc_page()) == nullptr) {
+    if ((pgdir = (pde_t*)kalloc_page()) == nullptr)
+    {
         return nullptr;
     }
     memset(pgdir, 0, PGSIZE);
 
-    if (PHYSTOP > (MMIOBASE - KERNBASE)) {
+    if (PHYSTOP > (MMIOBASE - KERNBASE))
+    {
         panic("PHYSTOP too high");
     }
 
     kmap[2].phys_end = PHYSTOP;
 
-    for (const struct kmap *k = kmap; k < &kmap[NELEM(kmap)]; k++) {
-        if (k->phys_end <= k->phys_start) {
+    for (const struct kmap* k = kmap; k < &kmap[NELEM(kmap)]; k++)
+    {
+        if (k->phys_end <= k->phys_start)
+        {
             continue;
         }
         u32 size = k->phys_end - k->phys_start;
-        if (mappages(pgdir, k->virt, size, (u32)k->phys_start, k->perm) < 0) {
+        if (mappages(pgdir, k->virt, size, (u32)k->phys_start, k->perm) < 0)
+        {
             freevm(pgdir);
             return nullptr;
         }
     }
 
-    if (kpgdir != nullptr) {
+    if (kpgdir != nullptr)
+    {
         replicate_kernel_range(pgdir, (u32)KHEAP_START, kpgdir_break);
-        for (int i = 0; i < kernel_mmio_count; ++i) {
+        for (int i = 0; i < kernel_mmio_count; ++i)
+        {
             replicate_kernel_range(pgdir, kernel_mmio_ranges[i].start, kernel_mmio_ranges[i].end);
         }
     }
@@ -374,9 +429,9 @@ pde_t *setup_kernel_page_directory(void)
 }
 
 /** @brief Allocate the kernel page directory and activate it. */
-NO_SSE void kernel_page_directory_init(void)
+void kernel_page_directory_init(void)
 {
-    kpgdir       = setup_kernel_page_directory();
+    kpgdir = setup_kernel_page_directory();
     kpgdir_break = (uptr)KHEAP_START;
     switch_kernel_page_directory();
 }
@@ -395,28 +450,37 @@ void switch_kernel_page_directory(void)
  */
 u32 resize_kernel_page_directory(int n)
 {
-    u32 sz        = kpgdir_break;
+    u32 sz = kpgdir_break;
     u32 old_break = kpgdir_break;
-    if (n > 0) {
+    if (n > 0)
+    {
         u32 requested = sz + (u32)n;
-        if (requested < sz) {
+        if (requested < sz)
+        {
             return -1;
         }
-        if ((sz = allocvm(kpgdir, sz, requested, PTE_W)) == 0) {
+        if ((sz = allocvm(kpgdir, sz, requested, PTE_W)) == 0)
+        {
             return -1;
         }
         propagate_kernel_range(old_break, sz);
-    } else if (n < 0) {
+    }
+    else if (n < 0)
+    {
         u32 delta = (u32)(-n);
-        if (delta > sz) {
+        if (delta > sz)
+        {
             return -1;
         }
         u32 target = sz - delta;
-        if ((sz = deallocvm(kpgdir, sz, target)) == 0) {
+        if ((sz = deallocvm(kpgdir, sz, target)) == 0)
+        {
             return -1;
         }
         propagate_kernel_range(sz, old_break);
-    } else {
+    }
+    else
+    {
         return 0;
     }
 
@@ -429,7 +493,7 @@ u32 resize_kernel_page_directory(int n)
  *
  * @param p Process whose page table and TSS should become active.
  */
-void activate_process(struct proc *p)
+void activate_process(struct proc* p)
 {
     ASSERT(p != nullptr, "activate_process: no process");
     ASSERT(p->kstack != nullptr, "activate_process: no kstack");
@@ -455,11 +519,11 @@ void activate_process(struct proc *p)
  * @param init Pointer to the initcode image.
  * @param sz Size of the image in bytes; must be less than a page.
  */
-void inituvm(pde_t *pgdir, const char *init, u32 sz)
+void inituvm(pde_t* pgdir, const char* init, u32 sz)
 {
     ASSERT(sz < PGSIZE, "inituvm: more than a page");
 
-    char *mem = kalloc_page();
+    char* mem = kalloc_page();
     memset(mem, 0, PGSIZE);
     mappages(pgdir, nullptr, PGSIZE, V2P(mem), PTE_W | PTE_U);
     memmove(mem, init, sz);
@@ -475,31 +539,36 @@ void inituvm(pde_t *pgdir, const char *init, u32 sz)
  * @param sz Number of bytes to read.
  * @return 0 on success, -1 if disk I/O fails.
  */
-int loaduvm(pde_t *pgdir, char *addr, struct inode *ip, u32 offset, u32 sz)
+int loaduvm(pde_t* pgdir, char* addr, struct inode* ip, u32 offset, u32 sz)
 {
-    if (sz == 0) {
+    if (sz == 0)
+    {
         return 0;
     }
 
-    u32 va       = (u32)addr;
+    u32 va = (u32)addr;
     u32 pagebase = PGROUNDDOWN(va);
-    u32 pageoff  = va - pagebase;
-    u32 copied   = 0;
+    u32 pageoff = va - pagebase;
+    u32 copied = 0;
 
-    while (copied < sz) {
-        pte_t *pte = walkpgdir(pgdir, (char *)pagebase, 0);
-        if (pte == nullptr || (*pte & PTE_P) == 0) {
+    while (copied < sz)
+    {
+        pte_t* pte = walkpgdir(pgdir, (char*)pagebase, 0);
+        if (pte == nullptr || (*pte & PTE_P) == 0)
+        {
             panic("loaduvm: address should exist");
         }
-        u32 pa     = PTE_ADDR(*pte);
-        char *dest = (char *)P2V(pa) + pageoff;
+        u32 pa = PTE_ADDR(*pte);
+        char* dest = (char*)P2V(pa) + pageoff;
 
         u32 chunk = PGSIZE - pageoff;
-        if (chunk > sz - copied) {
+        if (chunk > sz - copied)
+        {
             chunk = sz - copied;
         }
 
-        if (ip->iops->readi(ip, (char *)dest, offset + copied, chunk) != (int)chunk) {
+        if (ip->iops->readi(ip, (char*)dest, offset + copied, chunk) != (int)chunk)
+        {
             return -1;
         }
 
@@ -521,24 +590,29 @@ int loaduvm(pde_t *pgdir, char *addr, struct inode *ip, u32 offset, u32 sz)
  * @param perm Permission bits to set on each new mapping.
  * @return The resulting size on success, or 0 on failure.
  */
-int allocvm(pde_t *pgdir, u32 oldsz, u32 newsz, int perm)
+int allocvm(pde_t* pgdir, u32 oldsz, u32 newsz, int perm)
 {
-    if (newsz >= KERNBASE && perm & PTE_U) {
+    if (newsz >= KERNBASE && perm & PTE_U)
+    {
         return 0;
     }
-    if (newsz < oldsz) {
+    if (newsz < oldsz)
+    {
         return (int)oldsz;
     }
 
-    for (u32 a = PGROUNDUP(oldsz); a < newsz; a += PGSIZE) {
-        char *mem = kalloc_page();
-        if (mem == nullptr) {
+    for (u32 a = PGROUNDUP(oldsz); a < newsz; a += PGSIZE)
+    {
+        char* mem = kalloc_page();
+        if (mem == nullptr)
+        {
             printf("allocvm out of memory\n");
             deallocvm(pgdir, newsz, oldsz);
             return 0;
         }
         memset(mem, 0, PGSIZE);
-        if (mappages(pgdir, (char *)a, PGSIZE, V2P(mem), perm) < 0) {
+        if (mappages(pgdir, (char*)a, PGSIZE, V2P(mem), perm) < 0)
+        {
             printf("allocvm out of memory (2)\n");
             deallocvm(pgdir, newsz, oldsz);
             kfree_page(mem);
@@ -558,29 +632,36 @@ int allocvm(pde_t *pgdir, u32 oldsz, u32 newsz, int perm)
  * @param newsz Desired size in bytes.
  * @return The resulting size after deallocation.
  */
-u32 deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
+u32 deallocvm(pde_t* pgdir, u32 oldsz, u32 newsz)
 {
-    if (newsz >= oldsz) {
+    if (newsz >= oldsz)
+    {
         return oldsz;
     }
 
-    for (u32 a = PGROUNDUP(newsz); a < oldsz; a += PGSIZE) {
-        pte_t *pte = walkpgdir(pgdir, (char *)a, 0);
-        if (!pte) {
+    for (u32 a = PGROUNDUP(newsz); a < oldsz; a += PGSIZE)
+    {
+        pte_t* pte = walkpgdir(pgdir, (char*)a, 0);
+        if (!pte)
+        {
             a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
-        } else if ((*pte & PTE_P) != 0) {
+        }
+        else if ((*pte & PTE_P) != 0)
+        {
             u32 pa = PTE_ADDR(*pte);
-            if (pa == 0) {
+            if (pa == 0)
+            {
                 panic("kfree");
             }
-            if (pa >= PHYSTOP) {
+            if (pa >= PHYSTOP)
+            {
                 // This mapping refers to MMIO/firmware space that isn't owned
                 // by the user process; just drop the PTE without returning it
                 // to the physical allocator.
                 *pte = 0;
                 continue;
             }
-            char *v = P2V(pa);
+            char* v = P2V(pa);
             kfree_page(v);
             *pte = 0;
         }
@@ -589,58 +670,71 @@ u32 deallocvm(pde_t *pgdir, u32 oldsz, u32 newsz)
 }
 
 /** @brief Free a user page table and all associated physical pages. */
-void freevm(pde_t *pgdir)
+void freevm(pde_t* pgdir)
 {
-    if (pgdir == nullptr) {
+    if (pgdir == nullptr)
+    {
         panic("freevm: no pgdir");
     }
     deallocvm(pgdir, KERNBASE, 0);
-    for (u32 i = 0; i < NPDENTRIES; i++) {
-        if (pgdir[i] & PTE_P) {
+    for (u32 i = 0; i < NPDENTRIES; i++)
+    {
+        if (pgdir[i] & PTE_P)
+        {
             u32 va = i << PDXSHIFT;
-            if (kpgdir != nullptr && pgdir[i] == kpgdir[i]) {
+            if (kpgdir != nullptr && pgdir[i] == kpgdir[i])
+            {
                 continue;
             }
             u32 va_end = va + (PGSIZE * NPTENTRIES);
-            if (va >= (u32)KHEAP_START || kernel_mmio_overlaps(va, va_end)) {
+            if (va >= (u32)KHEAP_START || kernel_mmio_overlaps(va, va_end))
+            {
                 continue;
             }
             u32 pa = PTE_ADDR(pgdir[i]);
-            if (pa >= PHYSTOP) {
+            if (pa >= PHYSTOP)
+            {
                 continue;
             }
-            char *v = P2V(pa);
+            char* v = P2V(pa);
             kfree_page(v);
         }
     }
-    kfree_page((char *)pgdir);
+    kfree_page((char*)pgdir);
 }
 
-void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames)
+void unmap_vm_range(pde_t* pgdir, u32 start, u32 end, int free_frames)
 {
-    if (pgdir == nullptr || start >= end) {
+    if (pgdir == nullptr || start >= end)
+    {
         return;
     }
 
     start = PGROUNDDOWN(start);
-    end   = PGROUNDDOWN(end + PGSIZE - 1);
+    end = PGROUNDDOWN(end + PGSIZE - 1);
 
-    for (u32 a = start; a <= end; a += PGSIZE) {
-        pte_t *pte = walkpgdir(pgdir, (char *)a, 0);
-        if (pte == nullptr) {
+    for (u32 a = start; a <= end; a += PGSIZE)
+    {
+        pte_t* pte = walkpgdir(pgdir, (char*)a, 0);
+        if (pte == nullptr)
+        {
             a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
             continue;
         }
-        if ((*pte & PTE_P) == 0) {
+        if ((*pte & PTE_P) == 0)
+        {
             continue;
         }
-        if (free_frames) {
+        if (free_frames)
+        {
             u32 pa = PTE_ADDR(*pte);
-            if (pa == 0) {
+            if (pa == 0)
+            {
                 panic("unmap_vm_range: zero pa");
             }
-            if (pa < PHYSTOP) {
-                char *v = P2V(pa);
+            if (pa < PHYSTOP)
+            {
+                char* v = P2V(pa);
                 kfree_page(v);
             }
         }
@@ -654,10 +748,11 @@ void unmap_vm_range(pde_t *pgdir, u32 start, u32 end, int free_frames)
  * @param pgdir Page directory containing the mapping.
  * @param uva User virtual address whose entry should become supervisor-only.
  */
-void clearpteu(pde_t *pgdir, const char *uva)
+void clearpteu(pde_t* pgdir, const char* uva)
 {
-    pte_t *pte = walkpgdir(pgdir, uva, 0);
-    if (pte == nullptr) {
+    pte_t* pte = walkpgdir(pgdir, uva, 0);
+    if (pte == nullptr)
+    {
         panic("clearpteu");
     }
     *pte &= ~PTE_U;
@@ -670,31 +765,37 @@ void clearpteu(pde_t *pgdir, const char *uva)
  * @param sz Size in bytes of the address space to copy.
  * @return Newly allocated page directory on success, or 0 on failure.
  */
-pde_t *copyuvm(pde_t *pgdir, u32 sz)
+pde_t* copyuvm(pde_t* pgdir, u32 sz)
 {
-    pde_t *d;
-    if ((d = setup_kernel_page_directory()) == nullptr) {
+    pde_t* d;
+    if ((d = setup_kernel_page_directory()) == nullptr)
+    {
         return nullptr;
     }
 
-    for (u32 i = 0; i < sz; i += PGSIZE) {
-        pte_t *pte;
-        if ((pte = walkpgdir(pgdir, (void *)i, 0)) == nullptr) {
+    for (u32 i = 0; i < sz; i += PGSIZE)
+    {
+        pte_t* pte;
+        if ((pte = walkpgdir(pgdir, (void*)i, 0)) == nullptr)
+        {
             panic("copyuvm: pte should exist");
         }
-        if (!(*pte & PTE_P)) {
+        if (!(*pte & PTE_P))
+        {
             panic("copyuvm: page not present");
         }
 
-        char *mem;
-        if ((mem = kalloc_page()) == nullptr) {
+        char* mem;
+        if ((mem = kalloc_page()) == nullptr)
+        {
             goto bad;
         }
 
-        u32 pa    = PTE_ADDR(*pte);
+        u32 pa = PTE_ADDR(*pte);
         int flags = PTE_FLAGS(*pte);
-        memmove(mem, (char *)P2V(pa), PGSIZE);
-        if (mappages(d, (void *)i, PGSIZE, V2P(mem), flags) < 0) {
+        memmove(mem, (char*)P2V(pa), PGSIZE);
+        if (mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
+        {
             kfree_page(mem);
             goto bad;
         }
@@ -713,14 +814,14 @@ bad:
  * @param uva User virtual address.
  * @return Kernel virtual address if accessible, otherwise 0.
  */
-char *uva2ka(pde_t *pgdir, char *uva)
+char* uva2ka(pde_t* pgdir, char* uva)
 {
-    pte_t *pte = walkpgdir(pgdir, uva, 0);
+    pte_t* pte = walkpgdir(pgdir, uva, 0);
     if ((*pte & PTE_P) == 0)
         return nullptr;
     if ((*pte & PTE_U) == 0)
         return nullptr;
-    return (char *)P2V(PTE_ADDR(*pte));
+    return (char*)P2V(PTE_ADDR(*pte));
 }
 
 /**
@@ -732,12 +833,13 @@ char *uva2ka(pde_t *pgdir, char *uva)
  * @param len Number of bytes to copy.
  * @return 0 on success, -1 if a mapping is inaccessible.
  */
-int copyout(pde_t *pgdir, u32 va, void *p, u32 len)
+int copyout(pde_t* pgdir, u32 va, void* p, u32 len)
 {
-    char *buf = (char *)p;
-    while (len > 0) {
-        u32 va0   = (u32)PGROUNDDOWN(va);
-        char *pa0 = uva2ka(pgdir, (char *)va0);
+    char* buf = (char*)p;
+    while (len > 0)
+    {
+        u32 va0 = (u32)PGROUNDDOWN(va);
+        char* pa0 = uva2ka(pgdir, (char*)va0);
         if (pa0 == nullptr)
             return -1;
         u32 n = PGSIZE - (va - va0);

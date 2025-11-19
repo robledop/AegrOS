@@ -24,8 +24,8 @@ static inline void framebuffer_init_simd_caps(void)
     if (framebuffer_simd_initialized) {
         return;
     }
-    framebuffer_has_sse2       = simd_has_sse2();
-    framebuffer_has_avx        = simd_has_avx();
+    framebuffer_has_sse2         = simd_has_sse2();
+    framebuffer_has_avx          = simd_has_avx();
     framebuffer_simd_initialized = 1;
 }
 
@@ -102,10 +102,10 @@ static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_co
     if (framebuffer_has_avx && remaining >= 8) {
         while (remaining >= 8) {
             __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
-                             "vmovdqu %%ymm0, (%1)"
-                             :
-                             : "r"(src_bytes), "r"(dst_bytes)
-                             : "memory");
+                "vmovdqu %%ymm0, (%1)"
+                :
+                : "r"(src_bytes), "r"(dst_bytes)
+                : "memory");
             src_bytes += 32;
             dst_bytes += 32;
             remaining -= 8;
@@ -116,10 +116,10 @@ static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_co
     if (framebuffer_has_sse2 && remaining >= 4) {
         while (remaining >= 4) {
             __asm__ volatile("movdqu (%0), %%xmm0\n\t"
-                             "movdqu %%xmm0, (%1)"
-                             :
-                             : "r"(src_bytes), "r"(dst_bytes)
-                             : "memory");
+                "movdqu %%xmm0, (%1)"
+                :
+                : "r"(src_bytes), "r"(dst_bytes)
+                : "memory");
             src_bytes += 16;
             dst_bytes += 16;
             remaining -= 4;
@@ -158,9 +158,9 @@ void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
     // const int screen_w = (int)vbe_info->width;
     // const int screen_h = (int)vbe_info->height;
 
-    const int screen_w = 1024;
-    const int screen_h = 768;
-    const int pitch    = 4096;
+    constexpr int screen_w = 1024;
+    constexpr int screen_h = 768;
+    constexpr int pitch    = 4096;
 
     int x0 = x;
     int y0 = y;
@@ -814,7 +814,7 @@ void context_draw_char_clipped(video_context_t *context, char character, int x, 
         }
         u32 *dst = (u32 *)((u8 *)framebuffer + (u32)(y + font_y) * pitch_bytes + (u32)x * 4U);
         while (active) {
-            int bit = __builtin_ctz(active);
+            int bit  = __builtin_ctz(active);
             dst[bit] = color;
             active &= active - 1;
         }

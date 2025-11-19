@@ -291,6 +291,7 @@ static inline void lcr3(u32 val)
     __asm__ volatile("movl %0,%%cr3" : : "r" (val));
 }
 
+/** @brief Clear the TS flag in CR0 to enable FPU instructions. */
 static inline void clts(void)
 {
     __asm__ volatile("clts");

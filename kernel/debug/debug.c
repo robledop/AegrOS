@@ -23,9 +23,6 @@ static struct elf32_shdr *elf_section_headers   = nullptr;
 // Points to the end of the reserved symbol area so we don't overwrite it
 static char *reserved_symbol_end = nullptr;
 
-
-NO_SSE
-
 void stack_trace(void)
 {
     printf(KBWHT "Stack trace:\n" KRESET);
@@ -45,7 +42,6 @@ void stack_trace(void)
     printf("run " KBBLU "objdump -d build/kernel | grep <address> -A 40 -B 40" KWHT " to see more.\n");
 }
 
-NO_SSE
 
 void print_registers()
 {
@@ -150,7 +146,6 @@ void debug_stats(void)
     stack_trace();
 }
 
-NO_SSE
 
 struct symbol debug_function_symbol_lookup(const elf32_addr address)
 {
@@ -214,7 +209,16 @@ struct symbol debug_function_symbol_lookup(const elf32_addr address)
     return (struct symbol){0, nullptr};
 }
 
-NO_SSE void init_symbols(const multiboot_info_t *mbd)
+/** @brief Initialize kernel symbol information from multiboot data.
+ *
+ * This function parses the ELF section headers provided by the multiboot
+ * bootloader to locate the symbol table and string table sections. It sets
+ * up pointers to these sections for later use in symbol lookup and ensures
+ * that the memory occupied by these sections is reserved to prevent overwriting.
+ *
+ * @param mbd Pointer to the multiboot information structure.
+ */
+void init_symbols(const multiboot_info_t *mbd)
 {
     reserved_symbol_end = kernel_end;
 

@@ -80,28 +80,6 @@ void syscall_handler(struct trapframe *tf)
 
 void exception_handler(struct trapframe *tf)
 {
-    // Handle page fault separately to get the faulting address from CR2.
-    if (tf->trapno == T_NM) {
-        struct proc *p = current_process();
-        if (p) {
-            clts();
-            fpu_restore_state(p);
-            return;
-        }
-    }
-
-    if (tf->trapno == T_PGFLT) {
-        u32 faulting_address = rcr2();
-        // Handle page fault (for example, by terminating the process).
-        printf("Process:" KBWHT " %s" KRESET " (%d). Page fault at address 0x%x, eip 0x%x\n",
-               current_process()->name,
-               current_process()->pid,
-               faulting_address,
-               tf->eip);
-        current_process()->killed = 1;
-        return;
-    }
-
     if ((tf->cs & DPL_USER) == DPL_USER) {
         printf("Process " KBWHT "%s" KWHT " (%d)" KYEL " USER MODE EXCEPTION:" KRESET " %s\n",
                current_process()->name,
@@ -165,6 +143,30 @@ void spurious_handler(struct trapframe *tf)
     lapic_ack_interrupt();
 }
 
+void page_fault_handler(struct trapframe *tf)
+{
+    u32 faulting_address = rcr2();
+    printf("Process:" KBWHT " %s" KRESET " (%d). Page fault at address 0x%x, eip 0x%x\n",
+           current_process()->name,
+           current_process()->pid,
+           faulting_address,
+           tf->eip);
+    current_process()->killed = 1;
+}
+
+void device_not_available_handler([[maybe_unused]] struct trapframe *tf)
+{
+    // Handle FPU/XSAVE exceptions by restoring the FPU state for the current process.
+    // This allows lazy FPU context switching. We only restore the FPU state when the process
+    // actually tries to use the FPU. For this to work, we first need to enable the FPU by
+    // setting the TS flag in CR0 before switching to a process in the scheduler.
+    struct proc *p = current_process();
+    if (p) {
+        clts();
+        fpu_restore_state(p);
+    }
+}
+
 /**
  * @brief Initialize the IDT entries for traps and interrupts.
  */
@@ -180,6 +182,8 @@ void trap_vectors_init(void)
         idt_register_interrupt_callback(i, exception_handler);
     }
 
+    idt_register_interrupt_callback(T_NM, device_not_available_handler);
+    idt_register_interrupt_callback(T_PGFLT, page_fault_handler);
     idt_register_interrupt_callback(T_SYSCALL, syscall_handler);
     idt_register_interrupt_callback(T_IRQ0 + IRQ_TIMER, timer_handler);
     idt_register_interrupt_callback(T_IRQ0 + IRQ_IDE, ide_handler);

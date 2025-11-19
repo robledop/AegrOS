@@ -199,11 +199,9 @@ void mouse_handler([[maybe_unused]] struct trapframe *frame)
 }
 
 /**
- * @brief Initialise the PS/2 mouse and register its callback.
- *
- * @param callback Function invoked for each processed mouse packet.
+ * @brief Initialize the PS/2 mouse
  */
-void mouse_init(mouse_callback callback)
+void mouse_init()
 {
     initlock(&mouse_lock, "mouse");
     mouse_buf_head = mouse_buf_tail = 0;

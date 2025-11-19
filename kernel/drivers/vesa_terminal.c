@@ -6,7 +6,7 @@
 #include "printf.h"
 
 #ifdef GRAPHICS
-#define MARGIN 0
+#define MARGIN 10
 #define VESA_TTY_COLS 80
 #define VESA_TTY_ROWS 25
 
@@ -35,24 +35,47 @@ u16 vesa_terminal_rows(void)
     return VESA_TTY_ROWS;
 }
 
+
 static inline int vesa_max_cols(void)
 {
-    return vesa_terminal_columns();
+    static int cached_vesa_max_cols = -1;
+
+    if (cached_vesa_max_cols < 0) {
+        cached_vesa_max_cols = vesa_terminal_columns();
+    }
+    return cached_vesa_max_cols;
 }
+
 
 static inline int vesa_max_rows(void)
 {
-    return vesa_terminal_rows();
+    static int cached_vesa_max_rows = -1;
+
+    if (cached_vesa_max_rows < 0) {
+        cached_vesa_max_rows = vesa_terminal_rows();
+    }
+
+    return cached_vesa_max_rows;
 }
 
 static inline int vesa_text_width(void)
 {
-    return (int)vesa_terminal_columns() * VESA_CHAR_WIDTH;
+    static int cached_vesa_text_width = -1;
+
+    if (cached_vesa_text_width < 0) {
+        cached_vesa_text_width = (int)vesa_terminal_columns() * VESA_CHAR_WIDTH;
+    }
+
+    return cached_vesa_text_width;
 }
 
 static inline int vesa_text_height(void)
 {
-    return (int)vesa_terminal_rows() * VESA_LINE_HEIGHT;
+    static int cached_vesa_text_height = -1;
+    if (cached_vesa_text_height < 0) {
+        cached_vesa_text_height = (int)vesa_terminal_rows() * VESA_LINE_HEIGHT;
+    }
+    return cached_vesa_text_height;
 }
 
 static inline int vesa_bottom_limit(void)
@@ -139,17 +162,18 @@ static void vesa_scroll_up_text_area(void)
     if (text_height <= 0) {
         return;
     }
-    u8 *fb    = framebuffer_kernel_bytes();
+    u8 *fb = framebuffer_kernel_bytes();
     if (fb == nullptr) {
         return;
     }
     u32 pitch = vbe_info->pitch;
     u8 *dst   = fb + (size_t)MARGIN * pitch;
     u8 *src   = dst + VESA_LINE_HEIGHT * pitch;
-    int rows  = text_height - VESA_LINE_HEIGHT;
-    if (rows > 0) {
-        memmove(dst, src, (size_t)rows * pitch);
-    }
+
+    const size_t copy_size = (text_height - VESA_LINE_HEIGHT) * pitch;
+    __builtin_memmove(dst, src, copy_size);
+
+    // Clear the last line
     framebuffer_fill_rect32(MARGIN,
                             MARGIN + text_height - VESA_LINE_HEIGHT,
                             vesa_text_width(),
@@ -227,28 +251,27 @@ static void vesa_clear_screen(int mode)
     vesa_draw_cursor();
 }
 
-
 static u32 ansi_rgb_from_index(int idx, bool bright)
 {
     static const u32 normal[8] = {
         0x000000, // black
         0x990000, // red
         0x009900, // green
-        0x999900, // yellow
+        0xcccc00, // yellow
         0x555599, // blue
         0x990099, // magenta
         0x009999, // cyan
         0x999999  // white/gray
     };
     static const u32 intense[8] = {
-        0x555555,
-        0xFF0000,
-        0x00FF00,
-        0xFFFF22,
-        0x8888FF,
-        0xFF00FF,
-        0x00FFFF,
-        0xFFFFFF
+        0x555555, // bright black (gray)
+        0xFF0000, // bright red
+        0x00FF00, // bright green
+        0xFFFF00, // bright yellow
+        0x8888FF, // bright blue
+        0xFF00FF, // bright magenta
+        0x00FFFF, // bright cyan
+        0xFFFFFF  // bright white
     };
     if (idx < 0 || idx > 7) {
         idx = 7;
@@ -286,7 +309,6 @@ static u32 vesa_background_from_code(int code)
     }
     return ansi_rgb_from_index(idx, false);
 }
-
 
 /**
  * @brief Move the on-screen cursor one text line up.
@@ -340,52 +362,51 @@ void cursor_right()
     vesa_draw_cursor();
 }
 
-
 // VESA-specific ANSI callback implementations
-static void vesa_cursor_up_cb(int n)
+static void vesa_cursor_up_callback(int n)
 {
     for (int i = 0; i < n; i++) {
         cursor_up();
     }
 }
 
-static void vesa_cursor_down_cb(int n)
+static void vesa_cursor_down_callback(int n)
 {
     for (int i = 0; i < n; i++) {
         cursor_down();
     }
 }
 
-static void vesa_cursor_left_cb(int n)
+static void vesa_cursor_left_callback(int n)
 {
     for (int i = 0; i < n; i++) {
         cursor_left();
     }
 }
 
-static void vesa_cursor_right_cb(int n)
+static void vesa_cursor_right_callback(int n)
 {
     for (int i = 0; i < n; i++) {
         cursor_right();
     }
 }
 
-static void vesa_cursor_set_position_cb(int row, int col)
+static void vesa_cursor_set_position_callback(int row, int col)
 {
     vesa_cursor_set_position(row, col);
 }
 
-static void vesa_clear_screen_cb(int mode)
+static void vesa_clear_screen_callback(int mode)
 {
     vesa_clear_screen(mode);
 }
 
-static void vesa_clear_line_cb(int mode)
+static void vesa_clear_line_callback(int mode)
 {
     vesa_clear_line(mode);
 }
 
-static void vesa_set_graphics_mode_cb(int count, const int *params)
+static void vesa_set_graphics_mode_callback(int count, const int *params)
 {
     static bool bold    = false;
     static bool reverse = false;
@@ -429,7 +450,6 @@ static void vesa_set_graphics_mode_cb(int count, const int *params)
         }
     }
 
-    // Apply colors (swap if reverse video is active)
     if (reverse) {
         forecolor = vesa_background_from_code(bg_code);
         backcolor = vesa_foreground_from_code(fg_code, bold);
@@ -439,17 +459,17 @@ static void vesa_set_graphics_mode_cb(int count, const int *params)
     }
 }
 
-static void vesa_show_cursor_cb(void)
+static void vesa_show_cursor_callback(void)
 {
     vesa_show_cursor();
 }
 
-static void vesa_hide_cursor_cb(void)
+static void vesa_hide_cursor_callback(void)
 {
     vesa_hide_cursor();
 }
 
-static void vesa_report_cursor_position_cb(void)
+static void vesa_report_cursor_position_callback(void)
 {
     int col = 1;
     int row = 1;
@@ -494,19 +514,18 @@ static void vesa_report_cursor_position_cb(void)
 }
 
 static struct ansi_callbacks vesa_callbacks = {
-    .cursor_up = vesa_cursor_up_cb,
-    .cursor_down = vesa_cursor_down_cb,
-    .cursor_left = vesa_cursor_left_cb,
-    .cursor_right = vesa_cursor_right_cb,
-    .cursor_set_position = vesa_cursor_set_position_cb,
-    .clear_screen = vesa_clear_screen_cb,
-    .clear_line = vesa_clear_line_cb,
-    .set_graphics_mode = vesa_set_graphics_mode_cb,
-    .show_cursor = vesa_show_cursor_cb,
-    .hide_cursor = vesa_hide_cursor_cb,
-    .report_cursor_position = vesa_report_cursor_position_cb,
+    .cursor_up = vesa_cursor_up_callback,
+    .cursor_down = vesa_cursor_down_callback,
+    .cursor_left = vesa_cursor_left_callback,
+    .cursor_right = vesa_cursor_right_callback,
+    .cursor_set_position = vesa_cursor_set_position_callback,
+    .clear_screen = vesa_clear_screen_callback,
+    .clear_line = vesa_clear_line_callback,
+    .set_graphics_mode = vesa_set_graphics_mode_callback,
+    .show_cursor = vesa_show_cursor_callback,
+    .hide_cursor = vesa_hide_cursor_callback,
+    .report_cursor_position = vesa_report_cursor_position_callback,
 };
-
 
 /**
  * @brief Initialize VESA terminal
@@ -577,7 +596,6 @@ void putchar(char c)
         }
     }
 
-    vesa_clamp_cursor();
     vesa_draw_cursor();
 }
 

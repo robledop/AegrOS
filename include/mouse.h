@@ -77,7 +77,7 @@ struct ps2_mouse
     u8 initialized;
 };
 
-void mouse_init(mouse_callback callback);
+void mouse_init();
 void mouse_get_position(mouse_t *mouse);
 void mouse_set_position(i16 x, i16 y);
 void mouse_flush_pending_events(void);

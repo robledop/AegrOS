@@ -78,15 +78,17 @@ int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
     process_table_init();
     trap_vectors_init();
     buffer_cache_init();
-    file_init();     // file table
-    bring_up_cpus(); // start other processors
+    file_init();
+    bring_up_cpus();
     release_usable_memory_ranges();
     kalloc_enable_locking(); // enable allocator locking after free lists are built
     kernel_enable_mmio_propagation();
     pci_scan();
+#ifdef GRAPHICS
+    mouse_init();
+#endif
     user_init(); // first user process
-    mouse_init(nullptr);
-    mpmain(); // finish this processor's setup
+    mpmain();    // finish this processor's setup
 }
 
 /**

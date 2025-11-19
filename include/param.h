@@ -21,5 +21,3 @@
 
 
 // #define NO_SSE __attribute__((target("no-sse,no-sse2")))
-#define NO_SSE
-

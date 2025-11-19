@@ -31,7 +31,6 @@ TASK_QUEUE(runnable)
  * Never returns; invoked once per CPU during initialization.
  */
 
-__attribute__((target("avx,sse2")))
 void scheduler(void)
 {
     // TODO: Cleanup ZOMBIE processes that have not been waited on.
@@ -58,9 +57,15 @@ void scheduler(void)
         p->state              = RUNNING;
         cpu->time_slice_ticks = TIME_SLICE_TICKS;
 
+        // We set the TS flag in CR0 to trigger a Device Not Available
+        // exception when the process attempts to use the FPU. This
+        // allows us to lazily save/restore the FPU state only when necessary.
         lcr0(rcr0() | CR0_TS);
+
         switch_context(&(cpu->scheduler), p->context);
-        clts();
+
+        clts(); // Clear the TS flag now that we are back in the scheduler.
+
         switch_kernel_page_directory();
 
         if (p->state == RUNNABLE) {
@@ -319,7 +324,6 @@ int cpu_index()
  *
  * Interrupts must be disabled to prevent migration during lookup.
  */
-__attribute__((target("avx,sse2")))
 struct cpu *current_cpu(void)
 {
     ASSERT(!(read_eflags() & FL_IF), "current_cpu called with interrupts enabled\n");

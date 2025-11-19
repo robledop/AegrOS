@@ -386,9 +386,8 @@ static inline void append_termination_with_gadget(output_gadget_t *gadget)
 
 // We can't use putchar_ as is, since our output gadget
 // only takes pointers to functions with an extra argument
-static inline void putchar_wrapper(char c, void *unused)
+static inline void putchar_wrapper(char c, [[maybe_unused]] void *unused)
 {
-    (void)unused;
     consputc(c);
 }
 

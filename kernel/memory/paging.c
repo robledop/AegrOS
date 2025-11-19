@@ -72,7 +72,7 @@ void kfree_page(char *v)
     if (kmem.use_lock) {
         acquire(&kmem.lock);
     }
-    struct run *r = (struct run *)v;
+    auto r        = (struct run *)v;
     r->next       = kmem.freelist; // The current head of the free list becomes the next of this page
     kmem.freelist = r;             // This page becomes the head of the free list
     if (kmem.use_lock) {
@@ -85,7 +85,6 @@ void kfree_page(char *v)
 // Returns 0 if the memory cannot be allocated.
 /** @brief Allocate one 4096-byte page of physical memory */
 
-__attribute__((target("avx,sse2")))
 char *kalloc_page(void)
 {
     if (kmem.use_lock) {
