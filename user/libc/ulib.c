@@ -1,13 +1,11 @@
 #include <stdarg.h>
-#include <stdint.h>
-
-#include "types.h"
-#include "stat.h"
-#include "fcntl.h"
-#include "user.h"
-#include "x86.h"
-#include "errno.h"
-#include "status.h"
+#include <types.h>
+#include <stat.h>
+#include <fcntl.h>
+#include <user.h>
+#include <x86.h>
+#include <errno.h>
+#include <status.h>
 
 extern void sys_exit(void);
 
@@ -247,7 +245,7 @@ void *memset(void *dst, int c, size_t n)
         return dst;
     }
 
-    int has_avx      = simd_has_avx();
+    int has_avx = simd_has_avx();
     u8 pattern[32];
     int pattern_init = 0;
     int used_avx     = 0;
@@ -463,10 +461,10 @@ void *memmove(void *vdst, const void *vsrc, size_t n)
                 src -= 32;
                 dst -= 32;
                 __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
-                                 "vmovdqu %%ymm0, (%[d])"
-                                 :
-                                 : [s] "r"(src), [d] "r"(dst)
-                                 : "memory");
+                    "vmovdqu %%ymm0, (%[d])"
+                    :
+                    : [s] "r"(src), [d] "r"(dst)
+                    : "memory");
                 n -= 32;
                 used_avx = 1;
             }
@@ -477,10 +475,10 @@ void *memmove(void *vdst, const void *vsrc, size_t n)
                 src -= 16;
                 dst -= 16;
                 __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-                                 "movdqu %%xmm0, (%[d])"
-                                 :
-                                 : [s] "r"(src), [d] "r"(dst)
-                                 : "memory");
+                    "movdqu %%xmm0, (%[d])"
+                    :
+                    : [s] "r"(src), [d] "r"(dst)
+                    : "memory");
                 n -= 16;
             }
         }
@@ -492,10 +490,10 @@ void *memmove(void *vdst, const void *vsrc, size_t n)
         if (use_avx) {
             while (n >= 32) {
                 __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
-                                 "vmovdqu %%ymm0, (%[d])"
-                                 :
-                                 : [s] "r"(src), [d] "r"(dst)
-                                 : "memory");
+                    "vmovdqu %%ymm0, (%[d])"
+                    :
+                    : [s] "r"(src), [d] "r"(dst)
+                    : "memory");
                 src += 32;
                 dst += 32;
                 n -= 32;
@@ -506,10 +504,10 @@ void *memmove(void *vdst, const void *vsrc, size_t n)
         if (use_sse2) {
             while (n >= 16) {
                 __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-                                 "movdqu %%xmm0, (%[d])"
-                                 :
-                                 : [s] "r"(src), [d] "r"(dst)
-                                 : "memory");
+                    "movdqu %%xmm0, (%[d])"
+                    :
+                    : [s] "r"(src), [d] "r"(dst)
+                    : "memory");
                 src += 16;
                 dst += 16;
                 n -= 16;
@@ -543,7 +541,7 @@ int memcmp(const void *v1, const void *v2, size_t n)
 
     const int has_sse2 = simd_has_sse2();
     if (has_sse2 && n >= 16) {
-        const int has_avx = simd_has_avx();
+        const int has_avx      = simd_has_avx();
         const unsigned char *a = s1;
         const unsigned char *b = s2;
 
@@ -551,12 +549,12 @@ int memcmp(const void *v1, const void *v2, size_t n)
             while (n >= 32) {
                 unsigned int mask;
                 __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
-                                 "vmovdqu (%[b]), %%ymm1\n\t"
-                                 "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
-                                 "vpmovmskb %%ymm0, %[mask]"
-                                 : [mask] "=r"(mask)
-                                 : [a] "r"(a), [b] "r"(b)
-                                 : "memory");
+                    "vmovdqu (%[b]), %%ymm1\n\t"
+                    "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
+                    "vpmovmskb %%ymm0, %[mask]"
+                    : [mask] "=r"(mask)
+                    : [a] "r"(a), [b] "r"(b)
+                    : "memory");
                 if (mask != 0xFFFFFFFFu) {
                     unsigned int mismatch = ~mask;
                     unsigned int idx      = __builtin_ctz(mismatch);
@@ -571,12 +569,12 @@ int memcmp(const void *v1, const void *v2, size_t n)
         while (n >= 16) {
             unsigned int mask;
             __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
-                             "movdqu (%[b]), %%xmm1\n\t"
-                             "pcmpeqb %%xmm1, %%xmm0\n\t"
-                             "pmovmskb %%xmm0, %[mask]"
-                             : [mask] "=r"(mask)
-                             : [a] "r"(a), [b] "r"(b)
-                             : "memory");
+                "movdqu (%[b]), %%xmm1\n\t"
+                "pcmpeqb %%xmm1, %%xmm0\n\t"
+                "pmovmskb %%xmm0, %[mask]"
+                : [mask] "=r"(mask)
+                : [a] "r"(a), [b] "r"(b)
+                : "memory");
             mask &= 0xFFFFu;
             if (mask != 0xFFFFu) {
                 unsigned int mismatch = (~mask) & 0xFFFFu;

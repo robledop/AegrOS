@@ -7,13 +7,13 @@ rootfs/
 *.a
 *.d
 *.wad
-fbdoom
 *.log
 *.img
 *.iso
 config.asm
 memlayout.asm
 syscall.asm
+fbdoom
 traps.asm
 disk.img
 disk.vdi

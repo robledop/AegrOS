@@ -66,3 +66,6 @@ UPROGS=\
 
 all: $(UPROGS)
 	cp $(UPROGS) ../rootfs/bin/
+
+clean:
+	rm -rf build/*

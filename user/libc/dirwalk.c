@@ -1,7 +1,7 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#include "../include/dirwalk.h"
+#include "dirwalk.h"
 
 struct ext2_dirent_raw
 {

@@ -1,3 +1,4 @@
+set architecture i386
 set breakpoint pending on
 
 add-symbol-file ./build/kernel 0x80100000

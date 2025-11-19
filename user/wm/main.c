@@ -152,7 +152,7 @@ void wm_process_events(void)
     terminal->putchar(terminal, c);
 }
 
-int main(const int argc, char **argv)
+int main([[maybe_unused]] const int argc, [[maybe_unused]] char **argv)
 {
     enable_raw_mode(STDIN_FILENO);
 

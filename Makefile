@@ -59,6 +59,7 @@ QEMU_NETWORK=-netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device e10
 QEMU_DISK=-drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
 #QEMU_DISK=-drive file=disk.img,index=0,media=disk,format=raw
 QEMUOPTS = $(QEMU_DISK) -smp $(CPUS) -m $(MEMORY)
+QEMU_AVX = -accel tcg -cpu Skylake-Server,vmx=off,+avx
 
 qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0 -DDEBUG -DGRAPHICS
 qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
@@ -96,18 +97,23 @@ build/%.o: $K/%.asm asm_headers FORCE
 
 .PHONY: apps
 apps: asm_headers FORCE
-	cd ./user && $(MAKE) all
+	$(MAKE) -C user clean
+	$(MAKE) -C user all
 
 .PHONY: doom
 doom:
 	$(MAKE) -C user/doom clean
 	$(MAKE) -C user/doom
 
-grub: build/kernel apps doom FORCE
+grub: build/kernel apps FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
 	cp assets/doom.wad ./rootfs/bin/doom.wad
 	cp assets/doom.wad ./rootfs/doom.wad
+	@if [ ! -f assets/fbdoom ]; then \
+		echo "assets/fbdoom not found, building doom..."; \
+		$(MAKE) doom; \
+	fi
 	cp assets/fbdoom ./rootfs/bin/doom
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
@@ -115,18 +121,18 @@ grub: build/kernel apps doom FORCE
 
 qemu: grub FORCE
 	#$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
-	$(QEMU) -serial file:qemu_run.log $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
+	$(QEMU) -serial file:qemu_run.log $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) $(QEMU_AVX) -d int -D qemu.log
 
 qemu-nox: grub FORCE
-	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK)
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) $(QEMU_AVX)
 
 qemu-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA) $(QEMU_NETWORK)
+	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA) $(QEMU_NETWORK) $(QEMU_AVX)
 
 qemu-nox-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB) $(QEMU_NETWORK)
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB) $(QEMU_NETWORK) $(QEMU_AVX)
 
 vbox: grub FORCE
 	./scripts/start_vbox.sh $(MEMORY)
@@ -161,13 +167,16 @@ qemu-nox-perf: grub FORCE
 qemu-nox-perf-textmode: grub FORCE
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
+bear: FORCE
+	bear -- $(MAKE) build/kernel apps doom -j22
+
 .PHONY: clean
 clean:
 	@echo "Cleaning up..."
 	rm -rf rootfs/
 	rm -rf build/
 	rm -rf user/build
-	rm assets/fbdoom
+	rm -f assets/fbdoom
 
 # Force rebuild of all files
 .PHONY: FORCE
