@@ -19,7 +19,7 @@ AS = nasm
 LD = $(TOOLPREFIX)ld
 INCLUDE = -I../include -I../../include
 
-CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin -msse2 -mfpmath=sse -mavx
+CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin -msse2 -mfpmath=sse -mavx #-fsanitize=undefined -fstack-protector
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 CFLAGS += -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE -DUSEASM -DAEGROS \

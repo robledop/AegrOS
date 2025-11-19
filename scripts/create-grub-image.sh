@@ -21,7 +21,7 @@ cleanup() {
 trap cleanup EXIT
 
 rm -f "${IMG_PATH}"
-dd if=/dev/zero of="${IMG_PATH}" bs=512 count=131072 status=none
+dd if=/dev/zero of="${IMG_PATH}" bs=512 count=262144 status=none
 
 # Create MBR partition table and a single bootable partition
 parted -s "${IMG_PATH}" mklabel msdos
