@@ -1,3 +1,4 @@
+#ifdef GRAPHICS
 #include "framebuffer.h"
 #include "file.h"
 #include "string.h"
@@ -32,7 +33,6 @@ void framebuffer_set_vbe_info(const multiboot_info_t *mbd)
 {
     if (mbd == nullptr) {
         memset(vbe_info, 0, sizeof(*vbe_info));
-        vga_enter_text_mode();
         return;
     }
 
@@ -47,7 +47,6 @@ void framebuffer_set_vbe_info(const multiboot_info_t *mbd)
         memset(vbe_info, 0, sizeof(*vbe_info));
         boot_message(WARNING_LEVEL_WARNING,
                      "Bootloader did not provide a usable framebuffer; disabling graphics console");
-        vga_enter_text_mode();
         return;
     }
 }
@@ -70,7 +69,6 @@ bool framebuffer_map_boot_framebuffer(struct cpu *bsp)
     }
     if (fb_virt == nullptr) {
         boot_message(WARNING_LEVEL_WARNING, "Failed to map framebuffer; graphics console disabled");
-        vga_enter_text_mode();
         return false;
     }
     vbe_info->framebuffer_virtual = (u32)(uptr)fb_virt;
@@ -101,7 +99,7 @@ int framebuffer_write(struct inode *ip, char *buf, int n, u32 offset)
 {
     ip->iops->iunlock(ip);
 
-    u8 *fb      = framebuffer_kernel_bytes();
+    u8 *fb = framebuffer_kernel_bytes();
     if (fb == nullptr) {
         ip->iops->ilock(ip);
         return 0;
@@ -162,8 +160,8 @@ static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
         return;
     }
 
-    u32 remaining      = pixel_count;
-    u32 pattern[4] = { color, color, color, color };
+    u32 remaining       = pixel_count;
+    u32 pattern[4]      = {color, color, color, color};
     const u32 saved_cr0 = rcr0();
     clts();
     __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
@@ -199,10 +197,10 @@ static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_co
     clts();
     while (remaining >= 4) {
         __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-                         "movdqu %%xmm0, (%[d])"
-                         :
-                         : [s] "r"(src_bytes), [d] "r"(dst_bytes)
-                         : "memory");
+            "movdqu %%xmm0, (%[d])"
+            :
+            : [s] "r"(src_bytes), [d] "r"(dst_bytes)
+            : "memory");
         src_bytes += 16;
         dst_bytes += 16;
         remaining -= 4;
@@ -313,7 +311,7 @@ void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
     }
 
     u32 span_pixels = (u32)(x1 - x0);
-    u8 *fb = framebuffer_kernel_bytes();
+    u8 *fb          = framebuffer_kernel_bytes();
     if (fb == nullptr) {
         return;
     }
@@ -384,7 +382,7 @@ void framebuffer_putpixel(int x, int y, u32 rgb)
         return; // Out of bounds
     }
 
-    auto framebuffer    = framebuffer_kernel_bytes();
+    auto framebuffer = framebuffer_kernel_bytes();
     if (framebuffer == nullptr) {
         return;
     }
@@ -401,7 +399,7 @@ u32 framebuffer_getpixel(int x, int y)
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
         return 0; // Out of bounds
     }
-    auto framebuffer    = framebuffer_kernel_bytes();
+    auto framebuffer = framebuffer_kernel_bytes();
     if (framebuffer == nullptr) {
         return 0;
     }
@@ -540,14 +538,14 @@ void framebuffer_put_char8(unsigned char c, int x, int y, u32 color, u32 bg)
     u8 *row = fb + (u32)y * vbe_info->pitch + (u32)x * 4U;
 
     for (int l = 0; l < 8; l++) {
-        u8 mask    = font8x8[c][l];
+        u8 mask = font8x8[c][l];
         if (mask == 0) {
             row += vbe_info->pitch;
             continue;
         }
         u32 *dst32 = (u32 *)row;
         while (mask) {
-            int bit = __builtin_ctz(mask);
+            int bit    = __builtin_ctz(mask);
             dst32[bit] = color;
             mask &= mask - 1;
         }
@@ -646,3 +644,5 @@ void framebuffer_erase_cursor(int x, int y)
                             1,
                             0x000000);
 }
+
+#endif // GRAPHICS

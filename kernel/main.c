@@ -36,7 +36,7 @@ u32 __stack_chk_guard = STACK_CHK_GUARD; // NOLINT(*-reserved-identifier)
  *
  * @return This function does not return; it hands control to the scheduler.
  */
-NO_SSE int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
+int main(multiboot_info_t *mbinfo, [[maybe_unused]] unsigned int magic)
 {
     ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC, "Invalid multiboot magic number: 0x%x", magic);
     if ((mbinfo->flags & MULTIBOOT_INFO_CONFIG_TABLE) != 0 && mbinfo->config_table != 0) {
@@ -142,12 +142,12 @@ static bool bringup_application_processor(struct cpu *cpu, u8 *code)
     if (stack == nullptr) {
         panic("startothers: failed to allocate AP stack");
     }
-    cpu->boot_stack = stack;
-    uptr cfg_addr = (uptr)code - (uptr)sizeof(struct entryother_config);
+    cpu->boot_stack               = stack;
+    uptr cfg_addr                 = (uptr)code - (uptr)sizeof(struct entryother_config);
     struct entryother_config *cfg = (struct entryother_config *)cfg_addr;
-    cfg->page_directory = (int *)V2P(entrypgdir);
-    cfg->entry_point    = mpenter;
-    cfg->stack_top      = stack + KSTACKSIZE;
+    cfg->page_directory           = (int *)V2P(entrypgdir);
+    cfg->entry_point              = mpenter;
+    cfg->stack_top                = stack + KSTACKSIZE;
 
     for (int attempt = 0; attempt < 2; ++attempt) {
         constexpr u32 timeout_us = 1000000;

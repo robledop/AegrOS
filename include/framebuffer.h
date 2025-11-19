@@ -41,27 +41,10 @@ struct vbe_mode_info
 
 extern struct vbe_mode_info* vbe_info;
 
-#ifdef GRAPHICS
 struct cpu;
 void framebuffer_set_vbe_info(const multiboot_info_t *mbd);
 bool framebuffer_map_boot_framebuffer(struct cpu *bsp);
 void framebuffer_prepare_cpu(struct cpu *cpu);
-#else
-struct cpu;
-static inline void framebuffer_set_vbe_info(const multiboot_info_t *mbd)
-{
-    (void)mbd;
-}
-static inline bool framebuffer_map_boot_framebuffer(struct cpu *bsp)
-{
-    (void)bsp;
-    return false;
-}
-static inline void framebuffer_prepare_cpu(struct cpu *cpu)
-{
-    (void)cpu;
-}
-#endif
 
 static inline u8 *framebuffer_kernel_bytes(void)
 {

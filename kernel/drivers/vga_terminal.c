@@ -50,10 +50,10 @@ static void vga_fill_words(u16 *dst, u32 count, u16 value)
         return;
     }
 
-    u8 *bytes         = (u8 *)dst;
-    u32 remaining     = count;
+    u8 *bytes     = (u8 *)dst;
+    u32 remaining = count;
     u16 pattern_words[16];
-    int pattern_init = 0;
+    int pattern_init    = 0;
     const u32 saved_cr0 = rcr0();
     clts();
     int used_avx = 0;
@@ -155,7 +155,7 @@ void scroll_screen()
     // Move all rows up by one
     memmove(video_memory, video_memory + ROW_SIZE, SCREEN_SIZE - ROW_SIZE);
 
-    u16 *row = (u16 *)(video_memory + SCREEN_SIZE - ROW_SIZE);
+    u16 *row       = (u16 *)(video_memory + SCREEN_SIZE - ROW_SIZE);
     const u16 fill = (u16)(' ' | (DEFAULT_ATTRIBUTE << 8));
     vga_fill_words(row, VGA_WIDTH, fill);
 
@@ -369,8 +369,8 @@ static void vga_report_cursor_position_cb(void)
  */
 void terminal_clear()
 {
-    cursor_x = 0;
-    cursor_y = 0;
+    cursor_x       = 0;
+    cursor_y       = 0;
     const u16 fill = (u16)(' ' | (attribute << 8));
     vga_fill_words((u16 *)VIDEO_MEMORY, VGA_WIDTH * VGA_HEIGHT, fill);
 
@@ -461,57 +461,8 @@ static struct ansi_callbacks vga_callbacks = {
     .report_cursor_position = vga_report_cursor_position_cb,
 };
 
-static void vga_write_registers(const u8 *regs)
-{
-    outb(0x3C2, *regs++);
-    for (int i = 0; i < 5; i++) {
-        outb(0x3C4, i);
-        outb(0x3C5, *regs++);
-    }
-
-    outb(0x3D4, 0x03);
-    outb(0x3D5, inb(0x3D5) | 0x80);
-    outb(0x3D4, 0x11);
-    outb(0x3D5, inb(0x3D5) & ~0x80);
-
-    for (int i = 0; i < 25; i++) {
-        outb(0x3D4, i);
-        outb(0x3D5, *regs++);
-    }
-    for (int i = 0; i < 9; i++) {
-        outb(0x3CE, i);
-        outb(0x3CF, *regs++);
-    }
-    for (int i = 0; i < 21; i++) {
-        (void)inb(0x3DA);
-        outb(0x3C0, i);
-        outb(0x3C0, *regs++);
-    }
-    (void)inb(0x3DA);
-    outb(0x3C0, 0x20);
-}
-
-static const u8 vga_text_80x25_regs[] = {
-    0x67,
-    0x03, 0x01, 0x0F, 0x00, 0x0E,
-    0x5F, 0x4F, 0x50, 0x82, 0x55, 0x81, 0xBF, 0x1F, 0x00, 0x41, 0x00, 0x00,
-    0x00, 0x00, 0x9C, 0x0E, 0x8F, 0x28, 0x40, 0x96, 0xB9, 0xA3, 0xFF,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0F, 0xFF,
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B,
-    0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-    0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
-    0x01, 0x00, 0x03, 0x00, 0x02, 0x0F, 0x00, 0x00, 0x00
-};
-
-void vga_enter_text_mode(void)
-{
-    vga_write_registers(vga_text_80x25_regs);
-}
-
 void vga_terminal_init(void)
 {
     ansi_set_callbacks(&vga_callbacks);
-    vga_enter_text_mode();
     terminal_clear();
-    enable_cursor();
 }

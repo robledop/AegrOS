@@ -62,7 +62,7 @@ QEMUOPTS = $(QEMU_DISK) -smp $(CPUS) -m $(MEMORY)
 
 qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0 -DDEBUG -DGRAPHICS
 qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
-disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DGRAPHICS -DDEBUG
+disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DDEBUG -DGRAPHICS
 disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
 vbox-textmode qemu-nox-perf-textmode qemu-perf-textmode qemu-perf-no-net-textmode: CFLAGS += -O3 -DDEBUG
 
