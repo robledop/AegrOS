@@ -15,6 +15,7 @@ enum { BI_RGB = 0, BI_BITFIELDS = 3 };
  * @param[out] out_pixels Receives the newly allocated ARGB buffer.
  * @return 0 on success, negative value on failure.
  */
+__attribute__((target("avx,sse2")))
 int bitmap_load_argb(const char *path, u32 **out_pixels)
 {
     const int fd = open(path, O_RDONLY);

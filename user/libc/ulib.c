@@ -58,6 +58,7 @@ void panic(const char *s)
     __ae_exit(1);
 }
 
+__attribute__((target("avx,sse2")))
 char *strcpy(char *s, const char *t)
 {
     char *os = s;
@@ -66,6 +67,7 @@ char *strcpy(char *s, const char *t)
     return os;
 }
 
+__attribute__((target("avx,sse2")))
 char *strncpy(char *dst, const char *src, size_t n)
 {
     size_t i = 0;
@@ -180,6 +182,7 @@ int toupper(int c)
 }
 
 
+__attribute__((target("avx,sse2")))
 size_t strlen(const char *s)
 {
     size_t n;
@@ -189,6 +192,7 @@ size_t strlen(const char *s)
     return n;
 }
 
+__attribute__((target("avx,sse2")))
 char *strdup(const char *s)
 {
     if (s == nullptr) {
@@ -204,6 +208,7 @@ char *strdup(const char *s)
 }
 
 
+__attribute__((target("avx,sse2")))
 size_t strnlen(const char *s, size_t maxlen)
 {
     size_t n = 0;
@@ -229,66 +234,13 @@ bool str_ends_with(const char *str, const char *suffix)
     return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
 }
 
+__attribute__((target("avx,sse2")))
 void *memset(void *dst, int c, size_t n)
 {
-    if (n == 0) {
-        return dst;
+    auto u = (u8 *)dst;
+    for (size_t i = 0; i < n; i++) {
+        u[i] = (u8)c;
     }
-
-    u8 value     = (u8)c;
-    u8 *d        = dst;
-    size_t left  = n;
-    int has_sse2 = simd_has_sse2();
-
-    if (!has_sse2 || n < 16) {
-        stosb(dst, value, n);
-        return dst;
-    }
-
-    int has_avx = simd_has_avx();
-    u8 pattern[32];
-    int pattern_init = 0;
-    int used_avx     = 0;
-
-    if (has_avx && left >= 32) {
-        if (!pattern_init) {
-            for (int i = 0; i < 32; i++) {
-                pattern[i] = value;
-            }
-            pattern_init = 1;
-        }
-        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern));
-        while (left >= 32) {
-            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(d) : "memory");
-            d += 32;
-            left -= 32;
-        }
-        used_avx = 1;
-    }
-
-    if (left >= 16) {
-        if (!pattern_init) {
-            for (int i = 0; i < 16; i++) {
-                pattern[i] = value;
-            }
-            pattern_init = 1;
-        }
-        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
-        while (left >= 16) {
-            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(d) : "memory");
-            d += 16;
-            left -= 16;
-        }
-    }
-
-    if (used_avx) {
-        __asm__ volatile("vzeroupper" ::: "memory");
-    }
-
-    while (left-- > 0) {
-        *d++ = value;
-    }
-
     return dst;
 }
 
@@ -397,133 +349,24 @@ struct memmove_simd_caps
     int has_avx;
 };
 
-static struct memmove_simd_caps memmove_caps;
-
-static void memmove_detect_simd_caps(void)
+__attribute__((target("sse2,avx")))
+void *memmove(void *dst, const void *src, size_t n)
 {
-    if (memmove_caps.initialized) {
-        return;
-    }
-
-    u32 eax, ebx, ecx, edx;
-    cpuid(0x01, &eax, &ebx, &ecx, &edx);
-
-    memmove_caps.has_sse2 = (edx & CPUID_FEAT_EDX_SSE2) != 0;
-
-    const bool cpu_has_xsave = (ecx & CPUID_FEAT_ECX_XSAVE) != 0;
-    const bool os_uses_xsave = (ecx & CPUID_FEAT_ECX_OSXSAVE) != 0;
-    const bool cpu_has_avx   = (ecx & CPUID_FEAT_ECX_AVX) != 0;
-
-    if (cpu_has_avx && cpu_has_xsave && os_uses_xsave) {
-        const u64 xcr0 = xgetbv(0);
-        if ((xcr0 & (XCR0_SSE | XCR0_AVX)) == (XCR0_SSE | XCR0_AVX)) {
-            memmove_caps.has_avx  = 1;
-            memmove_caps.has_sse2 = 1;
-        }
-    }
-
-    memmove_caps.initialized = 1;
-}
-
-int simd_has_sse2(void)
-{
-    memmove_detect_simd_caps();
-    return memmove_caps.has_sse2;
-}
-
-int simd_has_avx(void)
-{
-    memmove_detect_simd_caps();
-    return memmove_caps.has_avx;
-}
-
-void *memmove(void *vdst, const void *vsrc, size_t n)
-{
-    memmove_detect_simd_caps();
-
-    const char *src = vsrc;
-    char *dst       = vdst;
-
-    if (n == 0 || src == dst) {
-        return vdst;
-    }
-
-    const int use_avx  = memmove_caps.has_avx;
-    const int use_sse2 = memmove_caps.has_sse2;
-    int used_avx       = 0;
-
-    if (src < dst && src + n > dst) {
-        src += n;
-        dst += n;
-
-        if (use_avx) {
-            while (n >= 32) {
-                src -= 32;
-                dst -= 32;
-                __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
-                    "vmovdqu %%ymm0, (%[d])"
-                    :
-                    : [s] "r"(src), [d] "r"(dst)
-                    : "memory");
-                n -= 32;
-                used_avx = 1;
-            }
-        }
-
-        if (use_sse2) {
-            while (n >= 16) {
-                src -= 16;
-                dst -= 16;
-                __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-                    "movdqu %%xmm0, (%[d])"
-                    :
-                    : [s] "r"(src), [d] "r"(dst)
-                    : "memory");
-                n -= 16;
-            }
-        }
-
+    const char *s = src;
+    char *d       = dst;
+    if (s < d && s + n > d) {
+        s += n;
+        d += n;
         while (n-- > 0) {
-            *--dst = *--src;
+            *--d = *--s;
         }
     } else {
-        if (use_avx) {
-            while (n >= 32) {
-                __asm__ volatile("vmovdqu (%[s]), %%ymm0\n\t"
-                    "vmovdqu %%ymm0, (%[d])"
-                    :
-                    : [s] "r"(src), [d] "r"(dst)
-                    : "memory");
-                src += 32;
-                dst += 32;
-                n -= 32;
-                used_avx = 1;
-            }
-        }
-
-        if (use_sse2) {
-            while (n >= 16) {
-                __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-                    "movdqu %%xmm0, (%[d])"
-                    :
-                    : [s] "r"(src), [d] "r"(dst)
-                    : "memory");
-                src += 16;
-                dst += 16;
-                n -= 16;
-            }
-        }
-
         while (n-- > 0) {
-            *dst++ = *src++;
+            *d++ = *s++;
         }
     }
 
-    if (used_avx) {
-        __asm__ volatile("vzeroupper" ::: "memory");
-    }
-
-    return vdst;
+    return dst;
 }
 
 void *memcpy(void *dst, const void *src, size_t n)
@@ -531,72 +374,18 @@ void *memcpy(void *dst, const void *src, size_t n)
     return memmove(dst, src, n);
 }
 
+__attribute__((target("avx,sse2")))
 int memcmp(const void *v1, const void *v2, size_t n)
 {
-    const unsigned char *s1 = v1;
-    const unsigned char *s2 = v2;
-    if (s1 == s2 || n == 0) {
-        return 0;
-    }
-
-    const int has_sse2 = simd_has_sse2();
-    if (has_sse2 && n >= 16) {
-        const int has_avx      = simd_has_avx();
-        const unsigned char *a = s1;
-        const unsigned char *b = s2;
-
-        if (has_avx) {
-            while (n >= 32) {
-                unsigned int mask;
-                __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
-                    "vmovdqu (%[b]), %%ymm1\n\t"
-                    "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
-                    "vpmovmskb %%ymm0, %[mask]"
-                    : [mask] "=r"(mask)
-                    : [a] "r"(a), [b] "r"(b)
-                    : "memory");
-                if (mask != 0xFFFFFFFFu) {
-                    unsigned int mismatch = ~mask;
-                    unsigned int idx      = __builtin_ctz(mismatch);
-                    return (int)a[idx] - (int)b[idx];
-                }
-                a += 32;
-                b += 32;
-                n -= 32;
-            }
-        }
-
-        while (n >= 16) {
-            unsigned int mask;
-            __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
-                "movdqu (%[b]), %%xmm1\n\t"
-                "pcmpeqb %%xmm1, %%xmm0\n\t"
-                "pmovmskb %%xmm0, %[mask]"
-                : [mask] "=r"(mask)
-                : [a] "r"(a), [b] "r"(b)
-                : "memory");
-            mask &= 0xFFFFu;
-            if (mask != 0xFFFFu) {
-                unsigned int mismatch = (~mask) & 0xFFFFu;
-                unsigned int idx      = __builtin_ctz(mismatch);
-                return (int)a[idx] - (int)b[idx];
-            }
-            a += 16;
-            b += 16;
-            n -= 16;
-        }
-
-        s1 = a;
-        s2 = b;
-    }
-
+    const u8 *s1 = v1;
+    const u8 *s2 = v2;
     while (n-- > 0) {
         if (*s1 != *s2) {
             return *s1 - *s2;
         }
-        s1++;
-        s2++;
+        s1++, s2++;
     }
+
     return 0;
 }
 

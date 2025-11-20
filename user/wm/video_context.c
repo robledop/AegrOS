@@ -7,10 +7,6 @@
 
 static u32 *framebuffer;
 
-static int framebuffer_simd_initialized;
-static int framebuffer_has_sse2;
-static int framebuffer_has_avx;
-
 static inline u8 reverse_bits8(u8 v)
 {
     v = (u8)(((v & 0xF0u) >> 4) | ((v & 0x0Fu) << 4));
@@ -19,127 +15,29 @@ static inline u8 reverse_bits8(u8 v)
     return v;
 }
 
-static inline void framebuffer_init_simd_caps(void)
-{
-    if (framebuffer_simd_initialized) {
-        return;
-    }
-    framebuffer_has_sse2         = simd_has_sse2();
-    framebuffer_has_avx          = simd_has_avx();
-    framebuffer_simd_initialized = 1;
-}
 
+__attribute__((target("sse2,avx")))
 static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
 {
-    if (pixel_count == 0) {
-        return;
-    }
-
-    framebuffer_init_simd_caps();
-
-    u32 remaining = pixel_count;
-
-    u32 pattern[8];
-    int pattern_initialized = 0;
-
-    int used_avx = 0;
-    if (framebuffer_has_avx && remaining >= 8) {
-        if (!pattern_initialized) {
-            for (int i = 0; i < 8; i++) {
-                pattern[i] = color;
-            }
-            pattern_initialized = 1;
-        }
-
-        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern));
-        while (remaining >= 8) {
-            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(dst) : "memory");
-            dst += 32;
-            remaining -= 8;
-        }
-        used_avx = 1;
-    }
-
-    if (framebuffer_has_sse2 && remaining >= 4) {
-        if (!pattern_initialized) {
-            for (int i = 0; i < 8; i++) {
-                pattern[i] = color;
-            }
-            pattern_initialized = 1;
-        }
-
-        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
-        while (remaining >= 4) {
-            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
-            dst += 16;
-            remaining -= 4;
-        }
-    }
-
-    if (used_avx) {
-        __asm__ volatile("vzeroupper" ::: "memory");
-    }
-
-    while (remaining--) {
+    while (pixel_count--) {
         *((u32 *)dst) = color;
         dst += 4;
     }
 }
 
+__attribute__((target("sse2,avx")))
 static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
 {
-    if (pixel_count == 0) {
-        return;
-    }
-
-    framebuffer_init_simd_caps();
-
-    u32 remaining       = pixel_count;
-    const u8 *src_bytes = (const u8 *)src;
-    u8 *dst_bytes       = dst;
-    int used_avx        = 0;
-
-    if (framebuffer_has_avx && remaining >= 8) {
-        while (remaining >= 8) {
-            __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
-                "vmovdqu %%ymm0, (%1)"
-                :
-                : "r"(src_bytes), "r"(dst_bytes)
-                : "memory");
-            src_bytes += 32;
-            dst_bytes += 32;
-            remaining -= 8;
-        }
-        used_avx = 1;
-    }
-
-    if (framebuffer_has_sse2 && remaining >= 4) {
-        while (remaining >= 4) {
-            __asm__ volatile("movdqu (%0), %%xmm0\n\t"
-                "movdqu %%xmm0, (%1)"
-                :
-                : "r"(src_bytes), "r"(dst_bytes)
-                : "memory");
-            src_bytes += 16;
-            dst_bytes += 16;
-            remaining -= 4;
-        }
-    }
-
-    if (used_avx) {
-        __asm__ volatile("vzeroupper" ::: "memory");
-    }
-
-    while (remaining--) {
-        *((u32 *)dst_bytes) = *((const u32 *)src_bytes);
-        dst_bytes += 4;
-        src_bytes += 4;
+    while (pixel_count--) {
+        *((u32 *)dst) = *src++;
+        dst += 4;
     }
 }
 
 /**
  * @brief Fill a rectangle in the framebuffer using 32-bit pixels when possible.
  */
+__attribute__((target("sse2,avx")))
 void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
 {
     if (width <= 0 || height <= 0) {
@@ -196,6 +94,7 @@ void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
 /**
  * @brief Blit a horizontal span of 32-bit pixels to the framebuffer.
  */
+__attribute__((target("sse2,avx")))
 void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
 {
     if (!src || pixel_count == 0) {
@@ -246,6 +145,7 @@ void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
 /**
  * @brief Write a single pixel to the framebuffer.
  */
+
 void framebuffer_putpixel(int x, int y, u32 rgb)
 {
     if (x < 0 || x >= 1024 || y < 0 || y >= 768) {
@@ -262,6 +162,7 @@ void framebuffer_putpixel(int x, int y, u32 rgb)
 /**
  * @brief Read a single pixel from the framebuffer.
  */
+
 u32 framebuffer_getpixel(int x, int y)
 {
     if (x < 0 || x >= 1024 || y < 0 || y >= 768) {
@@ -316,6 +217,7 @@ video_context_t *context_new(u32 *fb, u16 width, u16 height)
  * @param src_origin_x X offset in the source image.
  * @param src_origin_y Y offset in the source image.
  */
+__attribute__((target("sse2,avx")))
 void context_clipped_rect_bitmap(video_context_t *context, int x, int y, unsigned int draw_width,
                                  unsigned int draw_height, rect_t *clip_area, const u32 *pixels,
                                  unsigned int stride, int src_origin_x, int src_origin_y)
@@ -430,6 +332,7 @@ void context_clipped_rect(video_context_t *context, int x, int y, unsigned int w
  * @param height Bitmap height in pixels.
  * @param pixels Source ARGB bitmap data.
  */
+__attribute__((target("sse2,avx")))
 void context_draw_bitmap(video_context_t *context, int x, int y, unsigned int width, unsigned int height,
                          u32 *pixels)
 {
@@ -637,6 +540,7 @@ void context_draw_rect(video_context_t *context, int x, int y, unsigned int widt
  * @param context Video context whose clipping set is updated.
  * @param rect Rectangle to intersect (freed by the function).
  */
+__attribute__((target("sse2,avx")))
 void context_intersect_clip_rect(video_context_t *context, rect_t *rect)
 {
     context->clipping_on = 1;
@@ -675,6 +579,7 @@ void context_intersect_clip_rect(video_context_t *context, rect_t *rect)
  * @param context Video context whose clips are modified.
  * @param subtracted_rect Rectangle to subtract.
  */
+__attribute__((target("sse2,avx")))
 void context_subtract_clip_rect(video_context_t *context, rect_t *subtracted_rect)
 {
     // Check each item already in the list to see if it overlaps with
@@ -760,6 +665,7 @@ void context_clear_clip_rects(video_context_t *context)
  * @param color Colour to use for glyph pixels.
  * @param bound_rect Clipping rectangle bounding the glyph.
  */
+__attribute__((target("sse2,avx")))
 void context_draw_char_clipped(video_context_t *context, char character, int x, int y, u32 color,
                                rect_t *bound_rect)
 {

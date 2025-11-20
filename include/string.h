@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include "types.h"
 
-int memcmp(const void *lhs, const void *rhs, size_t count);
+int memcmp(const void *v1, const void *v2, size_t n);
 void *memcpy(void *dst, const void *src, size_t count);
 void *memmove(void *dst, const void *src, size_t count);
 void *memset(void *dst, int c, size_t count);
