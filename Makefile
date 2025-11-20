@@ -38,6 +38,7 @@ C_FILES := $(wildcard $(addsuffix /*.c, $(SRC_DIRS)))
 ASM_OBJS := $(ASM_FILES:./kernel/%.asm=./build/%.o)
 C_OBJS := $(C_FILES:./kernel/%.c=./build/%.o)
 OBJS := $(ASM_OBJS) $(C_OBJS)
+DOOM_DEPS := $(shell find user/doom user/libc user/include include -type f \( -name '*.c' -o -name '*.h' -o -name '*.asm' \))
 TOOLPREFIX = i686-elf-
 QEMU = qemu-system-i386
 CC = $(TOOLPREFIX)gcc
@@ -61,7 +62,7 @@ QEMU_DISK=-drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-
 QEMUOPTS = $(QEMU_DISK) -smp $(CPUS) -m $(MEMORY)
 QEMU_AVX = -accel tcg -cpu Skylake-Server,vmx=off,+avx
 
-qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O0 -DDEBUG -DGRAPHICS
+qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O3 -DDEBUG -DGRAPHICS
 qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
 disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DDEBUG -DGRAPHICS
 disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
@@ -105,15 +106,14 @@ doom:
 	$(MAKE) -C user/doom clean
 	$(MAKE) -C user/doom
 
-grub: build/kernel apps FORCE
+assets/fbdoom: $(DOOM_DEPS)
+	$(MAKE) -C user/doom
+
+grub: build/kernel apps assets/fbdoom FORCE
 	cp build/kernel ./rootfs/boot/kernel
 	cp assets/wpaper.bmp ./rootfs/wpaper.bmp
 	cp assets/doom.wad ./rootfs/bin/doom.wad
 	cp assets/doom.wad ./rootfs/doom.wad
-	@if [ ! -f assets/fbdoom ]; then \
-		echo "assets/fbdoom not found, building doom..."; \
-		$(MAKE) doom; \
-	fi
 	cp assets/fbdoom ./rootfs/bin/doom
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh

@@ -171,7 +171,7 @@ static void vesa_scroll_up_text_area(void)
     u8 *src   = dst + VESA_LINE_HEIGHT * pitch;
 
     const size_t copy_size = (text_height - VESA_LINE_HEIGHT) * pitch;
-    __builtin_memmove(dst, src, copy_size);
+    memmove(dst, src, copy_size);
 
     // Clear the last line
     framebuffer_fill_rect32(MARGIN,

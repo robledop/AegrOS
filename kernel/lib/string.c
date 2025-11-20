@@ -1,164 +1,10 @@
 #include <stdarg.h>
-#include <stdint.h>
-
-#include "defs.h"
-#include "printf.h"
-#include "types.h"
-#include "x86.h"
-#include "printf.h"
+#include <defs.h>
+#include <types.h>
+#include <x86.h>
 
 static int mem_sse_enabled;
 static int mem_avx_enabled;
-
-/** @brief Set n bytes of memory to c */
-__attribute__((target("avx,sse2")))
-void *memset(void *dst, int c, size_t n)
-{
-    if (n == 0) {
-        return dst;
-    }
-
-    u8 value = (u8)c;
-
-    if (!mem_sse_enabled || n < 16) {
-        if ((uintptr_t)dst % 4 == 0 && n % 4 == 0) {
-            u32 word = (u32)value;
-            word |= word << 8;
-            word |= word << 16;
-            stosl(dst, (int)word, n / 4);
-        } else {
-            stosb(dst, value, n);
-        }
-        return dst;
-    }
-
-    u8 *d       = dst;
-    size_t left = n;
-    u8 pattern[32];
-    int pattern_ready   = 0;
-    const u32 saved_cr0 = rcr0();
-    clts();
-    int used_avx = 0;
-
-    if (mem_avx_enabled && left >= 32) {
-        if (!pattern_ready) {
-            for (int i = 0; i < 32; i++) {
-                pattern[i] = value;
-            }
-            pattern_ready = 1;
-        }
-        __asm__ volatile("vmovdqu (%0), %%ymm0" : : "r"(pattern));
-        while (left >= 32) {
-            __asm__ volatile("vmovdqu %%ymm0, (%0)" : : "r"(d) : "memory");
-            d += 32;
-            left -= 32;
-        }
-        used_avx = 1;
-    }
-
-    if (left >= 16) {
-        if (!pattern_ready) {
-            for (int i = 0; i < 16; i++) {
-                pattern[i] = value;
-            }
-            pattern_ready = 1;
-        }
-        __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
-        while (left >= 16) {
-            __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(d) : "memory");
-            d += 16;
-            left -= 16;
-        }
-    }
-
-    if (used_avx) {
-        __asm__ volatile("vzeroupper" ::: "memory");
-    }
-
-    lcr0(saved_cr0);
-
-    while (left-- > 0) {
-        *d++ = value;
-    }
-
-    return dst;
-}
-
-/** @brief Compare n bytes of memory */
-__attribute__((target("avx,sse2")))
-int memcmp(const void *v1, const void *v2, size_t n)
-{
-    const u8 *s1 = v1;
-    const u8 *s2 = v2;
-    if (s1 == s2 || n == 0) {
-        return 0;
-    }
-
-    if (mem_sse_enabled && n >= 16) {
-        const u8 *a         = s1;
-        const u8 *b         = s2;
-        const u32 saved_cr0 = rcr0();
-        clts();
-
-        if (mem_avx_enabled) {
-            while (n >= 32) {
-                unsigned int mask;
-                __asm__ volatile("vmovdqu (%[a]), %%ymm0\n\t"
-                    "vmovdqu (%[b]), %%ymm1\n\t"
-                    "vpcmpeqb %%ymm1, %%ymm0, %%ymm0\n\t"
-                    "vpmovmskb %%ymm0, %[mask]"
-                    : [mask] "=r"(mask)
-                    : [a] "r"(a), [b] "r"(b)
-                    : "memory");
-                if (mask != 0xFFFFFFFFu) {
-                    unsigned int mismatch = ~mask;
-                    unsigned int idx      = __builtin_ctz(mismatch);
-                    int diff              = (int)a[idx] - (int)b[idx];
-                    lcr0(saved_cr0);
-                    return diff;
-                }
-                a += 32;
-                b += 32;
-                n -= 32;
-            }
-        }
-
-        while (n >= 16) {
-            unsigned int mask;
-            __asm__ volatile("movdqu (%[a]), %%xmm0\n\t"
-                "movdqu (%[b]), %%xmm1\n\t"
-                "pcmpeqb %%xmm1, %%xmm0\n\t"
-                "pmovmskb %%xmm0, %[mask]"
-                : [mask] "=r"(mask)
-                : [a] "r"(a), [b] "r"(b)
-                : "memory");
-            mask &= 0xFFFFu;
-            if (mask != 0xFFFFu) {
-                unsigned int mismatch = (~mask) & 0xFFFFu;
-                unsigned int idx      = __builtin_ctz(mismatch);
-                int diff              = (int)a[idx] - (int)b[idx];
-                lcr0(saved_cr0);
-                return diff;
-            }
-            a += 16;
-            b += 16;
-            n -= 16;
-        }
-
-        lcr0(saved_cr0);
-        s1 = a;
-        s2 = b;
-    }
-
-    while (n-- > 0) {
-        if (*s1 != *s2) {
-            return *s1 - *s2;
-        }
-        s1++, s2++;
-    }
-
-    return 0;
-}
 
 void memory_enable_sse(void)
 {
@@ -187,74 +33,69 @@ int memory_avx_available(void)
 }
 
 __attribute__((target("avx,sse2")))
+static inline void *memset_simd(void *dst, int c, size_t n)
+{
+    auto u = (u8 *)dst;
+    for (size_t i = 0; i < n; i++) {
+        u[i] = (u8)c;
+    }
+    return dst;
+}
+
+static inline void *memset_scalar(void *dst, int c, size_t n)
+{
+    if ((int)dst % 4 == 0 && n % 4 == 0) {
+        c &= 0xFF;
+        stosl(dst, (c << 24) | (c << 16) | (c << 8) | c, n / 4);
+    } else
+        stosb(dst, c, n);
+    return dst;
+}
+
+void *memset(void *dst, int c, size_t n)
+{
+    if (mem_avx_enabled) {
+        return memset_simd(dst, c, n);
+    }
+
+    return memset_scalar(dst, c, n);
+}
+
+/** @brief Compare n bytes of memory */
+__attribute__((target("avx,sse2")))
+int memcmp(const void *v1, const void *v2, size_t n)
+{
+    const u8 *s1 = v1;
+    const u8 *s2 = v2;
+    while (n-- > 0) {
+        if (*s1 != *s2) {
+            return *s1 - *s2;
+        }
+        s1++, s2++;
+    }
+
+    return 0;
+}
+
+
+/** @brief Move n bytes of memory */
+__attribute__((target("sse2,avx")))
 void *memmove(void *dst, const void *src, size_t n)
 {
-    if (n == 0 || dst == src) {
-        return dst;
-    }
-
-    const u8 *s = src;
-    u8 *d       = dst;
-
-    if (!mem_sse_enabled) {
-        if (s < d && s + n > d) {
-            s += n;
-            d += n;
-            __asm__ volatile("std; rep movsb" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
-            __asm__ volatile("cld" :::);
-        } else {
-            __asm__ volatile("cld; rep movsb" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
+    const char *s = src;
+    char *d       = dst;
+    if (s < d && s + n > d) {
+        s += n;
+        d += n;
+        while (n-- > 0) {
+            *--d = *--s;
         }
-
-        return dst;
-    }
-
-    const u32 saved_cr0 = rcr0();
-    clts();
-
-    if (mem_avx_enabled && n >= 32) {
-        if (s < d && s + n > d) {
-            s += n;
-            d += n;
-            while (n >= 32) {
-                s -= 32;
-                d -= 32;
-                __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
-                    "vmovdqu %%ymm0, (%1)"
-                    :
-                    : "r"(s), "r"(d)
-                    : "memory");
-                n -= 32;
-            }
-        } else {
-            while (n >= 32) {
-                __asm__ volatile("vmovdqu (%0), %%ymm0\n\t"
-                    "vmovdqu %%ymm0, (%1)"
-                    :
-                    : "r"(s), "r"(d)
-                    : "memory");
-                d += 32;
-                s += 32;
-                n -= 32;
-            }
+    } else {
+        while (n-- > 0) {
+            *d++ = *s++;
         }
     }
 
-    while (n >= 16) {
-        __asm__ volatile("movdqu (%0), %%xmm0\n\t"
-            "movdqu %%xmm0, (%1)"
-            :
-            : "r"(s), "r"(d)
-            : "memory");
-        d += 16;
-        s += 16;
-        n -= 16;
-    }
-    while (n-- > 0) {
-        *d++ = *s++;
-    }
-
-    lcr0(saved_cr0);
     return dst;
 }
 
@@ -307,7 +148,6 @@ char *safestrcpy(char *s, const char *t, int n)
 }
 
 /** @brief Get length of string */
-__attribute__((target("avx,sse2")))
 size_t strlen(const char *s)
 {
     size_t n;
@@ -317,7 +157,6 @@ size_t strlen(const char *s)
     return n;
 }
 
-__attribute__((target("avx,sse2")))
 size_t strnlen(const char *s, size_t maxlen)
 {
     size_t len = 0;
@@ -332,7 +171,6 @@ bool starts_with(const char pre[static 1], const char str[static 1])
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
-__attribute__((target("avx,sse2")))
 char *strcat(char dest[static 1], const char src[static 1])
 {
     char *d       = dest;
@@ -347,7 +185,6 @@ char *strcat(char dest[static 1], const char src[static 1])
     return dest;
 }
 
-__attribute__((target("avx,sse2")))
 char *strncat(char dest[static 1], const char src[static 1], size_t n)
 {
     char *d       = dest;
@@ -364,7 +201,6 @@ char *strncat(char dest[static 1], const char src[static 1], size_t n)
     return dest;
 }
 
-__attribute__((target("avx,sse2")))
 void reverse(char *s)
 {
     int i, j;
@@ -376,7 +212,6 @@ void reverse(char *s)
     }
 }
 
-__attribute__((target("avx,sse2")))
 int itoa(int n, char *s)
 {
     int sign;
@@ -399,7 +234,6 @@ int itoa(int n, char *s)
     return i;
 }
 
-__attribute__((target("avx,sse2")))
 char *strchr(const char *s, int c)
 {
     while (*s != '\0') {
@@ -411,7 +245,6 @@ char *strchr(const char *s, int c)
     return nullptr;
 }
 
-__attribute__((target("avx,sse2")))
 char *strtok(char *str, const char delim[static 1])
 {
     static char *next = nullptr;
@@ -456,7 +289,6 @@ char *strtok(char *str, const char delim[static 1])
     return start;
 }
 
-__attribute__((target("avx,sse2")))
 int sscanf(const char *str, const char *format, ...)
 {
     // Simple and limited implementation of sscanf

@@ -35,7 +35,7 @@ void init_memory_range(void *vstart, void *vend)
 {
     initlock(&kmem.lock, "kmem");
     kmem.use_lock = 0;
-    freerange(vstart, vend);
+    freerange(vstart, vend); // Use scalar version during init to avoid SSE use before enabled
 }
 
 /** @brief Initialize kernel memory allocator phase 2 */
@@ -46,7 +46,6 @@ void kalloc_enable_locking(void)
 
 /** @brief Free a range of memory */
 
-__attribute__((target("avx,sse2")))
 void freerange(void *vstart, void *vend)
 {
     char *p = (char *)PGROUNDUP((u32)vstart);

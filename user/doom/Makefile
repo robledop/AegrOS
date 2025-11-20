@@ -23,7 +23,7 @@ CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin -msse2 -mfpmath=sse -mavx #-
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 CFLAGS += -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE -DUSEASM -DAEGROS \
-          -D__bool_true_false_are_defined=1
+          -D__bool_true_false_are_defined=1 -DFPS_COUNTER
 LDFLAGS += -static
 
 LIBC_DIR := ../libc

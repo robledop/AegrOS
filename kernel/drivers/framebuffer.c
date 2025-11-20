@@ -5,7 +5,6 @@
 #include "font.h"
 #include "defs.h"
 #include "x86.h"
-#include "vga_terminal.h"
 #include "multiboot.h"
 #include "proc.h"
 
@@ -133,7 +132,8 @@ static inline int framebuffer_supports_32bpp(void)
     return vbe_info->bpp == 32;
 }
 
-static inline void framebuffer_fill_span32_scalar(u8 *dst, u32 pixel_count, u32 color)
+__attribute__((target("sse2,avx")))
+static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
 {
     while (pixel_count--) {
         *((u32 *)dst) = color;
@@ -141,74 +141,12 @@ static inline void framebuffer_fill_span32_scalar(u8 *dst, u32 pixel_count, u32 
     }
 }
 
-static inline void framebuffer_copy_span32_scalar(u8 *dst, const u32 *src, u32 pixel_count)
+__attribute__((target("sse2,avx")))
+static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
 {
     while (pixel_count--) {
         *((u32 *)dst) = *src++;
         dst += 4;
-    }
-}
-
-static inline void framebuffer_fill_span32(u8 *dst, u32 pixel_count, u32 color)
-{
-    if (pixel_count == 0) {
-        return;
-    }
-
-    if (!memory_sse_available()) {
-        framebuffer_fill_span32_scalar(dst, pixel_count, color);
-        return;
-    }
-
-    u32 remaining       = pixel_count;
-    u32 pattern[4]      = {color, color, color, color};
-    const u32 saved_cr0 = rcr0();
-    clts();
-    __asm__ volatile("movdqu (%0), %%xmm0" : : "r"(pattern));
-
-    while (remaining >= 4) {
-        __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
-        dst += 16;
-        remaining -= 4;
-    }
-    lcr0(saved_cr0);
-
-    if (remaining) {
-        framebuffer_fill_span32_scalar(dst, remaining, color);
-    }
-}
-
-static inline void framebuffer_copy_span32(u8 *dst, const u32 *src, u32 pixel_count)
-{
-    if (pixel_count == 0) {
-        return;
-    }
-
-    if (!memory_sse_available()) {
-        framebuffer_copy_span32_scalar(dst, src, pixel_count);
-        return;
-    }
-
-    u32 remaining       = pixel_count;
-    const u8 *src_bytes = (const u8 *)src;
-    u8 *dst_bytes       = dst;
-
-    const u32 saved_cr0 = rcr0();
-    clts();
-    while (remaining >= 4) {
-        __asm__ volatile("movdqu (%[s]), %%xmm0\n\t"
-            "movdqu %%xmm0, (%[d])"
-            :
-            : [s] "r"(src_bytes), [d] "r"(dst_bytes)
-            : "memory");
-        src_bytes += 16;
-        dst_bytes += 16;
-        remaining -= 4;
-    }
-    lcr0(saved_cr0);
-
-    if (remaining) {
-        framebuffer_copy_span32_scalar(dst_bytes, (const u32 *)src_bytes, remaining);
     }
 }
 
@@ -220,9 +158,9 @@ static bool configure_framebuffer_pat_entry(void)
         return false;
     }
 
-    u64 pat           = rdmsr(MSR_IA32_PAT);
-    const u64 wc_mask = 0xFFull << 8; // PAT entry 1 (PWT=1, PCD=0)
-    const u64 wc_val  = 0x01ull << 8; // Write-combining encoding
+    u64 pat               = rdmsr(MSR_IA32_PAT);
+    constexpr u64 wc_mask = 0xFFull << 8; // PAT entry 1 (PWT=1, PCD=0)
+    constexpr u64 wc_val  = 0x01ull << 8; // Write-combining encoding
     if ((pat & wc_mask) != wc_val) {
         pat = (pat & ~wc_mask) | wc_val;
         wrmsr(MSR_IA32_PAT, pat);
@@ -240,36 +178,10 @@ static void *framebuffer_map_with_pat(u32 fb_addr, u32 fb_size)
     return kernel_map_mmio_wc(fb_addr, fb_size);
 }
 
-static inline void framebuffer_zero_span(u8 *dst, u32 byte_count)
-{
-    if (byte_count == 0) {
-        return;
-    }
-
-    if (!memory_sse_available()) {
-        memset(dst, 0, byte_count);
-        return;
-    }
-
-    u32 remaining       = byte_count;
-    const u32 saved_cr0 = rcr0();
-    clts();
-    __asm__ volatile("pxor %xmm0, %xmm0");
-    while (remaining >= 16) {
-        __asm__ volatile("movdqu %%xmm0, (%0)" : : "r"(dst) : "memory");
-        dst += 16;
-        remaining -= 16;
-    }
-    lcr0(saved_cr0);
-
-    if (remaining) {
-        memset(dst, 0, remaining);
-    }
-}
-
 /**
  * @brief Fill a rectangle in the framebuffer using 32-bit pixels when possible.
  */
+__attribute__((target("sse2,avx")))
 void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
 {
     if (width <= 0 || height <= 0) {
@@ -326,6 +238,8 @@ void framebuffer_fill_rect32(int x, int y, int width, int height, u32 color)
 /**
  * @brief Blit a horizontal span of 32-bit pixels to the framebuffer.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
 {
     if (!src || pixel_count == 0) {
@@ -376,6 +290,8 @@ void framebuffer_blit_span32(int x, int y, const u32 *src, u32 pixel_count)
 /**
  * @brief Write a single pixel to the framebuffer.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_putpixel(int x, int y, u32 rgb)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) {
@@ -412,6 +328,8 @@ u32 framebuffer_getpixel(int x, int y)
 /**
  * @brief Draw a 32x32 monochrome icon to the framebuffer.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_puticon32(int x, int y, const unsigned char *icon)
 {
     for (int j = 0; j < 32; j++) {
@@ -432,14 +350,16 @@ void framebuffer_puticon32(int x, int y, const unsigned char *icon)
 /**
  * @brief Draw a 32x32 ARGB bitmap to the framebuffer.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_put_bitmap_32(int x, int y, const unsigned int *icon)
 {
     if (!icon) {
         return;
     }
 
-    const int icon_w = 32;
-    const int icon_h = 32;
+    constexpr int icon_w = 32;
+    constexpr int icon_h = 32;
 
     if (framebuffer_supports_32bpp() && x >= 0 && y >= 0 && x + icon_w <= (int)vbe_info->width &&
         y + icon_h <= (int)vbe_info->height) {
@@ -467,6 +387,8 @@ void framebuffer_put_bitmap_32(int x, int y, const unsigned int *icon)
 /**
  * @brief Draw a 16x16 monochrome icon to the framebuffer.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_put_black_and_white_icon16(int x, int y, const unsigned char *icon)
 {
     for (int j = 0; j < 16; j++) {
@@ -494,7 +416,8 @@ void framebuffer_scroll_up()
 
     memmove(framebuffer, framebuffer + pitch * VESA_LINE_HEIGHT, pitch * (height - VESA_LINE_HEIGHT));
 
-    framebuffer_zero_span(framebuffer + pitch * (height - VESA_LINE_HEIGHT), pitch * VESA_LINE_HEIGHT);
+    // Clear the last line
+    memset(framebuffer + pitch * (height - VESA_LINE_HEIGHT), 0, pitch * VESA_LINE_HEIGHT);
 }
 
 /**
@@ -512,6 +435,8 @@ void framebuffer_clear_screen(u32 color)
 /**
  * @brief Render an 8x8 character glyph at the specified position.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_put_char8(unsigned char c, int x, int y, u32 color, u32 bg)
 {
     if (c > 128) {
@@ -556,6 +481,8 @@ void framebuffer_put_char8(unsigned char c, int x, int y, u32 color, u32 bg)
 /**
  * @brief Print a string using 8x8 glyphs starting at the given position.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_print_string(const char *str, int len, int x, int y, u32 color, u32 bg)
 {
     for (int i = 0; i < len; i++) {
@@ -567,6 +494,8 @@ void framebuffer_print_string(const char *str, int len, int x, int y, u32 color,
 /**
  * @brief Render a magnified 16x16 character glyph.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_put_char16(unsigned char c, int x, int y, u32 color)
 {
     for (int l = 0; l < 16; l++) {
@@ -581,6 +510,8 @@ void framebuffer_put_char16(unsigned char c, int x, int y, u32 color)
 /**
  * @brief Draw a Bresenham line between two points.
  */
+
+__attribute__((target("sse2,avx")))
 void framebuffer_draw_line(int x1, int y1, int x2, int y2, u32 color)
 {
     int dx = x2 - x1;
