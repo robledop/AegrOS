@@ -55,6 +55,7 @@
 #include "i_endoom.h"
 #include "i_joystick.h"
 #include "i_system.h"
+#include "i_swap.h"
 #include "i_timer.h"
 #include "i_video.h"
 
@@ -127,6 +128,109 @@ char mapdir[1024];  // directory of development maps
 
 int show_endoom = 1;
 
+#ifdef FPS_COUNTER
+extern patch_t *hu_font[HU_FONTSIZE];
+
+static boolean fps_counter_initialized = false;
+static int fps_last_update_ms          = 0;
+static int fps_frames_since_update     = 0;
+static int fps_current_value           = 0;
+static char fps_display_text[16]       = "FPS: --";
+
+static void D_ResetFPSCounterText(void)
+{
+    M_snprintf(fps_display_text, sizeof(fps_display_text), "FPS: --");
+}
+
+static void D_FPSCounterTick(void)
+{
+    const int now = I_GetTimeMS();
+
+    if (!fps_counter_initialized) {
+        fps_counter_initialized = true;
+        fps_last_update_ms      = now;
+        fps_frames_since_update = 0;
+        fps_current_value       = 0;
+        D_ResetFPSCounterText();
+        return;
+    }
+
+    ++fps_frames_since_update;
+
+    const int elapsed = now - fps_last_update_ms;
+    if (elapsed >= 1000) {
+        fps_current_value = (fps_frames_since_update * 1000 + elapsed / 2) / elapsed;
+        if (fps_current_value > 999) {
+            fps_current_value = 999;
+        }
+
+        M_snprintf(fps_display_text, sizeof(fps_display_text), "FPS:%3d", fps_current_value);
+        fps_frames_since_update = 0;
+        fps_last_update_ms      = now;
+    }
+}
+
+static int D_TextWidth(const char *text)
+{
+    int width = 0;
+
+    for (const unsigned char *ch = (const unsigned char *)text; *ch != '\0'; ++ch) {
+        if (*ch == '\n') {
+            break;
+        }
+
+        const int glyph = toupper(*ch) - HU_FONTSTART;
+        if (glyph < 0 || glyph >= HU_FONTSIZE) {
+            width += 4;
+        } else {
+            width += SHORT(hu_font[glyph]->width);
+        }
+    }
+
+    return width;
+}
+
+static void D_DrawSmallText(int x, int y, const char *text)
+{
+    int cursor_x = x;
+
+    for (const unsigned char *ch = (const unsigned char *)text; *ch != '\0'; ++ch) {
+        if (*ch == '\n') {
+            break;
+        }
+
+        const int glyph = toupper(*ch) - HU_FONTSTART;
+        if (glyph < 0 || glyph >= HU_FONTSIZE) {
+            cursor_x += 4;
+            continue;
+        }
+
+        const int glyph_width = SHORT(hu_font[glyph]->width);
+        if (cursor_x + glyph_width > SCREENWIDTH) {
+            break;
+        }
+
+        V_DrawPatchDirect(cursor_x, y, hu_font[glyph]);
+        cursor_x += glyph_width;
+    }
+}
+
+static void D_DrawFPSCounter(void)
+{
+    if (!fps_counter_initialized) {
+        D_FPSCounterTick();
+    }
+
+    const int margin = 2;
+    const int width  = D_TextWidth(fps_display_text);
+    int x            = SCREENWIDTH - width - margin;
+    if (x < margin) {
+        x = margin;
+    }
+
+    D_DrawSmallText(x, margin, fps_display_text);
+}
+#endif
 
 void D_ConnectNetGame(void);
 void D_CheckNetGame(void);
@@ -181,6 +285,10 @@ void D_Display(void)
 
     if (nodrawers)
         return; // for comparative timing / profiling
+
+#ifdef FPS_COUNTER
+    D_FPSCounterTick();
+#endif
 
     redrawsbar = false;
 
@@ -283,7 +391,10 @@ void D_Display(void)
 
 
     // menus go directly to the screen
-    M_Drawer();  // menu is drawn even on top of everything
+    M_Drawer(); // menu is drawn even on top of everything
+#ifdef FPS_COUNTER
+    D_DrawFPSCounter();
+#endif
     NetUpdate(); // send out any new accumulation
 
 
@@ -308,7 +419,10 @@ void D_Display(void)
         wipestart = nowtime;
         done      = wipe_ScreenWipe(wipe_Melt, 0, 0, SCREENWIDTH, SCREENHEIGHT, tics);
         I_UpdateNoBlit();
-        M_Drawer();       // menu is drawn even on top of wipes
+        M_Drawer(); // menu is drawn even on top of wipes
+#ifdef FPS_COUNTER
+        D_DrawFPSCounter();
+#endif
         I_FinishUpdate(); // page flip or blit buffer
     } while (!done);
 }
