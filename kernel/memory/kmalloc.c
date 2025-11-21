@@ -35,7 +35,6 @@ static Header *freep;
 // Free a previously allocated block of memory
 // ap: pointer to the memory block (not including the header)
 
-__attribute__((target("avx,sse2")))
 void kfree(void *ap)
 {
     Header *p;
@@ -82,7 +81,6 @@ void kfree(void *ap)
 // Request more memory from the operating system
 // nu: number of Header-sized units needed
 // Returns: pointer to the free list, or nullptr on failure
-__attribute__((target("avx,sse2")))
 static Header *morecore(u32 nu)
 {
     // Allocate at least 4096 units to reduce syscall overhead
@@ -118,7 +116,6 @@ void *kzalloc(u32 nbytes)
 // Allocate memory of at least nbytes size
 // nbytes: number of bytes requested
 // Returns: pointer to allocated memory, or nullptr if allocation fails
-__attribute__((target("avx,sse2")))
 void *kmalloc(u32 nbytes)
 {
     Header *prevp;

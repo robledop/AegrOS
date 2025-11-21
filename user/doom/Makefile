@@ -5,6 +5,8 @@
 # $Log:$
 #
 
+V = 1
+
 ifeq ($(V),1)
 	VB=''
 else
@@ -19,11 +21,11 @@ AS = nasm
 LD = $(TOOLPREFIX)ld
 INCLUDE = -I../include -I../../include
 
-CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin -msse2 -mfpmath=sse -mavx #-fsanitize=undefined -fstack-protector
+CFLAGS = -O3 -std=gnu23 -m32 -nostdlib -fno-builtin -msse2 -mfpmath=sse #-mavx -fsanitize=undefined -fstack-protector
 CFLAGS += $(INCLUDE)
 ASFLAGS += $(INCLUDE)
 CFLAGS += -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE -DUSEASM -DAEGROS \
-          -D__bool_true_false_are_defined=1 -DFPS_COUNTER
+          -D__bool_true_false_are_defined=1
 LDFLAGS += -static
 
 LIBC_DIR := ../libc
@@ -71,7 +73,6 @@ $(OBJDIR)/libc/%.o: $(LIBC_DIR)/%.asm | $(OBJDIR)/libc
 	$(VB)$(AS) $(ASFLAGS) -f elf $< -o $@
 
 $(OBJDIR)/%.o:	%.c
-	@echo [Compiling $<]
 	$(VB)$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
 
 print:

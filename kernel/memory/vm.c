@@ -134,12 +134,6 @@ void segment_descriptors_init(void)
  * @param alloc When non-zero, allocate intermediate page tables on demand.
  * @return Pointer to the requested PTE, or 0 on allocation failure.
  */
-__attribute__ ((target
-        (
-            "avx,sse2"
-        )
-    )
-)
 static pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc)
 {
     pte_t *pgtab;
@@ -481,7 +475,7 @@ void inituvm(pde_t *pgdir, const char *init, u32 sz)
  * @param sz Number of bytes to read.
  * @return 0 on success, -1 if disk I/O fails.
  */
-int loaduvm(pde_t *pgdir, char *addr, struct inode *ip, u32 offset, u32 sz)
+int loaduvm(pde_t *pgdir, const char *addr, struct inode *ip, u32 offset, u32 sz)
 {
     if (sz == 0) {
         return 0;

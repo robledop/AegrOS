@@ -21,11 +21,13 @@ cleanup() {
 trap cleanup EXIT
 
 rm -f "${IMG_PATH}"
-dd if=/dev/zero of="${IMG_PATH}" bs=512 count=262144 status=none
+dd if=/dev/zero of="${IMG_PATH}" bs=512 count=524288 status=none
 
 # Create MBR partition table and a single bootable partition
 parted -s "${IMG_PATH}" mklabel msdos
-parted -s "${IMG_PATH}" mkpart primary ext2 1MiB 100%
+parted -s "${IMG_PATH}" mkpart primary ext2 1MiB 90%
+parted -s "${IMG_PATH}" mkpart primary fat16 90% 95%
+parted -s "${IMG_PATH}" mkpart primary fat32 95% 100%
 parted -s "${IMG_PATH}" set 1 boot on
 
 # Set up loop device with partition scanning

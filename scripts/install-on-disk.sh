@@ -19,6 +19,8 @@ sudo dd if=/dev/zero of="$DISK" bs=1M count=10 conv=fsync
 
 sudo parted -s "$DISK" mklabel msdos
 sudo parted -s "$DISK" mkpart primary ext2 1MiB 257MiB
+sudo parted -s "$DISK" mkpart primary fat16 257MiB 300MiB
+sudo parted -s "$DISK" mkpart primary fat32 300MiB 400MiB
 sudo parted -s "$DISK" set 1 boot on
 sudo partprobe "$DISK"
 

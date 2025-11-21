@@ -117,39 +117,47 @@ grub: build/kernel apps assets/fbdoom FORCE
 	cp assets/fbdoom ./rootfs/bin/doom
 	grub-file --is-x86-multiboot ./rootfs/boot/kernel
 	./scripts/create-grub-image.sh
-	./scripts/create_tap.sh
 
 qemu: grub FORCE
 	#$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
 	$(QEMU) -serial file:qemu_run.log $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) $(QEMU_AVX) -d int -D qemu.log
 
 qemu-nox: grub FORCE
+	./scripts/create_tap.sh
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) $(QEMU_AVX)
 
 qemu-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
+	./scripts/create_tap.sh
 	$(QEMU) -daemonize $(QEMUOPTS) $(QEMUGDB) $(QEMUEXTRA) $(QEMU_NETWORK) $(QEMU_AVX)
 
 qemu-nox-gdb: grub FORCE
 	@echo "*** Now run 'gdb'." 1>&2
+	./scripts/create_tap.sh
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMUGDB) $(QEMU_NETWORK) $(QEMU_AVX)
 
 vbox: grub FORCE
+	./scripts/create_tap.sh
 	./scripts/start_vbox.sh $(MEMORY)
 
 vbox-textmode: grub FORCE
+	./scripts/create_tap.sh
 	./scripts/start_vbox.sh $(MEMORY)
 
 bochs: grub FORCE
+	./scripts/create_tap.sh
 	SKIP_GRUB=1 ./scripts/start_bochs.sh $(MEMORY)
 
 qemu-nobuild:
+	./scripts/create_tap.sh
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK)
 
 qemu-perf: grub FORCE
+	./scripts/create_tap.sh
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host -d int -D qemu.log
 
 qemu-perf-textmode: grub FORCE
+	./scripts/create_tap.sh
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -accel kvm -cpu host
 
 qemu-perf-net-default: grub FORCE
@@ -162,9 +170,11 @@ qemu-perf-no-net-textmode: grub FORCE
 	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) -accel kvm -cpu host -nic none
 
 qemu-nox-perf: grub FORCE
+	./scripts/create_tap.sh
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
 qemu-nox-perf-textmode: grub FORCE
+	./scripts/create_tap.sh
 	$(QEMU) -nographic $(QEMUOPTS) $(QEMU_NETWORK) -accel kvm -cpu host
 
 bear: FORCE

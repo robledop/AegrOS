@@ -29,14 +29,15 @@ void mbr_init_fs()
         switch (mbr.part[i].type) {
         case MBR_TYPE_LINUX:
             boot_message(WARNING_LEVEL_INFO, "Linux partition found at MBR partition %d", i);
-            // ext2_load_superblock(mbr.part[i].lba_start + 2); // EXT2 superblock is at offset 2
             break;
         case MBR_TYPE_FAT16_LBA:
-            //vfs_insert_file_system(i, fat16_init());
-            printf("FAT16 LBA partition found at MBR partition %d\n", i);
+            boot_message(WARNING_LEVEL_INFO, "FAT16 LBA partition found at MBR partition %d", i);
+            break;
+        case MBR_TYPE_FAT32_LBA:
+            boot_message(WARNING_LEVEL_INFO, "FAT32 LBA partition found at MBR partition %d", i);
             break;
         default:
-            printf("Unsupported partition type: %d\n", mbr.part[i].type);
+            boot_message(WARNING_LEVEL_ERROR, "Unsupported partition type: %d", mbr.part[i].type);
             break;
         }
     }
