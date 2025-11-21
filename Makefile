@@ -62,10 +62,10 @@ QEMU_DISK=-drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-
 QEMUOPTS = $(QEMU_DISK) -smp $(CPUS) -m $(MEMORY)
 QEMU_AVX = -accel tcg -cpu Skylake-Server,vmx=off,+avx
 
-qemu-nox-gdb qemu-nox qemu qemu-gdb: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O3 -DDEBUG -DGRAPHICS
-qemu-nox-gdb qemu-nox qemu qemu-gdb: ASFLAGS += -DDEBUG -DGRAPHICS
-disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: CFLAGS += -O3 -DDEBUG -DGRAPHICS
-disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net: ASFLAGS += -DGRAPHICS
+qemu-nox-gdb qemu-nox qemu qemu-gdb qemu-net-default qemu-no-net: CFLAGS += -fsanitize=undefined -fstack-protector -ggdb -O3 -DDEBUG -DGRAPHICS
+qemu-nox-gdb qemu-nox qemu qemu-gdb qemu-net-default qemu-no-net: ASFLAGS += -DDEBUG -DGRAPHICS
+disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net qemu-perf-net-default: CFLAGS += -O3 -DDEBUG -DGRAPHICS
+disk vbox qemu-nox-perf qemu-perf qemu-perf-no-net qemu-perf-net-default: ASFLAGS += -DGRAPHICS
 vbox-textmode qemu-nox-perf-textmode qemu-perf-textmode qemu-perf-no-net-textmode: CFLAGS += -O3 -DDEBUG
 
 # THIS WILL WIPE $(DISK)
@@ -119,8 +119,16 @@ grub: build/kernel apps assets/fbdoom FORCE
 	./scripts/create-grub-image.sh
 
 qemu: grub FORCE
-	#$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) -d int -D qemu.log
 	$(QEMU) -serial file:qemu_run.log $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_NETWORK) $(QEMU_AVX) -d int -D qemu.log
+
+qemu-net-default: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_AVX)
+
+qemu-perf-no-net: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_AVX) -nic none
+
+qemu-perf-no-net-textmode: grub FORCE
+	$(QEMU) -serial mon:stdio $(QEMUOPTS) $(QEMUEXTRA) $(QEMU_AVX) -nic none
 
 qemu-nox: grub FORCE
 	./scripts/create_tap.sh
